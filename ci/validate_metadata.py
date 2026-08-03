@@ -37,11 +37,14 @@ DOCS = [
     ("architecture/components.yaml", "components.schema.json"),
     ("design/design-system.yaml", "design-system.schema.json"),
     ("design/ui-surfaces.yaml", "ui-surfaces.schema.json"),
+    ("architecture/adr/index.yaml", "adr-index.schema.json"),
     ("business/vision.yaml", None),
 ]
 
 # Propostas de mudança: artefatos versionados validados por schema + semântica.
 CHANGE_PROPOSALS_DIR = "harness/change-proposals"
+# Regras de negócio: um arquivo por capacidade, validado por schema + semântica.
+BUSINESS_RULES_DIR = "business/rules"
 
 errors: list[str] = []
 
@@ -146,6 +149,9 @@ def check_capabilities(doc: dict | None) -> dict[str, dict]:
                     err(f"[I5] {cid}: test_path inexistente: {p}")
                 elif not p.startswith("tests/"):
                     err(f"[I5] {cid}: test_path fora de tests/: {p}")
+        for p in cap.get("business_rules", []):
+            if not rel_exists(p):
+                err(f"[regra] {cid}: business_rules aponta para arquivo inexistente: {p}")
     return caps
 
 
@@ -207,6 +213,59 @@ def check_ui_surfaces(doc: dict | None, caps: dict[str, dict]) -> None:
             err(f"[I7] {sid}: capability {cap_ref} não existe em capabilities.yaml")
 
 
+def check_business_rules(caps: dict[str, dict]) -> None:
+    """Cada arquivo de regras aponta para uma capacidade real e é referenciado de volta por ela;
+    regras verificadas apontam para testes existentes (condicionado à maturidade)."""
+    rules_dir = REPO / BUSINESS_RULES_DIR
+    if not rules_dir.exists():
+        return
+    schema = json.loads((SCHEMAS / "business-rules.schema.json").read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema)
+    for path in sorted(rules_dir.glob("*.yaml")):
+        rel = path.relative_to(REPO).as_posix()
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:  # pragma: no cover - defensivo
+            err(f"[yaml] {rel}: {exc}")
+            continue
+        check_header_invariants(rel, doc)
+        for e in sorted(validator.iter_errors(doc), key=lambda e: e.path):
+            loc = "/".join(str(p) for p in e.path) or "(raiz)"
+            err(f"[estrutural] {rel} em '{loc}': {e.message}")
+        cap_ref = (doc or {}).get("capability")
+        if cap_ref not in caps:
+            err(f"[regra] {rel}: capability {cap_ref} não existe em capabilities.yaml")
+        elif rel not in caps[cap_ref].get("business_rules", []):
+            err(f"[regra] {rel}: {cap_ref} não referencia este arquivo em business_rules (elo quebrado)")
+        for rule in (doc or {}).get("rules", []):
+            if rule.get("status") in CONCRETE:
+                for p in rule.get("verified_by", []):
+                    if not rel_exists(p):
+                        err(f"[regra] {rule.get('id', '?')}: verified_by inexistente: {p}")
+                    elif not p.startswith("tests/"):
+                        err(f"[regra] {rule.get('id', '?')}: verified_by fora de tests/: {p}")
+
+
+def check_adr_index(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -> None:
+    """Cada ADR do índice tem arquivo real; supersedes e referências (CAP/RISK) resolvem."""
+    if not doc:
+        return
+    adr_ids = {a.get("id") for a in doc.get("adrs", [])}
+    for adr in doc.get("adrs", []):
+        aid = adr.get("id", "?")
+        if not rel_exists(adr.get("file", "")):
+            err(f"[ADR] {aid}: arquivo inexistente: {adr.get('file')}")
+        for sup in adr.get("supersedes", []):
+            if sup not in adr_ids:
+                err(f"[ADR] {aid}: supersedes aponta para ADR inexistente: {sup}")
+        for cap in adr.get("related_capabilities", []):
+            if cap not in caps:
+                err(f"[ADR] {aid}: related_capabilities {cap} não existe")
+        for rref in adr.get("related_risks", []):
+            if rref not in risk_ids:
+                err(f"[ADR] {aid}: related_risks {rref} não existe no registro")
+
+
 def check_change_proposals(caps: dict[str, dict], comp_ids: set[str], risk_ids: set[str]) -> None:
     """Cada proposta afeta apenas IDs reais e cita apenas riscos do registro."""
     proposals_dir = REPO / CHANGE_PROPOSALS_DIR
@@ -256,6 +315,8 @@ def main() -> int:
     comp_ids = check_components(loaded.get("architecture/components.yaml"), caps)
     risk_ids = check_risk_controls(loaded.get("governance/risk-register.yaml"))
     check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps)
+    check_business_rules(caps)
+    check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, risk_ids)
     check_change_proposals(caps, comp_ids, risk_ids)
 
     if errors:

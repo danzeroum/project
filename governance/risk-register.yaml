@@ -26,6 +26,8 @@ risks:
         ref: "webqa/gates.py::require_discovery"
       - kind: github_environment
         ref: production
+      - kind: local_path
+        ref: architecture/adr/ADR-001-webqa-como-padrao-externo.md
 
   - id: RISK-DEP-001
     area: dependencies
@@ -42,6 +44,8 @@ risks:
         ref: harness/policies/dependency-updates.md
       - kind: branch_protection
         ref: "main:require_pull_request_reviews"
+      - kind: local_path
+        ref: architecture/adr/ADR-003-versao-em-fonte-unica.md
 
   - id: RISK-META-001
     area: governance
@@ -56,6 +60,8 @@ risks:
         ref: ci/validate_metadata.py
       - kind: local_path
         ref: .github/workflows/validate-metadata.yml
+      - kind: local_path
+        ref: architecture/adr/ADR-002-enforcement-nao-em-markdown.md
 
   - id: RISK-CHANGE-001
     area: governance

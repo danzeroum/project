@@ -1,0 +1,17 @@
+# Regras de negócio da capacidade de catálogo.
+# Schema: harness/schemas/business-rules.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+capability: CAP-CATALOG
+
+rules:
+  - id: RULE-CATALOG-001
+    name: "SKU inexistente é erro explícito"
+    status: verified
+    statement: "Consultar o preço de um SKU não registrado levanta erro, nunca retorna valor silencioso."
+    rationale: "Falha alta e cedo em vez de propagar preço zero ou nulo."
+    verified_by:
+      - tests/unit/test_ports.py
