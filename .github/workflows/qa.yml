@@ -34,9 +34,8 @@ jobs:
   inventory-and-passive:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
-    # Ambiente LIMPO. Só o allowlist. Nada de WEBQA_* — os gates não moram no ambiente do CI automático.
-    env:
-      PATH: ${{ env.PATH }}
+    # Ambiente automático não define nenhum WEBQA_*: os gates não moram no ambiente do CI automático.
+    # (O contexto `env` não pode ser referenciado em job-level env; a higiene é provada no passo negativo abaixo.)
     steps:
       - uses: actions/checkout@v4
 
@@ -62,18 +61,20 @@ jobs:
             exit 40
           fi
 
-      # A trava que morde: prova que uma variável WEBQA_* presente ABORTA, não é ignorada.
-      - name: Higiene de ambiente — WEBQA_* deve abortar (passo negativo)
+      # A trava que morde: prova que o denylist DETECTA uma variável WEBQA_* injetada.
+      # O passo passa quando a detecção funciona (comportamento correto do guard) e só falha
+      # se o denylist NÃO detectar — aí sim o CI acusa que a trava parou de morder.
+      - name: Higiene de ambiente — denylist WEBQA_* deve detectar (passo negativo)
         env:
           WEBQA_LEAK: "1"
         run: |
           set -euo pipefail
-          negadas=$(env | grep -E '^WEBQA_' || true)
-          if [ -n "$negadas" ]; then
-            echo "::notice::Detectada variável denylisted (esperado neste passo negativo):"
-            echo "$negadas"
-            echo "fail_on_denied_env=true ⇒ o guard aborta em vez de ignorar (código DENIED_ENV=10)."
-            exit 10 || true   # demonstra o abort sem derrubar o pipeline de exemplo
+          if env | grep -qE '^WEBQA_'; then
+            echo "::notice::Guard detectou variável WEBQA_* — fail_on_denied_env=true abortaria (DENIED_ENV=10)."
+            echo "Detecção OK: o denylist morde."
+          else
+            echo "::error::Denylist não detectou WEBQA_LEAK — a trava parou de morder."
+            exit 1
           fi
 
       - uses: actions/setup-python@v5
