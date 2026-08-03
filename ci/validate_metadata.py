@@ -243,12 +243,14 @@ def check_ui_surfaces(doc: dict | None, caps: dict[str, dict], req_caps: dict[st
                 err(f"[UI] {sid}: satisfies {req} é da capacidade {req_caps[req]}, não de {cap_ref}")
 
 
-def check_business_rules(caps: dict[str, dict]) -> None:
+def check_business_rules(caps: dict[str, dict]) -> dict[str, str]:
     """Cada arquivo de regras aponta para uma capacidade real e é referenciado de volta por ela;
-    regras verificadas apontam para testes existentes (condicionado à maturidade)."""
+    regras verificadas apontam para testes existentes (condicionado à maturidade).
+    Retorna o mapa regra→capacidade para o backlog cruzar governed_by."""
+    rule_caps: dict[str, str] = {}
     rules_dir = REPO / BUSINESS_RULES_DIR
     if not rules_dir.exists():
-        return
+        return rule_caps
     schema = json.loads((SCHEMAS / "business-rules.schema.json").read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)
     for path in sorted(rules_dir.glob("*.yaml")):
@@ -268,12 +270,15 @@ def check_business_rules(caps: dict[str, dict]) -> None:
         elif rel not in caps[cap_ref].get("business_rules", []):
             err(f"[regra] {rel}: {cap_ref} não referencia este arquivo em business_rules (elo quebrado)")
         for rule in (doc or {}).get("rules", []):
+            if cap_ref:
+                rule_caps[rule.get("id")] = cap_ref
             if rule.get("status") in CONCRETE:
                 for p in rule.get("verified_by", []):
                     if not rel_exists(p):
                         err(f"[regra] {rule.get('id', '?')}: verified_by inexistente: {p}")
                     elif not p.startswith("tests/"):
                         err(f"[regra] {rule.get('id', '?')}: verified_by fora de tests/: {p}")
+    return rule_caps
 
 
 def metric_ids(vision_doc: dict | None) -> set[str]:
@@ -282,15 +287,18 @@ def metric_ids(vision_doc: dict | None) -> set[str]:
     return {m.get("id") for m in vision_doc.get("product", {}).get("success_metrics", [])}
 
 
-def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str], metrics: set[str]) -> None:
-    """Cada requisito pertence a uma capacidade real; depends_on, risk e metrics resolvem."""
+def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str],
+                  metrics: set[str], rule_caps: dict[str, str]) -> None:
+    """Cada requisito pertence a uma capacidade real; depends_on, risk, metrics e governed_by
+    resolvem — e cada regra que rege um requisito compartilha a capacidade dele."""
     if not doc:
         return
     req_ids = {i.get("id") for i in doc.get("items", [])}
     for item in doc.get("items", []):
         rid = item.get("id", "?")
-        if item.get("capability") not in caps:
-            err(f"[REQ] {rid}: capability {item.get('capability')} não existe em capabilities.yaml")
+        cap = item.get("capability")
+        if cap not in caps:
+            err(f"[REQ] {rid}: capability {cap} não existe em capabilities.yaml")
         for dep in item.get("depends_on", []):
             if dep not in req_ids:
                 err(f"[REQ] {rid}: depends_on aponta para requisito inexistente: {dep}")
@@ -300,6 +308,11 @@ def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str], m
         for met in item.get("metrics", []):
             if met not in metrics:
                 err(f"[REQ] {rid}: métrica citada {met} não existe em vision.yaml")
+        for rule in item.get("governed_by", []):
+            if rule not in rule_caps:
+                err(f"[REQ] {rid}: governed_by {rule} não existe em business/rules")
+            elif rule_caps[rule] != cap:
+                err(f"[REQ] {rid}: governed_by {rule} é da capacidade {rule_caps[rule]}, não de {cap}")
 
 
 def check_adr_index(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -> None:
@@ -374,9 +387,9 @@ def main() -> int:
     backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
     req_caps = {i.get("id"): i.get("capability") for i in backlog_doc.get("items", [])}
     check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps, req_caps)
-    check_business_rules(caps)
+    rule_caps = check_business_rules(caps)
     metrics = metric_ids(loaded.get("business/vision.yaml"))
-    check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids, metrics)
+    check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids, metrics, rule_caps)
     check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, risk_ids)
     check_change_proposals(caps, comp_ids, risk_ids)
 

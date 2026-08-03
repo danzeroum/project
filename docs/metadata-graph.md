@@ -44,16 +44,21 @@ graph TD
   REQ_001["REQ-001<br/>done"]
   REQ_001 -->|requisito| CAP_PRICING
   REQ_001 ==>|move| MET_ACTIVATION
+  REQ_001 -.->|regido por| RULE_PRICING_001
+  REQ_001 -.->|regido por| RULE_PRICING_003
   REQ_002["REQ-002<br/>proposed"]
   REQ_002 -->|requisito| CAP_PRICING
   REQ_002 ==>|move| MET_AOV
+  REQ_002 -.->|regido por| RULE_PRICING_001
   REQ_003["REQ-003<br/>planned"]
   REQ_003 -->|requisito| CAP_CATALOG
   REQ_003 ==>|move| MET_DISCOVERY
+  REQ_003 -.->|regido por| RULE_CATALOG_001
   REQ_004["REQ-004<br/>proposed"]
   REQ_004 -->|requisito| CAP_CATALOG
   REQ_004 -.->|depende| REQ_003
   REQ_004 ==>|move| MET_DISCOVERY
+  REQ_004 -.->|regido por| RULE_CATALOG_001
   RISK_CHANGE_001["RISK-CHANGE-001"]
   RISK_DEP_001["RISK-DEP-001"]
   RISK_META_001["RISK-META-001"]
