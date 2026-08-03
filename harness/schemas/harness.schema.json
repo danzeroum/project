@@ -4,10 +4,38 @@
   "title": "harness.yaml",
   "description": "Plano de controle da harness. Auto-validável: todo modo/runner/env que a harness declara é checado aqui.",
   "type": "object",
-  "required": ["schema_version", "standard", "execution_modes", "env_hygiene", "paths"],
+  "required": ["schema_version", "standard", "execution_modes", "env_hygiene", "paths", "repository", "decision_policy"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "integer", "minimum": 1 },
+    "repository": {
+      "type": "object",
+      "required": ["project_manifest", "protected_paths"],
+      "additionalProperties": false,
+      "properties": {
+        "project_manifest": { "type": "string" },
+        "protected_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Caminhos que só mudam com revisão humana. Fiscal real: CODEOWNERS + branch protection + diff-check no CI."
+        }
+      }
+    },
+    "decision_policy": {
+      "type": "object",
+      "required": ["default", "missing_metadata", "protected_path_change", "dependency_update"],
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "const": "deny",
+          "description": "Se a harness não reconhece projeto, capacidade, risco ou modo, ela NÃO infere que pode agir."
+        },
+        "missing_metadata": { "const": "stop_and_request_context" },
+        "protected_path_change": { "const": "require_human_review" },
+        "dependency_update": { "const": "require_human_review" }
+      }
+    },
     "standard": {
       "type": "object",
       "required": ["package", "requirements_file"],

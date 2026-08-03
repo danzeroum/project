@@ -1,0 +1,38 @@
+# Capacidades de negócio com rastreabilidade física: cada capacidade aponta para código e teste
+# reais. IDs estáveis (CAP-...) formam as arestas duráveis do grafo.
+# Schema: harness/schemas/capabilities.schema.json
+# O fiscal semântico só exige que source_paths/test_paths existam para status implemented/verified.
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+capabilities:
+  - id: CAP-PRICING
+    name: "Precificação"
+    status: verified
+    owners:
+      business_owner: product
+      technical_owner: engineering
+    risk_level: medium
+    source_paths:
+      - src/project/pricing.py
+    test_paths:
+      - tests/unit/test_pricing.py
+    evidence:
+      tests:
+        - tests/unit/test_pricing.py
+      quality_reports:
+        - harness/reports/latest/pricing.json
+
+  - id: CAP-CATALOG
+    name: "Catálogo de produtos"
+    status: verified
+    owners:
+      business_owner: product
+      technical_owner: engineering
+    risk_level: low
+    source_paths:
+      - src/project/ports.py
+    test_paths:
+      - tests/unit/test_ports.py

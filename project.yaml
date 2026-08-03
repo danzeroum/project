@@ -1,0 +1,45 @@
+# Manifesto de identidade do projeto. Completa (não substitui) o pyproject.toml com o que
+# Python não expressa: propósito, domínio, criticidade, donos, governança.
+# Schema: harness/schemas/project.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+project:
+  id: "danzeroum-project"
+  name: "Project"
+  type: "business-software-template"
+  lifecycle: "template"
+  status: "active"
+
+business:
+  domain: "generic"
+  purpose: >
+    Carcaça de projeto para desenvolver capacidades de negócio, software, design,
+    qualidade e governança de agentes, consumindo a WebQA Suite como padrão externo.
+  criticality: "medium"
+  stakeholders:
+    product_owner: "unassigned"
+    technical_owner: "unassigned"
+    security_owner: "unassigned"
+
+# Declara QUAL padrão e ONDE a versão mora — nunca o número (fonte única fecha o risco H3).
+quality_standard:
+  name: webqa-suite
+  version_source: requirements-qa.txt
+
+governance:
+  default_change_mode: "pull_request"
+  human_approval_required_for:
+    - dependency_update
+    - production_deploy
+    - load
+    - active_discovery
+    - protected_path_change
+  evidence_retention_days: 90
+
+classification:
+  data_classification: "to-be-defined"
+  lgpd_relevance: "to-be-assessed"
+  internet_exposed: false

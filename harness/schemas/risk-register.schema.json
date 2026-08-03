@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/risk-register.schema.json",
+  "title": "risk-register.yaml — registro de riscos que classifica a mudança antes de agir",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "risks"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "risks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "area", "description", "likelihood", "impact", "treatment", "controls", "owner", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" },
+          "area": { "enum": ["webqa", "dependencies", "data", "access", "availability", "governance"] },
+          "description": { "type": "string" },
+          "likelihood": { "enum": ["low", "medium", "high"] },
+          "impact": { "enum": ["low", "medium", "high"] },
+          "treatment": { "enum": ["accept", "mitigate", "prevent", "transfer"] },
+          "owner": { "type": "string" },
+          "status": { "enum": ["open", "mitigated", "accepted", "closed"] },
+          "controls": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Referências TIPADAS. Nem todo controle é arquivo local: o gate mora na suíte externa, o ambiente no GitHub.",
+            "items": {
+              "type": "object",
+              "required": ["kind", "ref"],
+              "additionalProperties": false,
+              "properties": {
+                "kind": { "enum": ["local_path", "standard_symbol", "github_environment", "branch_protection"] },
+                "ref": { "type": "string", "minLength": 1 },
+                "standard": { "const": "webqa-suite" },
+                "version_source": { "const": "requirements-qa.txt" }
+              },
+              "allOf": [
+                {
+                  "comment": "standard_symbol EXIGE âncora de versão; os demais kinds NÃO admitem esses campos.",
+                  "if": { "properties": { "kind": { "const": "standard_symbol" } }, "required": ["kind"] },
+                  "then": { "required": ["standard", "version_source"] },
+                  "else": { "not": { "anyOf": [{ "required": ["standard"] }, { "required": ["version_source"] }] } }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

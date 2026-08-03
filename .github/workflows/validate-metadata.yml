@@ -1,0 +1,36 @@
+name: validate-metadata
+
+# Fiscal dos metadados declarativos, separado do qa.yml por clareza: roda a cada mudança de
+# metadado ou código, independente da WebQA. Transforma divergência declaração×repositório em
+# falha visível de CI (schema + existência de paths + coerência entre documentos).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    paths:
+      - "project.yaml"
+      - "business/**"
+      - "architecture/**"
+      - "governance/**"
+      - "harness/schemas/**"
+      - "src/**"
+      - "tests/**"
+      - "ci/validate_metadata.py"
+      - "requirements-qa.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar dependências do fiscal
+        run: pip install "jsonschema>=4" "pyyaml>=6"
+      - name: Validar metadados (schema + semântica)
+        run: python ci/validate_metadata.py
