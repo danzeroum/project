@@ -1,0 +1,30 @@
+# Contratos de interface entre componentes. O fiscal cruza:
+#  - provider e consumers existem em components.yaml;
+#  - exposes ⊆ exposes do componente provedor;
+#  - cada consumidor declara depends_on o provedor (coerência com o grafo de componentes).
+# Schema: harness/schemas/interfaces.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+interfaces:
+  - id: IFC-CATALOG-PORT
+    name: "Porta de catálogo de produtos"
+    kind: python-api
+    provider: CMP-CATALOG
+    consumers:
+      - CMP-PRICING
+    exposes:
+      - "project.ports.CatalogoProdutos"
+    status: verified
+
+  - id: IFC-PRICING-API
+    name: "API de precificação"
+    kind: python-api
+    provider: CMP-PRICING
+    consumers: []
+    exposes:
+      - "project.pricing.subtotal_centavos"
+      - "project.pricing.total_com_imposto_centavos"
+    status: verified

@@ -53,7 +53,7 @@ inventário — e o operador aprende a aprovar sem ler. Eles são modos distinto
 project/
 ├── project.yaml          identidade, criticidade, donos, governança (schema em harness/schemas/)
 ├── business/             visão + capacidades + rules/ (regras de negócio ligadas a capacidade e teste)
-├── architecture/         componentes técnicos + adr/ (decisões arquiteturais, com índice fiscalizável)
+├── architecture/         componentes + interfaces + adr/ (decisões, com índice fiscalizável)
 ├── design/               sistema de design + superfícies de UI ligadas a capacidades
 ├── governance/           registro de riscos que classifica a mudança antes de agir
 ├── src/project/          negócio de exemplo (entrada real do inventário / Trabalho B)
@@ -102,6 +102,12 @@ comentário ("markdown que não morde").
   de volta (elo bidirecional que o fiscal cobra).
 - **Decisões versionadas:** `architecture/adr/` guarda os ADRs; o `index.yaml` é a parte fiscalizável —
   cada entrada aponta para um arquivo real e resolve suas referências a capacidade/risco/ADR.
+- **Interfaces coerentes com o grafo:** `architecture/interfaces.yaml` liga provedor e consumidores
+  (`CMP-*`); o fiscal cobra que os símbolos expostos existam no provedor e que cada consumidor
+  declare `depends_on` o provedor.
+- **Mapa gerado dos IDs:** `docs/metadata-graph.md` é um diagrama Mermaid **gerado** por
+  `ci/generate_graph.py` a partir dos metadados — artefato derivado, mantido em dia pelo CI
+  (`--check`), nunca uma fonte manual paralela.
 
 ## Quickstart
 
