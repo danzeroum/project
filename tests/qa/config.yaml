@@ -1,0 +1,18 @@
+# Configuração DECLARATIVA de consumo da suíte. Este arquivo é do PROJETO, não do padrão.
+# A suíte LÊ isto; o projeto não copia código de verificação.
+# Schema: WEBQA_CONSUMER_CONTRACT.md §2.
+
+# DEVE ser igual ao pin em requirements-qa.txt (o contrato cruza os dois).
+standard_version: "0.0.0"
+
+target:
+  base_url: "https://example.invalid"   # alvo publicado; só usado por modos de rede
+  environment: staging                   # staging | production | preview
+
+thresholds:
+  max_high: 0        # máximo de achados de severidade alta tolerados
+  max_medium: 5
+
+# Gates que ESTE projeto autoriza explicitamente. Vazio = nenhum modo ativo autorizado aqui;
+# load/active_discovery só existem em jobs segregados disparados por pessoa.
+active_gates: []

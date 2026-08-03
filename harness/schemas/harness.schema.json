@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/harness.schema.json",
+  "title": "harness.yaml",
+  "description": "Plano de controle da harness. Auto-validável: todo modo/runner/env que a harness declara é checado aqui.",
+  "type": "object",
+  "required": ["schema_version", "standard", "execution_modes", "env_hygiene", "paths"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "standard": {
+      "type": "object",
+      "required": ["package", "requirements_file"],
+      "additionalProperties": false,
+      "properties": {
+        "package": { "type": "string" },
+        "requirements_file": {
+          "type": "string",
+          "description": "O pin exato vive aqui; harness.yaml apenas referencia."
+        }
+      }
+    },
+    "execution_modes": {
+      "type": "object",
+      "description": "Os quatro modos DEVEM estar todos presentes.",
+      "required": ["inventory", "passive", "load", "active_discovery"],
+      "additionalProperties": false,
+      "properties": {
+        "inventory": { "$ref": "#/$defs/mode" },
+        "passive": { "$ref": "#/$defs/mode" },
+        "load": { "$ref": "#/$defs/mode" },
+        "active_discovery": { "$ref": "#/$defs/mode" }
+      }
+    },
+    "env_hygiene": {
+      "type": "object",
+      "required": ["env_allowlist", "env_denylist_prefix", "fail_on_denied_env"],
+      "additionalProperties": false,
+      "properties": {
+        "env_allowlist": { "type": "array", "items": { "type": "string" } },
+        "env_denylist_prefix": { "type": "array", "items": { "type": "string" } },
+        "fail_on_denied_env": { "type": "boolean" }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "required": ["runs", "reports", "state"],
+      "additionalProperties": false,
+      "properties": {
+        "runs": { "type": "string" },
+        "reports": { "type": "string" },
+        "state": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "mode": {
+      "type": "object",
+      "required": ["network", "requires_auth", "agent_may_trigger", "job"],
+      "additionalProperties": false,
+      "properties": {
+        "network": { "type": "boolean" },
+        "requires_auth": { "type": "boolean" },
+        "agent_may_trigger": { "type": "boolean" },
+        "job": { "type": "string", "enum": ["inline", "segregated"] },
+        "trigger": { "type": "string", "enum": ["human_only"] },
+        "requires_proof_of_possession": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

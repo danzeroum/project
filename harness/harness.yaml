@@ -1,0 +1,52 @@
+# Plano de controle da harness.
+# Toda decisão de modo/runner/ambiente que a harness toma é LIDA daqui e validada contra
+# harness/schemas/harness.schema.json. Isto é declaração — a enforcement efetiva vive no CI
+# (.github/workflows/qa.yml) e nos gates fail-closed da suíte externa (ver harness/policies/).
+schema_version: 1
+
+standard:
+  package: webqa-suite
+  requirements_file: requirements-qa.txt   # o pin exato mora lá; aqui só referenciamos
+
+# Enumeração formal dos quatro modos. Uma chamada ambígua nunca deve ser roteada como
+# operação de baixo risco — cada modo declara sua natureza de risco.
+execution_modes:
+  inventory:
+    network: false
+    requires_auth: false
+    agent_may_trigger: true
+    job: inline
+    note: "Trabalho B — lê o código por AST, cataloga testes. O mais barato e o mais seguro."
+  passive:
+    network: true
+    requires_auth: true
+    agent_may_trigger: true
+    job: inline
+    note: "Trabalho A — GET normais contra alvo JÁ declarado. Agente só com alvo pré-configurado."
+  load:
+    network: true
+    requires_auth: true
+    agent_may_trigger: false
+    job: segregated
+    trigger: human_only
+    note: "Rajada de requisições. Humano dispara em job segregado."
+  active_discovery:
+    network: true
+    requires_auth: true
+    agent_may_trigger: false
+    job: segregated
+    trigger: human_only
+    requires_proof_of_possession: true
+    note: "Fase C — pede recursos não linkados. Humano dispara, com escopo e prova de posse."
+
+# A trava que morde. O runner de qualquer agente roda com ambiente limpo, sempre.
+# Um agente com shell não deve ter como receber, preservar ou injetar WEBQA_*.
+env_hygiene:
+  env_allowlist: [PATH, HOME, LANG]
+  env_denylist_prefix: ["WEBQA_"]
+  fail_on_denied_env: true   # aborta se encontrar, NÃO apenas ignora (erro vira evento auditável)
+
+paths:
+  runs: harness/runs         # evidência bruta por run_id
+  reports: harness/reports   # laudos normalizados + agregação
+  state: harness/state       # ledger / fingerprint da última régua boa

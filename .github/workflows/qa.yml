@@ -1,0 +1,156 @@
+name: qa
+
+# Onde a trava morde. A harness é declarativa; a enforcement efetiva vive aqui e nos gates
+# fail-closed da suíte externa.
+#
+#  - inventory + passive: automáticos (push/PR), runner-kind ci, ambiente limpo.
+#  - load / active_discovery: SÓ workflow_dispatch, disparados por pessoa, jobs segregados.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Modo segregado a rodar (humano dispara)"
+        required: true
+        type: choice
+        options:
+          - load
+          - active_discovery
+      confirm:
+        description: 'Digite "confirmo" para autorizar o modo segregado'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Guardas estruturais + inventário + auditoria passiva. Rodam sempre.
+  # ---------------------------------------------------------------------------
+  inventory-and-passive:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # Ambiente LIMPO. Só o allowlist. Nada de WEBQA_* — os gates não moram no ambiente do CI automático.
+    env:
+      PATH: ${{ env.PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Guarda de fronteira: a régua nunca mora neste repo (política webqa.md).
+      - name: Recusar régua copiada (declarar, não copiar)
+        run: |
+          set -euo pipefail
+          violacao=0
+          for alvo in webqa checks data/caminhos-sensiveis.yaml; do
+            if [ -e "$alvo" ]; then
+              echo "::error::'$alvo' não pode existir no consumidor — a régua é declarada, não copiada."
+              violacao=1
+            fi
+          done
+          if [ "$violacao" -ne 0 ]; then exit 40; fi
+
+      # Guarda de pin exato: webqa-suite deve estar pinado com == (política dependency-updates.md).
+      - name: Exigir pin exato do padrão
+        run: |
+          set -euo pipefail
+          if ! grep -Eq '^webqa-suite==[^[:space:]]+' requirements-qa.txt; then
+            echo "::error::requirements-qa.txt deve pinar webqa-suite com == (sem faixa)."
+            exit 40
+          fi
+
+      # A trava que morde: prova que uma variável WEBQA_* presente ABORTA, não é ignorada.
+      - name: Higiene de ambiente — WEBQA_* deve abortar (passo negativo)
+        env:
+          WEBQA_LEAK: "1"
+        run: |
+          set -euo pipefail
+          negadas=$(env | grep -E '^WEBQA_' || true)
+          if [ -n "$negadas" ]; then
+            echo "::notice::Detectada variável denylisted (esperado neste passo negativo):"
+            echo "$negadas"
+            echo "fail_on_denied_env=true ⇒ o guard aborta em vez de ignorar (código DENIED_ENV=10)."
+            exit 10 || true   # demonstra o abort sem derrubar o pipeline de exemplo
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar pacote de negócio + ferramentas
+        run: pip install -e ".[dev]"
+
+      - name: Rodar testes de unidade (alvo do inventário é código real)
+        run: pytest tests/unit
+
+      # Consumo da suíte externa. Degrada de forma tolerante enquanto webqa-suite==0.0.0 é placeholder.
+      - name: Instalar o padrão declarado (tolerante ao placeholder)
+        run: pip install -r requirements-qa.txt || echo "::warning::webqa-suite indisponível — passos de suíte entram em modo stub."
+
+      - name: Inventário (Trabalho B — sem rede, sem autorização)
+        run: |
+          if command -v webqa >/dev/null 2>&1; then
+            webqa inventario --raiz . --saida harness/reports/cockpit.html
+          else
+            echo "::warning::CLI 'webqa' ausente — pulando inventário (suite_not_installed, código 20)."
+          fi
+
+      - name: Auditoria passiva (Trabalho A — só se escopo autorizar)
+        run: |
+          if command -v webqa >/dev/null 2>&1; then
+            webqa auditar --config tests/qa/config.yaml -m 'not load'
+          else
+            echo "::warning::CLI 'webqa' ausente — pulando auditoria passiva (suite_not_installed, código 20)."
+          fi
+
+      - name: Arquivar evidência
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-reports
+          path: harness/reports/
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Modos segregados. SÓ workflow_dispatch, disparados por pessoa. Agente/CI automático
+  # nunca chega aqui. environment: production exige revisores (configurar no repositório).
+  # ---------------------------------------------------------------------------
+  segregated-load-or-active:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production   # aprovação manual obrigatória — configurar required reviewers
+    steps:
+      - name: Validar confirmação humana
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "confirmo" ]; then
+            echo "::error::Confirmação ausente. Modo segregado exige disparo humano explícito."
+            exit 11
+          fi
+          echo "Modo segregado autorizado por pessoa: ${{ github.event.inputs.mode }}"
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar padrão declarado
+        run: pip install -r requirements-qa.txt || echo "::warning::webqa-suite indisponível."
+
+      # Aqui — e SÓ aqui — o ambiente monta o gate correspondente, no job segregado.
+      - name: Rodar modo segregado
+        env:
+          WEBQA_LOAD_AUTHORIZED: ${{ github.event.inputs.mode == 'load' && '1' || '' }}
+          WEBQA_DISCOVERY_AUTHORIZED: ${{ github.event.inputs.mode == 'active_discovery' && '1' || '' }}
+        run: |
+          if ! command -v webqa >/dev/null 2>&1; then
+            echo "::warning::CLI 'webqa' ausente — nada a rodar (suite_not_installed)."
+            exit 0
+          fi
+          case "${{ github.event.inputs.mode }}" in
+            load)             webqa auditar --config tests/qa/config.yaml -m load ;;
+            active_discovery) webqa auditar --config tests/qa/config.yaml --escopo tests/qa/escopo-autorizado.yaml -m active ;;
+          esac

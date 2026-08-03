@@ -1,0 +1,29 @@
+# Evidência da harness — efêmera, nunca versionada
+harness/runs/*
+harness/reports/*
+harness/state/*
+!harness/runs/.gitkeep
+!harness/reports/.gitkeep
+!harness/state/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Laudos e evidência solta
+*.evidence
+report/

@@ -1,0 +1,12 @@
+# Campanha DECLARATIVA: quais modos este projeto roda de forma recorrente.
+# Schema: WEBQA_CONSUMER_CONTRACT.md §4.
+
+campaign: baseline
+
+# load e active_discovery estão AUSENTES de propósito — são disparados por pessoa em jobs
+# segregados (workflow_dispatch), nunca por campanha automática.
+modes:
+  - inventory
+  - passive
+
+retention_days: 90

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/provenance.schema.json",
+  "title": "Bloco de procedência do laudo",
+  "description": "Carimba qual régua produziu um laudo. Obrigatório em todo artefato produzido pela suíte.",
+  "type": "object",
+  "required": ["schema_version", "standard", "consumer_project", "execution"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Versão do formato do laudo, para evolução.",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "standard": {
+      "type": "object",
+      "description": "A régua: o padrão versionado que produziu o laudo.",
+      "required": ["name", "version", "commit", "sensitive_paths_hash"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "version": {
+          "type": "string",
+          "description": "Versão exata do padrão. 'UNINSTALLED' quando a suíte não está disponível."
+        },
+        "commit": { "type": "string" },
+        "sensitive_paths_hash": {
+          "type": "string",
+          "description": "SHA-256 da lista curada da suíte. Hashes divergentes na mesma versão = lista editada.",
+          "pattern": "^sha256:[0-9a-f]+$|^UNINSTALLED$"
+        }
+      }
+    },
+    "consumer_project": {
+      "type": "object",
+      "required": ["repository", "commit"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string" },
+        "commit": { "type": "string" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "required": ["run_id", "mode", "network_used", "active_gates", "runner_kind"],
+      "additionalProperties": false,
+      "properties": {
+        "run_id": { "type": "string" },
+        "mode": {
+          "type": "string",
+          "enum": ["inventory", "passive", "load", "active_discovery"]
+        },
+        "network_used": { "type": "boolean" },
+        "active_gates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "runner_kind": {
+          "type": "string",
+          "enum": ["agent", "human", "ci"]
+        }
+      }
+    }
+  }
+}
