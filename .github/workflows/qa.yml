@@ -87,9 +87,11 @@ jobs:
       - name: Rodar testes de unidade (alvo do inventário é código real)
         run: pytest tests/unit
 
-      # Consumo da suíte externa. Degrada de forma tolerante enquanto webqa-suite==0.0.0 é placeholder.
-      - name: Instalar o padrão declarado (tolerante ao placeholder)
-        run: pip install -r requirements-qa.txt || echo "::warning::webqa-suite indisponível — passos de suíte entram em modo stub."
+      # Consumo da suíte externa (webqa-suite==1.0.0). Degrada de forma tolerante:
+      # a v1.0.0 não está no PyPI, então a instalação por nome falha e o CI segue em modo stub.
+      # Para instalar de fato, use o pin via Git (ver docs/COMO-ADOTAR.md §4).
+      - name: Instalar o padrão declarado (tolerante)
+        run: pip install -r requirements-qa.txt || echo "::warning::webqa-suite indisponível via PyPI — passos de suíte entram em modo stub (instale via Git; ver docs/COMO-ADOTAR.md)."
 
       - name: Inventário (Trabalho B — sem rede, sem autorização)
         run: |

@@ -45,7 +45,7 @@ código de verificação.**
 ## 2. Schema de `tests/qa/config.yaml`
 
 ```yaml
-standard_version: "0.0.0"        # string; DEVE ser igual ao pin em requirements-qa.txt
+standard_version: "1.0.0"        # string; DEVE ser igual ao pin em requirements-qa.txt
 target:
   base_url: "https://example.invalid"   # URI do alvo publicado
   environment: staging                   # staging | production | preview
@@ -124,7 +124,7 @@ Todo artefato produzido carrega a procedência do padrão. Schema completo em
   "schema_version": "1.0",
   "standard": {
     "name": "webqa-suite",
-    "version": "0.0.0",
+    "version": "1.0.0",
     "commit": "0000000",
     "sensitive_paths_hash": "sha256:..."
   },

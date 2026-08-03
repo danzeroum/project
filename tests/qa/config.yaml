@@ -3,7 +3,7 @@
 # Schema: WEBQA_CONSUMER_CONTRACT.md §2.
 
 # DEVE ser igual ao pin em requirements-qa.txt (o contrato cruza os dois).
-standard_version: "0.0.0"
+standard_version: "1.0.0"
 
 target:
   base_url: "https://example.invalid"   # alvo publicado; só usado por modos de rede
