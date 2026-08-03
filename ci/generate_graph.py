@@ -129,6 +129,8 @@ def build_mermaid() -> str:
             lines.append(f"  {n} -.->|depende| {nid(dep)}")
         for met in sorted(item.get("metrics", [])):
             lines.append(f"  {n} ==>|move| {nid(met)}")
+        for rule in sorted(item.get("governed_by", [])):
+            lines.append(f"  {n} -.->|regido por| {nid(rule)}")
 
     # Riscos
     for r in sorted(risks, key=lambda r: r.get("id", "")):

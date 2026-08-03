@@ -15,6 +15,9 @@ items:
     priority: high
     metrics:
       - MET-ACTIVATION
+    governed_by:
+      - RULE-PRICING-001
+      - RULE-PRICING-003
     acceptance_criteria:
       - "O total exibido inclui o imposto aplicado sobre o subtotal."
       - "Taxa fora de [0, 1) é erro, não cálculo silencioso."
@@ -27,6 +30,8 @@ items:
     priority: medium
     metrics:
       - MET-AOV
+    governed_by:
+      - RULE-PRICING-001
     acceptance_criteria:
       - "Pedidos acima de um limiar recebem desconto percentual."
       - "O desconto é aplicado antes do imposto."
@@ -39,6 +44,8 @@ items:
     priority: medium
     metrics:
       - MET-DISCOVERY
+    governed_by:
+      - RULE-CATALOG-001
     acceptance_criteria:
       - "Cada item do catálogo exibe SKU e preço."
 
@@ -50,5 +57,7 @@ items:
     priority: low
     metrics:
       - MET-DISCOVERY
+    governed_by:
+      - RULE-CATALOG-001
     depends_on:
       - REQ-003
