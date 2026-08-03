@@ -36,3 +36,13 @@ adrs:
     file: architecture/adr/ADR-004-mudanca-proposta-declarada.md
     related_risks:
       - RISK-CHANGE-001
+
+  - id: ADR-005
+    title: "Catálogo via porta (Protocol) e adaptador; precificação depende da porta"
+    status: accepted
+    file: architecture/adr/ADR-005-catalogo-via-porta.md
+    related_capabilities:
+      - CAP-CATALOG
+    related_components:
+      - CMP-CATALOG
+      - CMP-PRICING
