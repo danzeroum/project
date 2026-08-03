@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/change-proposal.schema.json",
+  "title": "change-proposal — a ponte entre metadado estático e execução agentic",
+  "description": "Toda mudança proposta (por agente, humano ou CI) declara o que afeta, o risco, os gates exigidos e se precisa de aval humano. É o que a harness lê para rotear, bloquear ou escalar.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "proposal"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "allOf": [
+    {
+      "comment": "Risco high/critical EXIGE aval humano — trava estrutural, não convenção.",
+      "if": {
+        "properties": {
+          "proposal": {
+            "properties": {
+              "risk_assessment": {
+                "properties": { "level": { "enum": ["high", "critical"] } },
+                "required": ["level"]
+              }
+            },
+            "required": ["risk_assessment"]
+          }
+        },
+        "required": ["proposal"]
+      },
+      "then": {
+        "properties": {
+          "proposal": {
+            "properties": { "human_approval_required": { "const": true } },
+            "required": ["human_approval_required"]
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "proposal": {
+      "type": "object",
+      "required": [
+        "id", "title", "author_kind", "created_at",
+        "capabilities_affected", "components_affected",
+        "risk_assessment", "required_gates", "tests_required",
+        "human_approval_required", "change_mode"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^CP-[0-9]{3,}$" },
+        "title": { "type": "string" },
+        "author_kind": { "enum": ["agent", "human", "ci"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "capabilities_affected": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$" }
+        },
+        "components_affected": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^CMP-[A-Z0-9]+(-[A-Z0-9]+)*$" }
+        },
+        "risk_assessment": {
+          "type": "object",
+          "required": ["level", "rationale"],
+          "additionalProperties": false,
+          "properties": {
+            "level": { "enum": ["low", "medium", "high", "critical"] },
+            "risks": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" }
+            },
+            "rationale": { "type": "string" }
+          }
+        },
+        "required_gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["inventory", "passive", "load", "active_discovery", "unit-tests", "metadata-validation"] },
+          "uniqueItems": true
+        },
+        "tests_required": { "type": "array", "items": { "type": "string" } },
+        "human_approval_required": { "type": "boolean" },
+        "change_mode": { "const": "pull_request" }
+      }
+    }
+  }
+}

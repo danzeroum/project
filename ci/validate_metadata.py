@@ -35,8 +35,13 @@ DOCS = [
     ("governance/risk-register.yaml", "risk-register.schema.json"),
     ("business/capabilities.yaml", "capabilities.schema.json"),
     ("architecture/components.yaml", "components.schema.json"),
+    ("design/design-system.yaml", "design-system.schema.json"),
+    ("design/ui-surfaces.yaml", "ui-surfaces.schema.json"),
     ("business/vision.yaml", None),
 ]
+
+# Propostas de mudança: artefatos versionados validados por schema + semântica.
+CHANGE_PROPOSALS_DIR = "harness/change-proposals"
 
 errors: list[str] = []
 
@@ -144,9 +149,9 @@ def check_capabilities(doc: dict | None) -> dict[str, dict]:
     return caps
 
 
-def check_components(doc: dict | None, caps: dict[str, dict]) -> None:
+def check_components(doc: dict | None, caps: dict[str, dict]) -> set[str]:
     if not doc:
-        return
+        return set()
     comp_ids = {c.get("id") for c in doc.get("components", [])}
     for comp in doc.get("components", []):
         cmid = comp.get("id", "?")
@@ -167,13 +172,16 @@ def check_components(doc: dict | None, caps: dict[str, dict]) -> None:
                     err(f"[I6] {cmid}: tested_by inexistente: {p}")
                 elif cap_ref in caps and p not in cap_tests:
                     err(f"[I6] {cmid}: tested_by '{p}' não consta em {cap_ref}.test_paths")
+    return comp_ids
 
 
-def check_risk_controls(doc: dict | None) -> None:
+def check_risk_controls(doc: dict | None) -> set[str]:
     if not doc:
-        return
+        return set()
+    risk_ids: set[str] = set()
     for risk in doc.get("risks", []):
         rid = risk.get("id", "?")
+        risk_ids.add(rid)
         for ctrl in risk.get("controls", []):
             kind = ctrl.get("kind")
             ref = ctrl.get("ref", "")
@@ -185,6 +193,49 @@ def check_risk_controls(doc: dict | None) -> None:
                 if ctrl.get("version_source") != "requirements-qa.txt":
                     err(f"[I8] {rid}: standard_symbol deve ancorar version_source em requirements-qa.txt")
             # github_environment / branch_protection: não verificáveis localmente; forma já validada.
+    return risk_ids
+
+
+def check_ui_surfaces(doc: dict | None, caps: dict[str, dict]) -> None:
+    """I7: toda superfície de UI aponta para uma capacidade existente."""
+    if not doc:
+        return
+    for surface in doc.get("ui_surfaces", []):
+        sid = surface.get("id", "?")
+        cap_ref = surface.get("capability")
+        if cap_ref not in caps:
+            err(f"[I7] {sid}: capability {cap_ref} não existe em capabilities.yaml")
+
+
+def check_change_proposals(caps: dict[str, dict], comp_ids: set[str], risk_ids: set[str]) -> None:
+    """Cada proposta afeta apenas IDs reais e cita apenas riscos do registro."""
+    proposals_dir = REPO / CHANGE_PROPOSALS_DIR
+    if not proposals_dir.exists():
+        return
+    schema = json.loads((SCHEMAS / "change-proposal.schema.json").read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema)
+    for path in sorted(proposals_dir.glob("*.yaml")):
+        rel = path.relative_to(REPO).as_posix()
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:  # pragma: no cover - defensivo
+            err(f"[yaml] {rel}: {exc}")
+            continue
+        check_header_invariants(rel, doc)
+        for e in sorted(validator.iter_errors(doc), key=lambda e: e.path):
+            loc = "/".join(str(p) for p in e.path) or "(raiz)"
+            err(f"[estrutural] {rel} em '{loc}': {e.message}")
+        proposal = (doc or {}).get("proposal", {})
+        pid = proposal.get("id", rel)
+        for cid in proposal.get("capabilities_affected", []):
+            if cid not in caps:
+                err(f"[CP] {pid}: capabilities_affected {cid} não existe em capabilities.yaml")
+        for cmid in proposal.get("components_affected", []):
+            if cmid not in comp_ids:
+                err(f"[CP] {pid}: components_affected {cmid} não existe em components.yaml")
+        for rref in proposal.get("risk_assessment", {}).get("risks", []):
+            if rref not in risk_ids:
+                err(f"[CP] {pid}: risco citado {rref} não existe no risk-register")
 
 
 def main() -> int:
@@ -202,8 +253,10 @@ def main() -> int:
 
     check_version_single_source(loaded.get("project.yaml"))
     caps = check_capabilities(loaded.get("business/capabilities.yaml"))
-    check_components(loaded.get("architecture/components.yaml"), caps)
-    check_risk_controls(loaded.get("governance/risk-register.yaml"))
+    comp_ids = check_components(loaded.get("architecture/components.yaml"), caps)
+    risk_ids = check_risk_controls(loaded.get("governance/risk-register.yaml"))
+    check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps)
+    check_change_proposals(caps, comp_ids, risk_ids)
 
     if errors:
         print(f"✗ validação de metadados falhou ({len(errors)} inconsistência(s)):\n")

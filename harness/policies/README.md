@@ -18,3 +18,4 @@ onde ela é **efetivamente** aplicada — um gate da suíte externa, um passo do
 | [`env-hygiene.md`](env-hygiene.md) | allowlist/denylist + fail-closed | bloco `env:` do `qa.yml` |
 | [`provenance.md`](provenance.md) | carimbo + recusa de comparação | schemas + suíte |
 | [`dependency-updates.md`](dependency-updates.md) | como o pin sobe | CI + PR do projeto |
+| [`change-proposals.md`](change-proposals.md) | proposta afeta só IDs reais; risco alto exige aval | schema + `ci/validate_metadata.py` |

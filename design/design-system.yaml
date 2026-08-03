@@ -1,0 +1,12 @@
+# Identidade e metas do sistema de design. Meta de acessibilidade é contrato, não aspiração:
+# o agente reviewer avalia mudanças de UI contra ela em vez de inventar interpretação visual.
+# Schema: harness/schemas/design-system.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+design_system:
+  name: "Project Design System"
+  version: "0.1.0"
+  accessibility_target: "WCAG-2.2-AA"
