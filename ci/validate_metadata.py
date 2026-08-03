@@ -157,9 +157,10 @@ def check_capabilities(doc: dict | None) -> dict[str, dict]:
     return caps
 
 
-def check_components(doc: dict | None, caps: dict[str, dict]) -> set[str]:
+def check_components(doc: dict | None, caps: dict[str, dict], req_items: dict[str, dict]) -> set[str]:
     if not doc:
         return set()
+    building = {"in_progress", "done"}
     comp_ids = {c.get("id") for c in doc.get("components", [])}
     for comp in doc.get("components", []):
         cmid = comp.get("id", "?")
@@ -170,6 +171,16 @@ def check_components(doc: dict | None, caps: dict[str, dict]) -> set[str]:
         for dep in comp.get("depends_on", []):
             if dep not in comp_ids:
                 err(f"[dep] {cmid}: depends_on aponta para componente inexistente: {dep}")
+        for req in comp.get("implements", []):
+            if req not in req_items:
+                err(f"[CMP] {cmid}: implements {req} não existe no backlog")
+                continue
+            if req_items[req].get("capability") != cap_ref:
+                err(f"[CMP] {cmid}: implements {req} é da capacidade "
+                    f"{req_items[req].get('capability')}, não de {cap_ref}")
+            if req_items[req].get("status") not in building:
+                err(f"[CMP] {cmid}: implements {req} está '{req_items[req].get('status')}' "
+                    f"— um componente não implementa um requisito ainda não iniciado")
         if status in CONCRETE:
             for p in comp.get("source_paths", []):
                 if not rel_exists(p):
@@ -380,12 +391,13 @@ def main() -> int:
             validate_structural(rel, schema_name, doc)
 
     check_version_single_source(loaded.get("project.yaml"))
+    backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
+    req_items = {i.get("id"): i for i in backlog_doc.get("items", [])}
     caps = check_capabilities(loaded.get("business/capabilities.yaml"))
-    comp_ids = check_components(loaded.get("architecture/components.yaml"), caps)
+    comp_ids = check_components(loaded.get("architecture/components.yaml"), caps, req_items)
     risk_ids = check_risk_controls(loaded.get("governance/risk-register.yaml"))
     check_interfaces(loaded.get("architecture/interfaces.yaml"), loaded.get("architecture/components.yaml"))
-    backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
-    req_caps = {i.get("id"): i.get("capability") for i in backlog_doc.get("items", [])}
+    req_caps = {rid: item.get("capability") for rid, item in req_items.items()}
     check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps, req_caps)
     rule_caps = check_business_rules(caps)
     metrics = metric_ids(loaded.get("business/vision.yaml"))

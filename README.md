@@ -53,7 +53,7 @@ inventário — e o operador aprende a aprovar sem ler. Eles são modos distinto
 project/
 ├── project.yaml          identidade, criticidade, donos, governança (schema em harness/schemas/)
 ├── business/             visão + capacidades + rules/ (regras) + requirements/ (backlog por capacidade)
-├── architecture/         componentes + interfaces + adr/ (decisões, com índice fiscalizável)
+├── architecture/         componentes (+ requisitos que implementam) + interfaces + adr/ (decisões)
 ├── design/               sistema de design + superfícies de UI ligadas a capacidades
 ├── governance/           registro de riscos que classifica a mudança antes de agir
 ├── src/project/          negócio de exemplo (entrada real do inventário / Trabalho B)
@@ -108,6 +108,10 @@ comentário ("markdown que não morde").
   a `depends_on`/`risk`. O fiscal cobra que tudo resolva — e que métricas/regras citadas compartilhem a
   capacidade do requisito. As métricas de sucesso vivem em `business/vision.yaml`; assim o backlog fecha
   a cadeia do resultado de negócio até a régua funcional.
+- **Componente ↔ requisito que implementa:** `architecture/components.yaml` pode declarar
+  `implements: [REQ-*]`; o fiscal cobra que o requisito exista, compartilhe a capacidade do componente
+  e esteja de fato em construção/pronto (`in_progress`/`done`) — um componente não "implementa" um
+  requisito ainda proposto.
 - **Interfaces coerentes com o grafo:** `architecture/interfaces.yaml` liga provedor e consumidores
   (`CMP-*`); o fiscal cobra que os símbolos expostos existam no provedor e que cada consumidor
   declare `depends_on` o provedor.

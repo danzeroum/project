@@ -81,6 +81,8 @@ def build_mermaid() -> str:
             lines.append(f"  {n} -->|realiza| {nid(comp['capability'])}")
         for dep in sorted(comp.get("depends_on", [])):
             lines.append(f"  {n} -->|depende| {nid(dep)}")
+        for req in sorted(comp.get("implements", [])):
+            lines.append(f"  {n} -.->|implementa| {nid(req)}")
 
     # Interfaces: provedor provê; consumidores consomem
     for ifc in sorted(ifaces, key=lambda i: i.get("id", "")):
