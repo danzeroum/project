@@ -42,7 +42,8 @@
           "priority": { "enum": ["low", "medium", "high", "critical"] },
           "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
           "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^REQ-[0-9]{3}$" } },
-          "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" }
+          "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" },
+          "metrics": { "type": "array", "items": { "type": "string", "pattern": "^MET-[A-Z0-9]+(-[A-Z0-9]+)*$" } }
         }
       }
     }

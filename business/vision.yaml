@@ -1,5 +1,6 @@
-# Visão de produto: o problema, os usuários e as métricas de sucesso.
-# (Sem schema dedicado no conjunto inicial; validado como YAML e como contexto para agentes.)
+# Visão de produto: o problema, os usuários e as métricas de sucesso (IDs estáveis MET-*).
+# Os requisitos do backlog citam quais métricas movem — o fiscal cobra que a métrica exista.
+# Schema: harness/schemas/vision.schema.json
 schema_version: "1.0"
 metadata_version: "1.0"
 source_of_truth: true
@@ -11,6 +12,12 @@ product:
     - "perfil-principal"
   value_proposition: "Resultado mensurável esperado."
   success_metrics:
-    - id: "activation-rate"
-      description: "Percentual de usuários que concluem a jornada inicial."
+    - id: MET-ACTIVATION
+      description: "Percentual de usuários que concluem a jornada inicial de compra."
       target: ">= 60%"
+    - id: MET-AOV
+      description: "Valor médio do pedido (average order value)."
+      target: "crescente trimestre a trimestre"
+    - id: MET-DISCOVERY
+      description: "Percentual de usuários que navegam o catálogo antes de comprar."
+      target: ">= 40%"
