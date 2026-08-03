@@ -1,0 +1,46 @@
+# Backlog de requisitos, cada item ligado a uma capacidade (CAP-*). Dá ao agente o QUE fazer e por
+# quê, sem inventar escopo. Um item pode citar o risco que introduz e depender de outro.
+# Schema: harness/schemas/backlog.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+items:
+  - id: REQ-001
+    title: "Ver total com imposto antes de confirmar"
+    type: user-story
+    capability: CAP-PRICING
+    status: done
+    priority: high
+    acceptance_criteria:
+      - "O total exibido inclui o imposto aplicado sobre o subtotal."
+      - "Taxa fora de [0, 1) é erro, não cálculo silencioso."
+
+  - id: REQ-002
+    title: "Desconto por volume na precificação"
+    type: user-story
+    capability: CAP-PRICING
+    status: proposed
+    priority: medium
+    acceptance_criteria:
+      - "Pedidos acima de um limiar recebem desconto percentual."
+      - "O desconto é aplicado antes do imposto."
+
+  - id: REQ-003
+    title: "Ver preço por SKU no catálogo"
+    type: user-story
+    capability: CAP-CATALOG
+    status: planned
+    priority: medium
+    acceptance_criteria:
+      - "Cada item do catálogo exibe SKU e preço."
+
+  - id: REQ-004
+    title: "Catálogo persistente além de em memória"
+    type: enabler
+    capability: CAP-CATALOG
+    status: proposed
+    priority: low
+    depends_on:
+      - REQ-003

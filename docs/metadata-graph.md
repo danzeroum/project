@@ -36,6 +36,15 @@ graph TD
   UI_CATALOG_LIST -->|experiência| CAP_CATALOG
   UI_PRICING_PAGE["UI-PRICING-PAGE"]
   UI_PRICING_PAGE -->|experiência| CAP_PRICING
+  REQ_001["REQ-001<br/>done"]
+  REQ_001 -->|requisito| CAP_PRICING
+  REQ_002["REQ-002<br/>proposed"]
+  REQ_002 -->|requisito| CAP_PRICING
+  REQ_003["REQ-003<br/>planned"]
+  REQ_003 -->|requisito| CAP_CATALOG
+  REQ_004["REQ-004<br/>proposed"]
+  REQ_004 -->|requisito| CAP_CATALOG
+  REQ_004 -.->|depende| REQ_003
   RISK_CHANGE_001["RISK-CHANGE-001"]
   RISK_DEP_001["RISK-DEP-001"]
   RISK_META_001["RISK-META-001"]
@@ -61,6 +70,8 @@ graph TD
   class RULE_CATALOG_001,RULE_PRICING_001,RULE_PRICING_002,RULE_PRICING_003 rule;
   classDef ui fill:#db2777,stroke:#9d174d,color:#fff;
   class UI_CATALOG_LIST,UI_PRICING_PAGE ui;
+  classDef req fill:#0d9488,stroke:#0f766e,color:#fff;
+  class REQ_001,REQ_002,REQ_003,REQ_004 req;
   classDef adr fill:#ca8a04,stroke:#a16207,color:#fff;
   class ADR_001,ADR_002,ADR_003,ADR_004 adr;
   classDef risk fill:#dc2626,stroke:#991b1b,color:#fff;
