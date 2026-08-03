@@ -19,6 +19,8 @@ capabilities:
       - src/project/pricing.py
     test_paths:
       - tests/unit/test_pricing.py
+    business_rules:
+      - business/rules/pricing.yaml
     evidence:
       tests:
         - tests/unit/test_pricing.py
@@ -36,3 +38,5 @@ capabilities:
       - src/project/ports.py
     test_paths:
       - tests/unit/test_ports.py
+    business_rules:
+      - business/rules/catalog.yaml

@@ -52,8 +52,8 @@ inventário — e o operador aprende a aprovar sem ler. Eles são modos distinto
 ```
 project/
 ├── project.yaml          identidade, criticidade, donos, governança (schema em harness/schemas/)
-├── business/             visão + capacidades de negócio (rastreabilidade capacidade→código→teste)
-├── architecture/         componentes técnicos ligados a capacidades
+├── business/             visão + capacidades + rules/ (regras de negócio ligadas a capacidade e teste)
+├── architecture/         componentes técnicos + adr/ (decisões arquiteturais, com índice fiscalizável)
 ├── design/               sistema de design + superfícies de UI ligadas a capacidades
 ├── governance/           registro de riscos que classifica a mudança antes de agir
 ├── src/project/          negócio de exemplo (entrada real do inventário / Trabalho B)
@@ -97,6 +97,11 @@ comentário ("markdown que não morde").
 - **Mudança declarada antes de executada:** toda proposta (`harness/change-proposals/`) declara o que
   afeta, o risco e os gates; risco `high`/`critical` **exige aval humano** por trava de schema. É o elo
   entre metadado estático e execução agentic.
+- **Regra de negócio ligada a teste:** `business/rules/*.yaml` declara a régua funcional de cada
+  capacidade; uma regra `verified` aponta para o teste que a prova, e a capacidade referencia o arquivo
+  de volta (elo bidirecional que o fiscal cobra).
+- **Decisões versionadas:** `architecture/adr/` guarda os ADRs; o `index.yaml` é a parte fiscalizável —
+  cada entrada aponta para um arquivo real e resolve suas referências a capacidade/risco/ADR.
 
 ## Quickstart
 

@@ -1,0 +1,32 @@
+# Regras de negócio da capacidade de precificação. Cada regra verificada aponta para o teste
+# que a prova — a régua funcional que o agente não pode contrariar mesmo com código "correto".
+# Schema: harness/schemas/business-rules.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+capability: CAP-PRICING
+
+rules:
+  - id: RULE-PRICING-001
+    name: "Preço em centavos inteiros"
+    status: verified
+    statement: "Preços e totais são calculados em centavos (inteiros), nunca em ponto flutuante."
+    rationale: "Evita erro de arredondamento em dinheiro."
+    verified_by:
+      - tests/unit/test_pricing.py
+
+  - id: RULE-PRICING-002
+    name: "Linha não-positiva é ignorada"
+    status: verified
+    statement: "Linhas de pedido com quantidade menor ou igual a zero não entram no subtotal."
+    verified_by:
+      - tests/unit/test_pricing.py
+
+  - id: RULE-PRICING-003
+    name: "Taxa de imposto em [0, 1)"
+    status: verified
+    statement: "A taxa de imposto deve estar no intervalo [0, 1); fora dele é erro, não cálculo."
+    verified_by:
+      - tests/unit/test_pricing.py

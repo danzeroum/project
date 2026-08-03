@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/business-rules.schema.json",
+  "title": "business/rules/*.yaml — regras de negócio de uma capacidade",
+  "description": "Regras declaradas por capacidade. Reduzem o risco de um agente implementar algo tecnicamente correto mas funcionalmente inadequado.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "capability", "rules"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "capability": { "type": "string", "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "status", "statement"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^RULE-[A-Z0-9]+(-[A-Z0-9]+)*-[0-9]{3}$" },
+          "name": { "type": "string" },
+          "status": { "enum": ["proposed", "planned", "implemented", "verified", "deprecated"] },
+          "statement": { "type": "string" },
+          "rationale": { "type": "string" },
+          "verified_by": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
