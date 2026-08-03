@@ -78,3 +78,5 @@ risks:
         ref: ci/validate_metadata.py
       - kind: local_path
         ref: harness/policies/change-proposals.md
+      - kind: local_path
+        ref: architecture/adr/ADR-004-mudanca-proposta-declarada.md
