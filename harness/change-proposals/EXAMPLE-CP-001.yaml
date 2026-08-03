@@ -1,0 +1,29 @@
+# Exemplo de mudança proposta (referência válida). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-001
+  title: "Adicionar desconto por volume à precificação"
+  author_kind: agent
+  created_at: "2026-08-03T18:00:00Z"
+  capabilities_affected:
+    - CAP-PRICING
+  components_affected:
+    - CMP-PRICING
+  risk_assessment:
+    level: medium
+    risks: []
+    rationale: >
+      Altera lógica de negócio em módulo com testes; sem toque em rede, dependências
+      ou caminhos protegidos. Risco médio conforme a matriz da harness.
+  required_gates:
+    - unit-tests
+    - inventory
+    - metadata-validation
+  tests_required:
+    - tests/unit/test_pricing.py
+  human_approval_required: false
+  change_mode: pull_request

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/design-system.schema.json",
+  "title": "design-system.yaml — identidade e metas do sistema de design",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "design_system"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "design_system": {
+      "type": "object",
+      "required": ["name", "version", "accessibility_target"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "accessibility_target": { "enum": ["WCAG-2.1-AA", "WCAG-2.2-AA", "WCAG-2.2-AAA"] }
+      }
+    }
+  }
+}

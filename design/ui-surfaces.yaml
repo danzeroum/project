@@ -1,0 +1,30 @@
+# Superfícies de UI ligadas a capacidades. IDs estáveis (UI-*) apontam para capacidades (CAP-*).
+# Critérios de aceite explícitos dão ao agente reviewer uma régua de experiência, não um palpite.
+# Schema: harness/schemas/ui-surfaces.schema.json
+# status: proposed — não há código de UI ainda; o fiscal não exige arquivo (só resolução do CAP).
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+ui_surfaces:
+  - id: UI-PRICING-PAGE
+    capability: CAP-PRICING
+    status: proposed
+    routes:
+      - /pricing
+    primary_user_goal: "Entender valores e selecionar um plano."
+    acceptance_criteria:
+      - "O preço final é apresentado antes da confirmação."
+      - "Erros de validação têm texto acessível (rótulo associado ao campo)."
+      - "A ordem de foco segue a ordem visual da página."
+
+  - id: UI-CATALOG-LIST
+    capability: CAP-CATALOG
+    status: proposed
+    routes:
+      - /products
+    primary_user_goal: "Navegar o catálogo e ver preços por produto."
+    acceptance_criteria:
+      - "Cada item exibe SKU e preço."
+      - "A lista é operável apenas por teclado."

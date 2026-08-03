@@ -54,6 +54,7 @@ project/
 ├── project.yaml          identidade, criticidade, donos, governança (schema em harness/schemas/)
 ├── business/             visão + capacidades de negócio (rastreabilidade capacidade→código→teste)
 ├── architecture/         componentes técnicos ligados a capacidades
+├── design/               sistema de design + superfícies de UI ligadas a capacidades
 ├── governance/           registro de riscos que classifica a mudança antes de agir
 ├── src/project/          negócio de exemplo (entrada real do inventário / Trabalho B)
 ├── tests/
@@ -65,6 +66,7 @@ project/
 │   ├── policies/         índice: cada regra aponta para seu fiscal executável
 │   ├── agents/           contratos dos agentes (developer, reviewer, tester, documenter)
 │   ├── prompts/          templates de tarefa
+│   ├── change-proposals/ mudanças declaradas antes de executadas (ponte para execução agentic)
 │   └── runs/ reports/ state/   evidência (gitignored)
 ├── ci/validate_metadata.py      fiscal semântico dos metadados (linter de CI, não runner)
 ├── requirements-qa.txt   webqa-suite==0.0.0  (padrão DECLARADO, nunca copiado — FONTE ÚNICA da versão)
@@ -89,6 +91,12 @@ comentário ("markdown que não morde").
   capacidades `implemented`/`verified`; uma `proposed` pode ainda não ter código.
 - **Procedência versionada:** o schema da procedência evolui por versão (`1.0` → `1.1` adiciona o bloco
   `artifact`), nunca por um segundo formato informal.
+- **Design como contrato:** `design/ui-surfaces.yaml` liga cada superfície de UI a uma capacidade
+  (`CAP-*`) com critérios de aceite explícitos — o reviewer avalia mudança de UI contra a régua, não
+  contra um palpite.
+- **Mudança declarada antes de executada:** toda proposta (`harness/change-proposals/`) declara o que
+  afeta, o risco e os gates; risco `high`/`critical` **exige aval humano** por trava de schema. É o elo
+  entre metadado estático e execução agentic.
 
 ## Quickstart
 

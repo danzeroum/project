@@ -56,3 +56,19 @@ risks:
         ref: ci/validate_metadata.py
       - kind: local_path
         ref: .github/workflows/validate-metadata.yml
+
+  - id: RISK-CHANGE-001
+    area: governance
+    description: "Agente aplica mudança de alto risco sem declaração de impacto nem aval humano."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: security_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: harness/schemas/change-proposal.schema.json
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: harness/policies/change-proposals.md
