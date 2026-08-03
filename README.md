@@ -92,8 +92,9 @@ comentário ("markdown que não morde").
 - **Procedência versionada:** o schema da procedência evolui por versão (`1.0` → `1.1` adiciona o bloco
   `artifact`), nunca por um segundo formato informal.
 - **Design como contrato:** `design/ui-surfaces.yaml` liga cada superfície de UI a uma capacidade
-  (`CAP-*`) com critérios de aceite explícitos — o reviewer avalia mudança de UI contra a régua, não
-  contra um palpite.
+  (`CAP-*`) com critérios de aceite explícitos e aos requisitos que satisfaz (`satisfies: [REQ-*]`);
+  o fiscal cobra que o requisito exista e compartilhe a mesma capacidade da superfície. O reviewer
+  avalia mudança de UI contra a régua, não contra um palpite.
 - **Mudança declarada antes de executada:** toda proposta (`harness/change-proposals/`) declara o que
   afeta, o risco e os gates; risco `high`/`critical` **exige aval humano** por trava de schema. É o elo
   entre metadado estático e execução agentic.
