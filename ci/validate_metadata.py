@@ -40,7 +40,7 @@ DOCS = [
     ("design/ui-surfaces.yaml", "ui-surfaces.schema.json"),
     ("architecture/adr/index.yaml", "adr-index.schema.json"),
     ("business/requirements/backlog.yaml", "backlog.schema.json"),
-    ("business/vision.yaml", None),
+    ("business/vision.yaml", "vision.schema.json"),
 ]
 
 # Propostas de mudança: artefatos versionados validados por schema + semântica.
@@ -270,8 +270,14 @@ def check_business_rules(caps: dict[str, dict]) -> None:
                         err(f"[regra] {rule.get('id', '?')}: verified_by fora de tests/: {p}")
 
 
-def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -> None:
-    """Cada requisito pertence a uma capacidade real; depends_on e risk resolvem."""
+def metric_ids(vision_doc: dict | None) -> set[str]:
+    if not vision_doc:
+        return set()
+    return {m.get("id") for m in vision_doc.get("product", {}).get("success_metrics", [])}
+
+
+def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str], metrics: set[str]) -> None:
+    """Cada requisito pertence a uma capacidade real; depends_on, risk e metrics resolvem."""
     if not doc:
         return
     req_ids = {i.get("id") for i in doc.get("items", [])}
@@ -285,6 +291,9 @@ def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -
         risk = item.get("risk")
         if risk and risk not in risk_ids:
             err(f"[REQ] {rid}: risco citado {risk} não existe no risk-register")
+        for met in item.get("metrics", []):
+            if met not in metrics:
+                err(f"[REQ] {rid}: métrica citada {met} não existe em vision.yaml")
 
 
 def check_adr_index(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -> None:
@@ -358,7 +367,8 @@ def main() -> int:
     check_interfaces(loaded.get("architecture/interfaces.yaml"), loaded.get("architecture/components.yaml"))
     check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps)
     check_business_rules(caps)
-    check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids)
+    metrics = metric_ids(loaded.get("business/vision.yaml"))
+    check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids, metrics)
     check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, risk_ids)
     check_change_proposals(caps, comp_ids, risk_ids)
 

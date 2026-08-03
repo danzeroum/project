@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/vision.schema.json",
+  "title": "business/vision.yaml — visão de produto e métricas de sucesso",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "product"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "product": {
+      "type": "object",
+      "required": ["problem", "target_users", "value_proposition", "success_metrics"],
+      "additionalProperties": false,
+      "properties": {
+        "problem": { "type": "string" },
+        "target_users": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "value_proposition": { "type": "string" },
+        "success_metrics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "description", "target"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^MET-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+              "description": { "type": "string" },
+              "target": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

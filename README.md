@@ -102,8 +102,10 @@ comentário ("markdown que não morde").
   de volta (elo bidirecional que o fiscal cobra).
 - **Decisões versionadas:** `architecture/adr/` guarda os ADRs; o `index.yaml` é a parte fiscalizável —
   cada entrada aponta para um arquivo real e resolve suas referências a capacidade/risco/ADR.
-- **Backlog ligado a capacidade:** `business/requirements/backlog.yaml` declara os requisitos, cada um
-  pertencente a uma `CAP-*`; o fiscal cobra que a capacidade exista e que `depends_on`/`risk` resolvam.
+- **Backlog ligado a capacidade e métrica:** `business/requirements/backlog.yaml` declara os requisitos,
+  cada um pertencente a uma `CAP-*` e citando as métricas (`MET-*`) que move; o fiscal cobra que a
+  capacidade, `depends_on`, `risk` e as métricas resolvam. As métricas de sucesso (`MET-*`) vivem em
+  `business/vision.yaml` — assim o backlog fecha a cadeia até o resultado de negócio.
 - **Interfaces coerentes com o grafo:** `architecture/interfaces.yaml` liga provedor e consumidores
   (`CMP-*`); o fiscal cobra que os símbolos expostos existam no provedor e que cada consumidor
   declare `depends_on` o provedor.

@@ -50,11 +50,12 @@ def build_mermaid() -> str:
     risks = load("governance/risk-register.yaml").get("risks", [])
     rule_files = load_dir("business/rules")
     backlog = load("business/requirements/backlog.yaml").get("items", [])
+    metrics = load("business/vision.yaml").get("product", {}).get("success_metrics", [])
     project = load("project.yaml").get("project", {})
 
     lines: list[str] = ["graph TD"]
     classes: dict[str, list[str]] = {k: [] for k in
-                                     ("project", "cap", "cmp", "ifc", "rule", "ui", "req", "adr", "risk")}
+                                     ("project", "cap", "cmp", "ifc", "rule", "ui", "req", "met", "adr", "risk")}
 
     # Projeto (raiz)
     pid = project.get("id", "project")
@@ -109,7 +110,13 @@ def build_mermaid() -> str:
         if s.get("capability"):
             lines.append(f"  {n} -->|experiência| {nid(s['capability'])}")
 
-    # Requisitos de backlog → capacidade e dependências
+    # Métricas de sucesso (da vision)
+    for m in sorted(metrics, key=lambda m: m.get("id", "")):
+        n = nid(m["id"])
+        lines.append(f'  {n}[["{m["id"]}"]]')
+        classes["met"].append(n)
+
+    # Requisitos de backlog → capacidade, dependências e métricas movidas
     for item in sorted(backlog, key=lambda i: i.get("id", "")):
         n = nid(item["id"])
         lines.append(f'  {n}["{item["id"]}<br/>{esc(item.get("status", ""))}"]')
@@ -118,6 +125,8 @@ def build_mermaid() -> str:
             lines.append(f"  {n} -->|requisito| {nid(item['capability'])}")
         for dep in sorted(item.get("depends_on", [])):
             lines.append(f"  {n} -.->|depende| {nid(dep)}")
+        for met in sorted(item.get("metrics", [])):
+            lines.append(f"  {n} ==>|move| {nid(met)}")
 
     # Riscos
     for r in sorted(risks, key=lambda r: r.get("id", "")):
@@ -144,6 +153,7 @@ def build_mermaid() -> str:
         "rule": "fill:#16a34a,stroke:#15803d,color:#fff",
         "ui": "fill:#db2777,stroke:#9d174d,color:#fff",
         "req": "fill:#0d9488,stroke:#0f766e,color:#fff",
+        "met": "fill:#ea580c,stroke:#c2410c,color:#fff",
         "adr": "fill:#ca8a04,stroke:#a16207,color:#fff",
         "risk": "fill:#dc2626,stroke:#991b1b,color:#fff",
     }
