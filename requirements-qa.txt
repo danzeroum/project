@@ -1,7 +1,12 @@
 # Padrão DECLARADO, nunca copiado. Pin exato (==), sem faixa.
 # A superfície do que a suíte procura é dado de segurança: não deve mudar sozinha entre dois runs.
 #
-# 0.0.0 é PLACEHOLDER até a suíte ser publicada em danzeroum/qa-suite.
+# Versão declarada = 1.0.0 (a versão real em danzeroum/qa-suite).
+# A suíte ainda não é publicada no PyPI, então a INSTALAÇÃO é feita a partir do Git
+# (ver docs/COMO-ADOTAR.md §4):
+#   pip install "webqa-suite @ git+https://github.com/danzeroum/qa-suite@v1.0.0#subdirectory=webqa-suite"
+# Quando publicar no PyPI, `pip install -r requirements-qa.txt` resolve direto.
+#
 # Ao subir de versão: PR do projeto, com o laudo anterior e o novo lado a lado
 # (ver harness/policies/dependency-updates.md).
-webqa-suite==0.0.0
+webqa-suite==1.0.0

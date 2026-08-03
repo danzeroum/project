@@ -69,7 +69,7 @@ project/
 │   ├── change-proposals/ mudanças declaradas antes de executadas (ponte para execução agentic)
 │   └── runs/ reports/ state/   evidência (gitignored)
 ├── ci/validate_metadata.py      fiscal semântico dos metadados (linter de CI, não runner)
-├── requirements-qa.txt   webqa-suite==0.0.0  (padrão DECLARADO, nunca copiado — FONTE ÚNICA da versão)
+├── requirements-qa.txt   webqa-suite==1.0.0  (padrão DECLARADO, nunca copiado — FONTE ÚNICA da versão)
 ├── WEBQA_CONSUMER_CONTRACT.md   a interface entre este repo e a suíte
 └── .github/workflows/
     ├── qa.yml                   CI: inventário+passivo automáticos; carga/sondagem segregados
@@ -128,10 +128,11 @@ pip install -e ".[dev]"     # instala o pacote de negócio + ferramentas de test
 pytest tests/unit           # o alvo do inventário é código real e testado
 ```
 
-A execução da suíte (inventário e auditoria) é feita pela CLI externa `webqa`, orquestrada pelo CI
-em `.github/workflows/qa.yml`. Enquanto o pacote `webqa-suite` não estiver publicado, o pin em
-`requirements-qa.txt` é um placeholder (`==0.0.0`) e os passos de suíte no CI degradam de forma
-tolerante.
+A régua é declarada em `requirements-qa.txt` na versão real (`webqa-suite==1.0.0`). Como a suíte
+ainda **não é publicada no PyPI**, a instalação é feita a partir do Git e — como a v1.0.0 ainda não
+tem CLI instalável — a execução é por marcadores `pytest` / `make` / container Docker (ver
+`docs/COMO-ADOTAR.md`). Os passos de suíte no CI (`.github/workflows/qa.yml`) degradam de forma
+tolerante enquanto o ambiente não tiver a suíte instalada.
 
 ## Onde a trava realmente morde
 
