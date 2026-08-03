@@ -226,8 +226,9 @@ def check_interfaces(doc: dict | None, components_doc: dict | None) -> None:
                 err(f"[IFC] {iid}: {consumer} consome mas não declara depends_on {provider}")
 
 
-def check_ui_surfaces(doc: dict | None, caps: dict[str, dict]) -> None:
-    """I7: toda superfície de UI aponta para uma capacidade existente."""
+def check_ui_surfaces(doc: dict | None, caps: dict[str, dict], req_caps: dict[str, str]) -> None:
+    """I7: toda superfície de UI aponta para uma capacidade existente; um requisito satisfeito
+    existe e compartilha a mesma capacidade da superfície (coerência)."""
     if not doc:
         return
     for surface in doc.get("ui_surfaces", []):
@@ -235,6 +236,11 @@ def check_ui_surfaces(doc: dict | None, caps: dict[str, dict]) -> None:
         cap_ref = surface.get("capability")
         if cap_ref not in caps:
             err(f"[I7] {sid}: capability {cap_ref} não existe em capabilities.yaml")
+        for req in surface.get("satisfies", []):
+            if req not in req_caps:
+                err(f"[UI] {sid}: satisfies {req} não existe no backlog")
+            elif req_caps[req] != cap_ref:
+                err(f"[UI] {sid}: satisfies {req} é da capacidade {req_caps[req]}, não de {cap_ref}")
 
 
 def check_business_rules(caps: dict[str, dict]) -> None:
@@ -365,7 +371,9 @@ def main() -> int:
     comp_ids = check_components(loaded.get("architecture/components.yaml"), caps)
     risk_ids = check_risk_controls(loaded.get("governance/risk-register.yaml"))
     check_interfaces(loaded.get("architecture/interfaces.yaml"), loaded.get("architecture/components.yaml"))
-    check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps)
+    backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
+    req_caps = {i.get("id"): i.get("capability") for i in backlog_doc.get("items", [])}
+    check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps, req_caps)
     check_business_rules(caps)
     metrics = metric_ids(loaded.get("business/vision.yaml"))
     check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids, metrics)

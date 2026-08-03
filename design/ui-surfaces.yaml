@@ -11,6 +11,8 @@ ui_surfaces:
   - id: UI-PRICING-PAGE
     capability: CAP-PRICING
     status: proposed
+    satisfies:
+      - REQ-001
     routes:
       - /pricing
     primary_user_goal: "Entender valores e selecionar um plano."
@@ -22,6 +24,8 @@ ui_surfaces:
   - id: UI-CATALOG-LIST
     capability: CAP-CATALOG
     status: proposed
+    satisfies:
+      - REQ-003
     routes:
       - /products
     primary_user_goal: "Navegar o catálogo e ver preços por produto."

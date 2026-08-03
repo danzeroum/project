@@ -102,13 +102,15 @@ def build_mermaid() -> str:
             if cap_ref:
                 lines.append(f"  {nid(cap_ref)} -->|regra| {n}")
 
-    # Superfícies de UI → capacidade
+    # Superfícies de UI → capacidade e requisitos satisfeitos
     for s in sorted(surfaces, key=lambda s: s.get("id", "")):
         n = nid(s["id"])
         lines.append(f'  {n}["{s["id"]}"]')
         classes["ui"].append(n)
         if s.get("capability"):
             lines.append(f"  {n} -->|experiência| {nid(s['capability'])}")
+        for req in sorted(s.get("satisfies", [])):
+            lines.append(f"  {n} -.->|satisfaz| {nid(req)}")
 
     # Métricas de sucesso (da vision)
     for m in sorted(metrics, key=lambda m: m.get("id", "")):
