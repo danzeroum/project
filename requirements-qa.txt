@@ -1,0 +1,7 @@
+# Padrão DECLARADO, nunca copiado. Pin exato (==), sem faixa.
+# A superfície do que a suíte procura é dado de segurança: não deve mudar sozinha entre dois runs.
+#
+# 0.0.0 é PLACEHOLDER até a suíte ser publicada em danzeroum/qa-suite.
+# Ao subir de versão: PR do projeto, com o laudo anterior e o novo lado a lado
+# (ver harness/policies/dependency-updates.md).
+webqa-suite==0.0.0

@@ -1,0 +1,17 @@
+# Autorização DECLARATIVA para modos que tocam a rede. Obrigatório antes de passive/active_discovery.
+# Schema: WEBQA_CONSUMER_CONTRACT.md §3.
+# Enquanto este arquivo declara authorized:false, nenhum modo de rede é permitido.
+
+authorized: false   # troque para true e preencha o escopo quando houver autorização real
+
+scope:
+  hosts: ["example.invalid"]     # comparação de origem EXATA — host fora da lista nunca é tocado
+  paths_in_scope: ["/api/*"]
+  paths_excluded: ["/admin/*"]
+
+# Obrigatório e não-vazio para active_discovery (prova de que o alvo é seu).
+proof_of_possession:
+  method: dns-txt                # dns-txt | file | header
+  reference: "not-configured"
+
+authorization_expires: "2026-12-31"   # data ISO; expirado ⇒ recusa
