@@ -102,7 +102,8 @@ comentário ("markdown que não morde").
   capacidade; uma regra `verified` aponta para o teste que a prova, e a capacidade referencia o arquivo
   de volta (elo bidirecional que o fiscal cobra).
 - **Decisões versionadas:** `architecture/adr/` guarda os ADRs; o `index.yaml` é a parte fiscalizável —
-  cada entrada aponta para um arquivo real e resolve suas referências a capacidade/risco/ADR.
+  cada entrada aponta para um arquivo real e resolve suas referências a capacidade, componente
+  (`related_components: [CMP-*]`), risco e ADR.
 - **Backlog no centro do grafo:** `business/requirements/backlog.yaml` declara os requisitos, cada um
   ligado à sua `CAP-*`, às métricas (`MET-*`) que move, às regras (`RULE-*`) que o regem, e opcionalmente
   a `depends_on`/`risk`. O fiscal cobra que tudo resolva — e que métricas/regras citadas compartilhem a

@@ -147,6 +147,8 @@ def build_mermaid() -> str:
         classes["adr"].append(n)
         for cap in sorted(a.get("related_capabilities", [])):
             lines.append(f"  {n} -->|decide| {nid(cap)}")
+        for cmp in sorted(a.get("related_components", [])):
+            lines.append(f"  {n} -->|decide| {nid(cmp)}")
         for rk in sorted(a.get("related_risks", [])):
             lines.append(f"  {n} -->|mitiga| {nid(rk)}")
 

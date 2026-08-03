@@ -73,6 +73,10 @@ graph TD
   ADR_003 -->|mitiga| RISK_DEP_001
   ADR_004["ADR-004"]
   ADR_004 -->|mitiga| RISK_CHANGE_001
+  ADR_005["ADR-005"]
+  ADR_005 -->|decide| CAP_CATALOG
+  ADR_005 -->|decide| CMP_CATALOG
+  ADR_005 -->|decide| CMP_PRICING
   classDef project fill:#1f2937,stroke:#111827,color:#fff;
   class PROJ_danzeroum_project project;
   classDef cap fill:#2563eb,stroke:#1e40af,color:#fff;
@@ -90,7 +94,7 @@ graph TD
   classDef met fill:#ea580c,stroke:#c2410c,color:#fff;
   class MET_ACTIVATION,MET_AOV,MET_DISCOVERY met;
   classDef adr fill:#ca8a04,stroke:#a16207,color:#fff;
-  class ADR_001,ADR_002,ADR_003,ADR_004 adr;
+  class ADR_001,ADR_002,ADR_003,ADR_004,ADR_005 adr;
   classDef risk fill:#dc2626,stroke:#991b1b,color:#fff;
   class RISK_CHANGE_001,RISK_DEP_001,RISK_META_001,RISK_WEBQA_001 risk;
 ```

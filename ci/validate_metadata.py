@@ -326,8 +326,9 @@ def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str],
                 err(f"[REQ] {rid}: governed_by {rule} é da capacidade {rule_caps[rule]}, não de {cap}")
 
 
-def check_adr_index(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -> None:
-    """Cada ADR do índice tem arquivo real; supersedes e referências (CAP/RISK) resolvem."""
+def check_adr_index(doc: dict | None, caps: dict[str, dict], comp_ids: set[str],
+                    risk_ids: set[str]) -> None:
+    """Cada ADR do índice tem arquivo real; supersedes e referências (CAP/CMP/RISK) resolvem."""
     if not doc:
         return
     adr_ids = {a.get("id") for a in doc.get("adrs", [])}
@@ -341,6 +342,9 @@ def check_adr_index(doc: dict | None, caps: dict[str, dict], risk_ids: set[str])
         for cap in adr.get("related_capabilities", []):
             if cap not in caps:
                 err(f"[ADR] {aid}: related_capabilities {cap} não existe")
+        for cmp in adr.get("related_components", []):
+            if cmp not in comp_ids:
+                err(f"[ADR] {aid}: related_components {cmp} não existe em components.yaml")
         for rref in adr.get("related_risks", []):
             if rref not in risk_ids:
                 err(f"[ADR] {aid}: related_risks {rref} não existe no registro")
@@ -402,7 +406,7 @@ def main() -> int:
     rule_caps = check_business_rules(caps)
     metrics = metric_ids(loaded.get("business/vision.yaml"))
     check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids, metrics, rule_caps)
-    check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, risk_ids)
+    check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, comp_ids, risk_ids)
     check_change_proposals(caps, comp_ids, risk_ids)
 
     if errors:
