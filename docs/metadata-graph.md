@@ -19,6 +19,7 @@ graph TD
   CMP_PRICING["CMP-PRICING<br/>pricing.py"]
   CMP_PRICING -->|realiza| CAP_PRICING
   CMP_PRICING -->|depende| CMP_CATALOG
+  CMP_PRICING -.->|implementa| REQ_001
   IFC_CATALOG_PORT(["IFC-CATALOG-PORT<br/>Porta de catálogo de produtos"])
   CMP_CATALOG -.->|provê| IFC_CATALOG_PORT
   IFC_CATALOG_PORT -.->|consome| CMP_PRICING

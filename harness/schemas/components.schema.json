@@ -41,6 +41,7 @@
           "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^CMP-[A-Z0-9]+(-[A-Z0-9]+)*$" } },
           "exposes": { "type": "array", "items": { "type": "string" } },
           "tested_by": { "type": "array", "items": { "type": "string" } },
+          "implements": { "type": "array", "items": { "type": "string", "pattern": "^REQ-[0-9]{3}$" } },
           "owner": { "type": "string" }
         }
       }

@@ -20,6 +20,8 @@ components:
       - "project.pricing.total_com_imposto_centavos"
     tested_by:
       - tests/unit/test_pricing.py
+    implements:
+      - REQ-001
     owner: engineering
 
   - id: CMP-CATALOG
