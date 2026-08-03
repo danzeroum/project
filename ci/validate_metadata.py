@@ -324,6 +324,18 @@ def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str],
                 err(f"[REQ] {rid}: governed_by {rule} não existe em business/rules")
             elif rule_caps[rule] != cap:
                 err(f"[REQ] {rid}: governed_by {rule} é da capacidade {rule_caps[rule]}, não de {cap}")
+        vtests = item.get("validated_by", [])
+        if vtests and item.get("status") not in {"in_progress", "done"}:
+            err(f"[REQ] {rid}: validated_by presente mas o requisito está "
+                f"'{item.get('status')}' — só requisito iniciado é validado por teste")
+        cap_tests = set(caps.get(cap, {}).get("test_paths", []))
+        for t in vtests:
+            if not rel_exists(t):
+                err(f"[REQ] {rid}: validated_by teste inexistente: {t}")
+            elif not t.startswith("tests/"):
+                err(f"[REQ] {rid}: validated_by fora de tests/: {t}")
+            elif t not in cap_tests:
+                err(f"[REQ] {rid}: validated_by '{t}' não consta em {cap}.test_paths")
 
 
 def check_adr_index(doc: dict | None, caps: dict[str, dict], comp_ids: set[str],
