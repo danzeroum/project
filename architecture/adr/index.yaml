@@ -29,3 +29,10 @@ adrs:
       - CAP-PRICING
     related_risks:
       - RISK-DEP-001
+
+  - id: ADR-004
+    title: "Toda mudança proposta é declarada e validada antes de executada"
+    status: accepted
+    file: architecture/adr/ADR-004-mudanca-proposta-declarada.md
+    related_risks:
+      - RISK-CHANGE-001
