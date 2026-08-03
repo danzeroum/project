@@ -51,21 +51,44 @@ inventário — e o operador aprende a aprovar sem ler. Eles são modos distinto
 
 ```
 project/
+├── project.yaml          identidade, criticidade, donos, governança (schema em harness/schemas/)
+├── business/             visão + capacidades de negócio (rastreabilidade capacidade→código→teste)
+├── architecture/         componentes técnicos ligados a capacidades
+├── governance/           registro de riscos que classifica a mudança antes de agir
 ├── src/project/          negócio de exemplo (entrada real do inventário / Trabalho B)
 ├── tests/
 │   ├── unit/             testes do negócio (o que o inventário cataloga)
 │   └── qa/               configuração DECLARATIVA de consumo da suíte (alvo, escopo, campanha)
 ├── harness/              o plano de controle
-│   ├── harness.yaml      modos de execução + higiene de ambiente
-│   ├── schemas/          contratos JSON (procedência, laudo, harness.yaml)
+│   ├── harness.yaml      modos + higiene de ambiente + protected_paths + decision_policy
+│   ├── schemas/          contratos JSON (procedência, laudo, harness, project, risco, capacidade, componente)
 │   ├── policies/         índice: cada regra aponta para seu fiscal executável
 │   ├── agents/           contratos dos agentes (developer, reviewer, tester, documenter)
 │   ├── prompts/          templates de tarefa
 │   └── runs/ reports/ state/   evidência (gitignored)
-├── requirements-qa.txt   webqa-suite==0.0.0  (padrão DECLARADO, nunca copiado)
+├── ci/validate_metadata.py      fiscal semântico dos metadados (linter de CI, não runner)
+├── requirements-qa.txt   webqa-suite==0.0.0  (padrão DECLARADO, nunca copiado — FONTE ÚNICA da versão)
 ├── WEBQA_CONSUMER_CONTRACT.md   a interface entre este repo e a suíte
-└── .github/workflows/qa.yml     CI: inventário+passivo automáticos; carga/sondagem segregados
+└── .github/workflows/
+    ├── qa.yml                   CI: inventário+passivo automáticos; carga/sondagem segregados
+    └── validate-metadata.yml    CI: valida schema + existência de paths + coerência entre docs
 ```
+
+## Metadados governáveis
+
+O repositório descreve não só *como se verifica*, mas *o que o negócio é* — em camadas separadas por
+dono e ciclo. Cada metadado tem **fonte de verdade, schema, dono e fiscal**; sem isso, YAML é só
+comentário ("markdown que não morde").
+
+- **Fonte única da versão:** o pin em `requirements-qa.txt` é o único lugar com o número. `project.yaml`,
+  `tests/qa/config.yaml` e os demais **referenciam** (`version_source`), nunca restatam — fecha a
+  deriva de régua (H3). O schema recusa estruturalmente escrever a versão em `project.yaml`.
+- **Rastreabilidade por ID estável:** `CAP-*` (capacidade) → `CMP-*` (componente) → código → teste →
+  risco. Arestas por ID, não por path — renomear arquivo não quebra a referência.
+- **Maturidade condiciona o fiscal:** `ci/validate_metadata.py` só exige código+teste existentes para
+  capacidades `implemented`/`verified`; uma `proposed` pode ainda não ter código.
+- **Procedência versionada:** o schema da procedência evolui por versão (`1.0` → `1.1` adiciona o bloco
+  `artifact`), nunca por um segundo formato informal.
 
 ## Quickstart
 

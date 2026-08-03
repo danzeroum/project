@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/project.schema.json",
+  "title": "project.yaml — manifesto de identidade do projeto",
+  "description": "Completa (não substitui) o pyproject.toml: propósito, domínio, criticidade, donos, governança. Legível por humano, CI e agente.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "project", "business", "quality_standard", "governance"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "project": {
+      "type": "object",
+      "required": ["id", "name", "type", "lifecycle", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "lifecycle": { "enum": ["template", "incubating", "active", "maintenance", "sunset"] },
+        "status": { "enum": ["active", "paused", "archived"] }
+      }
+    },
+    "business": {
+      "type": "object",
+      "required": ["domain", "purpose", "criticality", "stakeholders"],
+      "additionalProperties": false,
+      "properties": {
+        "domain": { "type": "string" },
+        "purpose": { "type": "string" },
+        "criticality": { "enum": ["low", "medium", "high", "critical"] },
+        "stakeholders": {
+          "type": "object",
+          "required": ["product_owner", "technical_owner", "security_owner"],
+          "additionalProperties": false,
+          "properties": {
+            "product_owner": { "type": "string" },
+            "technical_owner": { "type": "string" },
+            "security_owner": { "type": "string" }
+          }
+        }
+      }
+    },
+    "quality_standard": {
+      "type": "object",
+      "description": "Declara QUAL padrão e ONDE a versão mora — nunca o número. version_source é a fonte única (H3).",
+      "required": ["name", "version_source"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "webqa-suite" },
+        "version_source": { "const": "requirements-qa.txt" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "required": ["default_change_mode", "human_approval_required_for", "evidence_retention_days"],
+      "additionalProperties": false,
+      "properties": {
+        "default_change_mode": { "const": "pull_request" },
+        "human_approval_required_for": {
+          "type": "array",
+          "items": { "enum": ["dependency_update", "production_deploy", "load", "active_discovery", "protected_path_change"] },
+          "uniqueItems": true
+        },
+        "evidence_retention_days": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "data_classification": { "type": "string" },
+        "lgpd_relevance": { "type": "string" },
+        "internet_exposed": { "type": "boolean" }
+      }
+    }
+  }
+}

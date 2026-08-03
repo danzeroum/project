@@ -1,0 +1,58 @@
+# Registro de riscos: classifica quanto risco existe numa mudança antes de agir.
+# Schema: harness/schemas/risk-register.schema.json
+# controls[] são referências TIPADAS — nem todo controle é arquivo local.
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+risks:
+  - id: RISK-WEBQA-001
+    area: webqa
+    description: "Sondagem ativa realizada sem autorização externa."
+    likelihood: low
+    impact: high
+    treatment: prevent
+    owner: security_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: harness/policies/execution-modes.md
+      - kind: local_path
+        ref: .github/workflows/qa.yml
+      - kind: standard_symbol
+        standard: webqa-suite
+        version_source: requirements-qa.txt
+        ref: "webqa/gates.py::require_discovery"
+      - kind: github_environment
+        ref: production
+
+  - id: RISK-DEP-001
+    area: dependencies
+    description: "Atualização automática altera a régua de auditoria sem revisão."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: requirements-qa.txt
+      - kind: local_path
+        ref: harness/policies/dependency-updates.md
+      - kind: branch_protection
+        ref: "main:require_pull_request_reviews"
+
+  - id: RISK-META-001
+    area: governance
+    description: "Metadado declarado sem fiscal deriva do repositório real e mente em silêncio."
+    likelihood: medium
+    impact: medium
+    treatment: mitigate
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: .github/workflows/validate-metadata.yml

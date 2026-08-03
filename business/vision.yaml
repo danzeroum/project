@@ -1,0 +1,16 @@
+# Visão de produto: o problema, os usuários e as métricas de sucesso.
+# (Sem schema dedicado no conjunto inicial; validado como YAML e como contexto para agentes.)
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+product:
+  problem: "Problema de negócio que o produto resolve (a definir pelo projeto real)."
+  target_users:
+    - "perfil-principal"
+  value_proposition: "Resultado mensurável esperado."
+  success_metrics:
+    - id: "activation-rate"
+      description: "Percentual de usuários que concluem a jornada inicial."
+      target: ">= 60%"

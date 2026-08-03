@@ -1,11 +1,18 @@
 # WEBQA_CONSUMER_CONTRACT
 
+`contract_version: 1.0`
+
 Contrato de interface entre um **projeto consumidor** (este repositório) e a **WebQA Suite** (o
 padrão externo, `danzeroum/qa-suite`). Ele fixa o que o consumidor pode declarar, como a harness
 invoca a suíte, e como laudos de projetos diferentes podem — ou não — ser comparados.
 
 Este documento é normativo. Onde diverge da suíte instalada, a **versão exata declarada em
 `requirements-qa.txt` vence**, e a divergência é um erro de configuração, não uma negociação.
+
+O `contract_version` versiona a **forma** deste contrato (layout aceito, schemas, modos, códigos de
+erro). Mudança de layout — por exemplo mover `tests/qa/` para `qa/` na raiz — é uma migração de
+contrato: sobe o `contract_version` e documenta o mapa v1→v2. Enquanto o contrato é `1.0`, o layout
+canônico é `tests/qa/`.
 
 ---
 

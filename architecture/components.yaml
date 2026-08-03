@@ -1,0 +1,37 @@
+# Componentes técnicos ligados a capacidades. Fecha a rastreabilidade
+# capacidade → componente → código → teste.
+# Schema: harness/schemas/components.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+components:
+  - id: CMP-PRICING
+    kind: domain-module
+    capability: CAP-PRICING
+    status: verified
+    source_paths:
+      - src/project/pricing.py
+    depends_on:
+      - CMP-CATALOG
+    exposes:
+      - "project.pricing.subtotal_centavos"
+      - "project.pricing.total_com_imposto_centavos"
+    tested_by:
+      - tests/unit/test_pricing.py
+    owner: engineering
+
+  - id: CMP-CATALOG
+    kind: port
+    capability: CAP-CATALOG
+    status: verified
+    source_paths:
+      - src/project/ports.py
+    depends_on: []
+    exposes:
+      - "project.ports.CatalogoProdutos"
+      - "project.ports.CatalogoEmMemoria"
+    tested_by:
+      - tests/unit/test_ports.py
+    owner: engineering

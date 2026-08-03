@@ -8,6 +8,24 @@ standard:
   package: webqa-suite
   requirements_file: requirements-qa.txt   # o pin exato mora lá; aqui só referenciamos
 
+# Fronteira do repositório. protected_paths só mudam com revisão humana — o fiscal REAL é
+# CODEOWNERS + branch protection + diff-check no CI, não esta lista (que é a declaração).
+repository:
+  project_manifest: project.yaml
+  protected_paths:
+    - .github/
+    - harness/
+    - tests/qa/escopo-autorizado.yaml
+    - requirements-qa.txt
+
+# Política de decisão da harness. default: deny — sem reconhecer projeto/capacidade/risco/modo,
+# não age. missing_metadata para e pede contexto em vez de inferir.
+decision_policy:
+  default: deny
+  missing_metadata: stop_and_request_context
+  protected_path_change: require_human_review
+  dependency_update: require_human_review
+
 # Enumeração formal dos quatro modos. Uma chamada ambígua nunca deve ser roteada como
 # operação de baixo risco — cada modo declara sua natureza de risco.
 execution_modes:
