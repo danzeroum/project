@@ -19,6 +19,8 @@ on:
       - "src/**"
       - "tests/**"
       - "ci/validate_metadata.py"
+      - "ci/generate_graph.py"
+      - "docs/metadata-graph.md"
       - "requirements-qa.txt"
 
 permissions:
@@ -36,3 +38,5 @@ jobs:
         run: pip install "jsonschema>=4" "pyyaml>=6"
       - name: Validar metadados (schema + semântica)
         run: python ci/validate_metadata.py
+      - name: Diagrama de relacionamento em dia (artefato derivado)
+        run: python ci/generate_graph.py --check

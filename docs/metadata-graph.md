@@ -1,0 +1,66 @@
+# Mapa de relacionamento dos metadados
+
+> **Gerado** por `ci/generate_graph.py` a partir dos metadados reais. Não editar à mão —
+> regenerar com `python ci/generate_graph.py`. É um artefato derivado, não fonte de verdade.
+
+Legenda: azul-escuro = projeto · azul = capacidade (`CAP-`) · ciano = componente (`CMP-`) ·
+roxo = interface (`IFC-`) · verde = regra (`RULE-`) · rosa = superfície de UI (`UI-`) ·
+amarelo = ADR · vermelho = risco (`RISK-`).
+
+```mermaid
+graph TD
+  PROJ_danzeroum_project["danzeroum-project"]
+  CAP_CATALOG["CAP-CATALOG<br/>Catálogo de produtos"]
+  PROJ_danzeroum_project -->|capacidade| CAP_CATALOG
+  CAP_PRICING["CAP-PRICING<br/>Precificação"]
+  PROJ_danzeroum_project -->|capacidade| CAP_PRICING
+  CMP_CATALOG["CMP-CATALOG<br/>ports.py"]
+  CMP_CATALOG -->|realiza| CAP_CATALOG
+  CMP_PRICING["CMP-PRICING<br/>pricing.py"]
+  CMP_PRICING -->|realiza| CAP_PRICING
+  CMP_PRICING -->|depende| CMP_CATALOG
+  IFC_CATALOG_PORT(["IFC-CATALOG-PORT<br/>Porta de catálogo de produtos"])
+  CMP_CATALOG -.->|provê| IFC_CATALOG_PORT
+  IFC_CATALOG_PORT -.->|consome| CMP_PRICING
+  IFC_PRICING_API(["IFC-PRICING-API<br/>API de precificação"])
+  CMP_PRICING -.->|provê| IFC_PRICING_API
+  RULE_CATALOG_001["RULE-CATALOG-001"]
+  CAP_CATALOG -->|regra| RULE_CATALOG_001
+  RULE_PRICING_001["RULE-PRICING-001"]
+  CAP_PRICING -->|regra| RULE_PRICING_001
+  RULE_PRICING_002["RULE-PRICING-002"]
+  CAP_PRICING -->|regra| RULE_PRICING_002
+  RULE_PRICING_003["RULE-PRICING-003"]
+  CAP_PRICING -->|regra| RULE_PRICING_003
+  UI_CATALOG_LIST["UI-CATALOG-LIST"]
+  UI_CATALOG_LIST -->|experiência| CAP_CATALOG
+  UI_PRICING_PAGE["UI-PRICING-PAGE"]
+  UI_PRICING_PAGE -->|experiência| CAP_PRICING
+  RISK_CHANGE_001["RISK-CHANGE-001"]
+  RISK_DEP_001["RISK-DEP-001"]
+  RISK_META_001["RISK-META-001"]
+  RISK_WEBQA_001["RISK-WEBQA-001"]
+  ADR_001["ADR-001"]
+  ADR_001 -->|mitiga| RISK_WEBQA_001
+  ADR_002["ADR-002"]
+  ADR_002 -->|mitiga| RISK_META_001
+  ADR_003["ADR-003"]
+  ADR_003 -->|decide| CAP_PRICING
+  ADR_003 -->|mitiga| RISK_DEP_001
+  classDef project fill:#1f2937,stroke:#111827,color:#fff;
+  class PROJ_danzeroum_project project;
+  classDef cap fill:#2563eb,stroke:#1e40af,color:#fff;
+  class CAP_CATALOG,CAP_PRICING cap;
+  classDef cmp fill:#0891b2,stroke:#0e7490,color:#fff;
+  class CMP_CATALOG,CMP_PRICING cmp;
+  classDef ifc fill:#7c3aed,stroke:#5b21b6,color:#fff;
+  class IFC_CATALOG_PORT,IFC_PRICING_API ifc;
+  classDef rule fill:#16a34a,stroke:#15803d,color:#fff;
+  class RULE_CATALOG_001,RULE_PRICING_001,RULE_PRICING_002,RULE_PRICING_003 rule;
+  classDef ui fill:#db2777,stroke:#9d174d,color:#fff;
+  class UI_CATALOG_LIST,UI_PRICING_PAGE ui;
+  classDef adr fill:#ca8a04,stroke:#a16207,color:#fff;
+  class ADR_001,ADR_002,ADR_003 adr;
+  classDef risk fill:#dc2626,stroke:#991b1b,color:#fff;
+  class RISK_CHANGE_001,RISK_DEP_001,RISK_META_001,RISK_WEBQA_001 risk;
+```

@@ -35,6 +35,7 @@ DOCS = [
     ("governance/risk-register.yaml", "risk-register.schema.json"),
     ("business/capabilities.yaml", "capabilities.schema.json"),
     ("architecture/components.yaml", "components.schema.json"),
+    ("architecture/interfaces.yaml", "interfaces.schema.json"),
     ("design/design-system.yaml", "design-system.schema.json"),
     ("design/ui-surfaces.yaml", "ui-surfaces.schema.json"),
     ("architecture/adr/index.yaml", "adr-index.schema.json"),
@@ -202,6 +203,28 @@ def check_risk_controls(doc: dict | None) -> set[str]:
     return risk_ids
 
 
+def check_interfaces(doc: dict | None, components_doc: dict | None) -> None:
+    """provider/consumers existem; exposes ⊆ exposes do provedor; consumidor depende do provedor."""
+    if not doc:
+        return
+    comps = {c.get("id"): c for c in (components_doc or {}).get("components", [])}
+    for ifc in doc.get("interfaces", []):
+        iid = ifc.get("id", "?")
+        provider = ifc.get("provider")
+        if provider not in comps:
+            err(f"[IFC] {iid}: provider {provider} não existe em components.yaml")
+        else:
+            prov_exposes = set(comps[provider].get("exposes", []))
+            for sym in ifc.get("exposes", []):
+                if sym not in prov_exposes:
+                    err(f"[IFC] {iid}: exposes '{sym}' não é exposto por {provider}")
+        for consumer in ifc.get("consumers", []):
+            if consumer not in comps:
+                err(f"[IFC] {iid}: consumer {consumer} não existe em components.yaml")
+            elif provider not in comps.get(consumer, {}).get("depends_on", []):
+                err(f"[IFC] {iid}: {consumer} consome mas não declara depends_on {provider}")
+
+
 def check_ui_surfaces(doc: dict | None, caps: dict[str, dict]) -> None:
     """I7: toda superfície de UI aponta para uma capacidade existente."""
     if not doc:
@@ -314,6 +337,7 @@ def main() -> int:
     caps = check_capabilities(loaded.get("business/capabilities.yaml"))
     comp_ids = check_components(loaded.get("architecture/components.yaml"), caps)
     risk_ids = check_risk_controls(loaded.get("governance/risk-register.yaml"))
+    check_interfaces(loaded.get("architecture/interfaces.yaml"), loaded.get("architecture/components.yaml"))
     check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps)
     check_business_rules(caps)
     check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, risk_ids)
