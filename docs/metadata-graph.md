@@ -10,16 +10,20 @@ amarelo = ADR · vermelho = risco (`RISK-`).
 ```mermaid
 graph TD
   PROJ_danzeroum_project["danzeroum-project"]
+  TEST_tests_unit_test_ports_py{{"test_ports.py"}}
+  TEST_tests_unit_test_pricing_py{{"test_pricing.py"}}
   CAP_CATALOG["CAP-CATALOG<br/>Catálogo de produtos"]
   PROJ_danzeroum_project -->|capacidade| CAP_CATALOG
   CAP_PRICING["CAP-PRICING<br/>Precificação"]
   PROJ_danzeroum_project -->|capacidade| CAP_PRICING
   CMP_CATALOG["CMP-CATALOG<br/>ports.py"]
   CMP_CATALOG -->|realiza| CAP_CATALOG
+  CMP_CATALOG -.->|testa| TEST_tests_unit_test_ports_py
   CMP_PRICING["CMP-PRICING<br/>pricing.py"]
   CMP_PRICING -->|realiza| CAP_PRICING
   CMP_PRICING -->|depende| CMP_CATALOG
   CMP_PRICING -.->|implementa| REQ_001
+  CMP_PRICING -.->|testa| TEST_tests_unit_test_pricing_py
   IFC_CATALOG_PORT(["IFC-CATALOG-PORT<br/>Porta de catálogo de produtos"])
   CMP_CATALOG -.->|provê| IFC_CATALOG_PORT
   IFC_CATALOG_PORT -.->|consome| CMP_PRICING
@@ -27,12 +31,16 @@ graph TD
   CMP_PRICING -.->|provê| IFC_PRICING_API
   RULE_CATALOG_001["RULE-CATALOG-001"]
   CAP_CATALOG -->|regra| RULE_CATALOG_001
+  RULE_CATALOG_001 -.->|verifica| TEST_tests_unit_test_ports_py
   RULE_PRICING_001["RULE-PRICING-001"]
   CAP_PRICING -->|regra| RULE_PRICING_001
+  RULE_PRICING_001 -.->|verifica| TEST_tests_unit_test_pricing_py
   RULE_PRICING_002["RULE-PRICING-002"]
   CAP_PRICING -->|regra| RULE_PRICING_002
+  RULE_PRICING_002 -.->|verifica| TEST_tests_unit_test_pricing_py
   RULE_PRICING_003["RULE-PRICING-003"]
   CAP_PRICING -->|regra| RULE_PRICING_003
+  RULE_PRICING_003 -.->|verifica| TEST_tests_unit_test_pricing_py
   UI_CATALOG_LIST["UI-CATALOG-LIST"]
   UI_CATALOG_LIST -->|experiência| CAP_CATALOG
   UI_CATALOG_LIST -.->|satisfaz| REQ_003
@@ -47,6 +55,7 @@ graph TD
   REQ_001 ==>|move| MET_ACTIVATION
   REQ_001 -.->|regido por| RULE_PRICING_001
   REQ_001 -.->|regido por| RULE_PRICING_003
+  REQ_001 -.->|validado por| TEST_tests_unit_test_pricing_py
   REQ_002["REQ-002<br/>proposed"]
   REQ_002 -->|requisito| CAP_PRICING
   REQ_002 ==>|move| MET_AOV
@@ -93,6 +102,8 @@ graph TD
   class REQ_001,REQ_002,REQ_003,REQ_004 req;
   classDef met fill:#ea580c,stroke:#c2410c,color:#fff;
   class MET_ACTIVATION,MET_AOV,MET_DISCOVERY met;
+  classDef test fill:#57534e,stroke:#44403c,color:#fff;
+  class TEST_tests_unit_test_ports_py,TEST_tests_unit_test_pricing_py test;
   classDef adr fill:#ca8a04,stroke:#a16207,color:#fff;
   class ADR_001,ADR_002,ADR_003,ADR_004,ADR_005 adr;
   classDef risk fill:#dc2626,stroke:#991b1b,color:#fff;

@@ -105,10 +105,11 @@ comentário ("markdown que não morde").
   cada entrada aponta para um arquivo real e resolve suas referências a capacidade, componente
   (`related_components: [CMP-*]`), risco e ADR.
 - **Backlog no centro do grafo:** `business/requirements/backlog.yaml` declara os requisitos, cada um
-  ligado à sua `CAP-*`, às métricas (`MET-*`) que move, às regras (`RULE-*`) que o regem, e opcionalmente
-  a `depends_on`/`risk`. O fiscal cobra que tudo resolva — e que métricas/regras citadas compartilhem a
-  capacidade do requisito. As métricas de sucesso vivem em `business/vision.yaml`; assim o backlog fecha
-  a cadeia do resultado de negócio até a régua funcional.
+  ligado à sua `CAP-*`, às métricas (`MET-*`) que move, às regras (`RULE-*`) que o regem, aos testes que
+  o validam (`validated_by`), e opcionalmente a `depends_on`/`risk`. O fiscal cobra que tudo resolva — e
+  que métricas/regras/testes citados compartilhem a capacidade do requisito (e que só um requisito
+  iniciado seja validado por teste). As métricas de sucesso vivem em `business/vision.yaml`; assim o
+  backlog fecha a cadeia do resultado de negócio até o teste que prova a entrega.
 - **Componente ↔ requisito que implementa:** `architecture/components.yaml` pode declarar
   `implements: [REQ-*]`; o fiscal cobra que o requisito exista, compartilhe a capacidade do componente
   e esteja de fato em construção/pronto (`in_progress`/`done`) — um componente não "implementa" um

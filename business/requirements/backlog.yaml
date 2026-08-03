@@ -18,6 +18,8 @@ items:
     governed_by:
       - RULE-PRICING-001
       - RULE-PRICING-003
+    validated_by:
+      - tests/unit/test_pricing.py
     acceptance_criteria:
       - "O total exibido inclui o imposto aplicado sobre o subtotal."
       - "Taxa fora de [0, 1) é erro, não cálculo silencioso."
