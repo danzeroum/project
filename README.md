@@ -52,7 +52,7 @@ inventário — e o operador aprende a aprovar sem ler. Eles são modos distinto
 ```
 project/
 ├── project.yaml          identidade, criticidade, donos, governança (schema em harness/schemas/)
-├── business/             visão + capacidades + rules/ (regras de negócio ligadas a capacidade e teste)
+├── business/             visão + capacidades + rules/ (regras) + requirements/ (backlog por capacidade)
 ├── architecture/         componentes + interfaces + adr/ (decisões, com índice fiscalizável)
 ├── design/               sistema de design + superfícies de UI ligadas a capacidades
 ├── governance/           registro de riscos que classifica a mudança antes de agir
@@ -102,6 +102,8 @@ comentário ("markdown que não morde").
   de volta (elo bidirecional que o fiscal cobra).
 - **Decisões versionadas:** `architecture/adr/` guarda os ADRs; o `index.yaml` é a parte fiscalizável —
   cada entrada aponta para um arquivo real e resolve suas referências a capacidade/risco/ADR.
+- **Backlog ligado a capacidade:** `business/requirements/backlog.yaml` declara os requisitos, cada um
+  pertencente a uma `CAP-*`; o fiscal cobra que a capacidade exista e que `depends_on`/`risk` resolvam.
 - **Interfaces coerentes com o grafo:** `architecture/interfaces.yaml` liga provedor e consumidores
   (`CMP-*`); o fiscal cobra que os símbolos expostos existam no provedor e que cada consumidor
   declare `depends_on` o provedor.

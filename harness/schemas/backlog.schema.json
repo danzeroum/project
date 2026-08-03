@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/backlog.schema.json",
+  "title": "business/requirements/backlog.yaml — requisitos ligados a capacidades",
+  "description": "Cada item de backlog pertence a uma capacidade (CAP-*). Dá ao agente o QUE precisa ser feito e por quê, sem inventar escopo.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "items"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "type", "capability", "status", "priority"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^REQ-[0-9]{3}$" },
+          "title": { "type": "string" },
+          "type": { "enum": ["user-story", "task", "bug", "enabler"] },
+          "capability": { "type": "string", "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+          "status": { "enum": ["proposed", "planned", "in_progress", "done", "dropped"] },
+          "priority": { "enum": ["low", "medium", "high", "critical"] },
+          "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
+          "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^REQ-[0-9]{3}$" } },
+          "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" }
+        }
+      }
+    }
+  }
+}

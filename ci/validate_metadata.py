@@ -39,6 +39,7 @@ DOCS = [
     ("design/design-system.yaml", "design-system.schema.json"),
     ("design/ui-surfaces.yaml", "ui-surfaces.schema.json"),
     ("architecture/adr/index.yaml", "adr-index.schema.json"),
+    ("business/requirements/backlog.yaml", "backlog.schema.json"),
     ("business/vision.yaml", None),
 ]
 
@@ -269,6 +270,23 @@ def check_business_rules(caps: dict[str, dict]) -> None:
                         err(f"[regra] {rule.get('id', '?')}: verified_by fora de tests/: {p}")
 
 
+def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -> None:
+    """Cada requisito pertence a uma capacidade real; depends_on e risk resolvem."""
+    if not doc:
+        return
+    req_ids = {i.get("id") for i in doc.get("items", [])}
+    for item in doc.get("items", []):
+        rid = item.get("id", "?")
+        if item.get("capability") not in caps:
+            err(f"[REQ] {rid}: capability {item.get('capability')} não existe em capabilities.yaml")
+        for dep in item.get("depends_on", []):
+            if dep not in req_ids:
+                err(f"[REQ] {rid}: depends_on aponta para requisito inexistente: {dep}")
+        risk = item.get("risk")
+        if risk and risk not in risk_ids:
+            err(f"[REQ] {rid}: risco citado {risk} não existe no risk-register")
+
+
 def check_adr_index(doc: dict | None, caps: dict[str, dict], risk_ids: set[str]) -> None:
     """Cada ADR do índice tem arquivo real; supersedes e referências (CAP/RISK) resolvem."""
     if not doc:
@@ -340,6 +358,7 @@ def main() -> int:
     check_interfaces(loaded.get("architecture/interfaces.yaml"), loaded.get("architecture/components.yaml"))
     check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps)
     check_business_rules(caps)
+    check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids)
     check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, risk_ids)
     check_change_proposals(caps, comp_ids, risk_ids)
 

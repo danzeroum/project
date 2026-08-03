@@ -49,11 +49,12 @@ def build_mermaid() -> str:
     adrs = load("architecture/adr/index.yaml").get("adrs", [])
     risks = load("governance/risk-register.yaml").get("risks", [])
     rule_files = load_dir("business/rules")
+    backlog = load("business/requirements/backlog.yaml").get("items", [])
     project = load("project.yaml").get("project", {})
 
     lines: list[str] = ["graph TD"]
     classes: dict[str, list[str]] = {k: [] for k in
-                                     ("project", "cap", "cmp", "ifc", "rule", "ui", "adr", "risk")}
+                                     ("project", "cap", "cmp", "ifc", "rule", "ui", "req", "adr", "risk")}
 
     # Projeto (raiz)
     pid = project.get("id", "project")
@@ -108,6 +109,16 @@ def build_mermaid() -> str:
         if s.get("capability"):
             lines.append(f"  {n} -->|experiência| {nid(s['capability'])}")
 
+    # Requisitos de backlog → capacidade e dependências
+    for item in sorted(backlog, key=lambda i: i.get("id", "")):
+        n = nid(item["id"])
+        lines.append(f'  {n}["{item["id"]}<br/>{esc(item.get("status", ""))}"]')
+        classes["req"].append(n)
+        if item.get("capability"):
+            lines.append(f"  {n} -->|requisito| {nid(item['capability'])}")
+        for dep in sorted(item.get("depends_on", [])):
+            lines.append(f"  {n} -.->|depende| {nid(dep)}")
+
     # Riscos
     for r in sorted(risks, key=lambda r: r.get("id", "")):
         n = nid(r["id"])
@@ -132,6 +143,7 @@ def build_mermaid() -> str:
         "ifc": "fill:#7c3aed,stroke:#5b21b6,color:#fff",
         "rule": "fill:#16a34a,stroke:#15803d,color:#fff",
         "ui": "fill:#db2777,stroke:#9d174d,color:#fff",
+        "req": "fill:#0d9488,stroke:#0f766e,color:#fff",
         "adr": "fill:#ca8a04,stroke:#a16207,color:#fff",
         "risk": "fill:#dc2626,stroke:#991b1b,color:#fff",
     }
