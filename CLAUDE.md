@@ -1,5 +1,9 @@
 # CLAUDE.md — doutrina operacional deste repositório
 
+> **Acabou de clonar?** A porta de entrada é `BOOTSTRAP.md`, e ela começa por uma pergunta:
+> este repositório é **molde** ou **derivado**? Leia `project.yaml:project.kind` — não presuma.
+> `python ci/adoption_status.py` responde e diz o próximo passo.
+
 Duas frases explicam quase todas as decisões daqui:
 
 > **O projeto declara configuração e autorização; o padrão fornece o motor e as verificações.**
@@ -94,8 +98,19 @@ repositório pertence a exatamente uma etapa ou a uma isenção declarada — di
 declarar a que etapa pertence. É o que faz "validar todas as etapas" ser invariante em vez de
 promessa.
 
+## Regra do papel do repositório
+
+`project.yaml:project.kind` é `mold` ou `derived`, e o schema trata os dois como papéis
+estruturalmente distintos: **derivado exige o bloco `target`; molde o proíbe.** Um molde ancorado
+num alvo específico deixou de ser genérico, e a genericidade é o produto.
+
+O SHA do alvo mora **só** em `target.lock` — mesma regra da versão da régua, mesma razão. E
+**nenhum alvo é especial**: nome, stack, caminho ou URL de alvo em `ci/` ou `harness/` reprova por
+`ADR-008-A5`. Tudo que é do alvo mora em `project.yaml:target`, `target.lock` e `workspace/`.
+
 ## Onde ler mais
 
-`README.md` (arquitetura), `docs/COMO-ADOTAR.md` (playbook de adoção),
+`BOOTSTRAP.md` (porta de entrada), `README.md` (arquitetura),
+`docs/PLANO-MOLDE-VIVO.md` (para onde isto está indo), `docs/COMO-ADOTAR.md` (playbook de adoção),
 `WEBQA_CONSUMER_CONTRACT.md` (interface com a suíte), `harness/policies/` (índice das regras e
 seus fiscais), `architecture/adr/` (as decisões e suas asserções).

@@ -130,6 +130,42 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) SHA do alvo fora de target.lock deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-sha"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\n# ingerido em 0123456789abcdef0123456789abcdef01234567\n' >> "$mut/project.yaml"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::ADR-008-A4 não detectou a segunda cópia do SHA do alvo — a fonte única do alvo parou de morder."
+            exit 1
+          fi
+
+      - name: (negativo) alvo cravado no fiscal deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-generico"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\n# caso especial: https://github.com/exemplo-owner/exemplo-repo\n' >> "$mut/ci/validate_metadata.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::ADR-008-A5 não detectou alvo cravado em ci/ — o molde deixou de ser genérico sem que nada reprovasse."
+            exit 1
+          fi
+
+      - name: (negativo) derivado sem bloco target deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-derivado"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "project.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["project"]["kind"] = "derived"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::o schema deixou passar um derivado que não declara o que governa — 'derivado quase pronto' virou estado permanente."
+            exit 1
+          fi
+
       # if: always() é essencial. O laudo é gitignored, e com gate fail-closed ele só interessa
       # quando há achado — que é exatamente quando o job está vermelho.
       - name: Arquivar laudos

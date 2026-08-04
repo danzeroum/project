@@ -128,6 +128,46 @@ risks:
       - kind: local_path
         ref: .github/workflows/governance.yml
 
+  - id: RISK-DERIV-001
+    area: governance
+    description: "Derivado que não declara seu alvo, ou que o declara em dois lugares: o metadado descreve um alvo que já mudou e o drift fica invisível."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: target.lock
+      - kind: local_path
+        ref: harness/schemas/target-lock.schema.json
+      - kind: local_path
+        ref: harness/schemas/project.schema.json
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: harness/policies/adocao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-008-derivado-declara-o-alvo.md
+
+  - id: RISK-DERIV-002
+    area: governance
+    description: "Alvo específico cravado no molde: um nome, stack ou caminho em ci/ ou harness/ faz o molde funcionar para um repositório e falhar em silêncio nos outros."
+    likelihood: medium
+    impact: medium
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: architecture/adr/index.yaml
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: harness/policies/adocao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-008-derivado-declara-o-alvo.md
+
   - id: RISK-META-002
     area: access
     description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."

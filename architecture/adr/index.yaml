@@ -331,3 +331,51 @@ adrs:
           sinalizado pela heurística é ainda assim dado pessoal. Fica com a skill /revisao-lgpd,
           e o resultado é registrado em governance/privacy-review.yaml, cujo frescor o fiscal
           determinístico cobra a cada push.
+
+  - id: ADR-008
+    title: "O derivado declara o alvo, nunca o copia; e nenhum alvo é especial"
+    status: accepted
+    file: architecture/adr/ADR-008-derivado-declara-o-alvo.md
+    related_risks: [RISK-DERIV-001, RISK-DERIV-002]
+    assertions:
+      - id: ADR-008-A1
+        kind: path_present
+        severity: high
+        risk: RISK-DERIV-001
+        description: "O caminho de entrada e a âncora do alvo existem: sem eles, 'colar um link' volta a ser prosa."
+        paths:
+          - BOOTSTRAP.md
+          - target.lock
+          - .claude/commands/adotar.md
+          - harness/schemas/target-lock.schema.json
+          - ci/adoption_status.py
+      - id: ADR-008-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-DERIV-001
+        description: "Derivado sem bloco target continua sendo recusado pelo schema, não pelo bom senso."
+        file: harness/schemas/project.schema.json
+        pointer: /allOf/0/then/required
+        contains: target
+      - id: ADR-008-A3
+        kind: schema_lock
+        severity: critical
+        risk: RISK-DERIV-001
+        description: "A âncora do SHA segue apontando para target.lock — fonte única, como a versão da régua."
+        file: harness/schemas/project.schema.json
+        pointer: /properties/target/properties/lock_source/const
+        expected: target.lock
+      - id: ADR-008-A4
+        kind: file_lacks
+        severity: high
+        risk: RISK-DERIV-001
+        description: "SHA de commit do alvo fora de target.lock: segunda cópia de uma versão deriva e a comparação passa a mentir."
+        files: ["project.yaml"]
+        pattern: "\\b[0-9a-f]{40}\\b"
+      - id: ADR-008-A5
+        kind: file_lacks
+        severity: high
+        risk: RISK-DERIV-002
+        description: "Alvo cravado no molde: URL de repositório em ci/ ou harness/ faz o molde servir a um alvo e falhar calado nos outros."
+        files: ["ci/**/*.py", "harness/**/*.yaml", "harness/**/*.json", "harness/**/*.md"]
+        pattern: "github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"

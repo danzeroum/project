@@ -26,6 +26,7 @@ from harness_lib import CONCRETE, REPO, SCHEMAS, HarnessError, rel_exists
 # (arquivo de metadado, schema) — schema None = só validação de YAML + invariantes de cabeçalho.
 DOCS = [
     ("project.yaml", "project.schema.json"),
+    ("target.lock", "target-lock.schema.json"),
     ("governance/risk-register.yaml", "risk-register.schema.json"),
     ("business/capabilities.yaml", "capabilities.schema.json"),
     ("architecture/components.yaml", "components.schema.json"),
@@ -104,6 +105,51 @@ def check_version_single_source(project_doc: dict | None) -> None:
         mirror = str(cfg.get("standard_version", ""))
         if mirror != pin:
             err(f"[I3] tests/qa/config.yaml standard_version ({mirror!r}) != pin ({pin!r})")
+
+
+def check_target_lock(project_doc: dict | None, lock_doc: dict | None) -> None:
+    """O papel do repositório é declarado em dois arquivos; eles têm que concordar.
+
+    project.yaml diz QUAL alvo (repo, ref) e ONDE o SHA mora; target.lock guarda o SHA. A separação
+    é a mesma de quality_standard.version_source → requirements-qa.txt, e existe pela mesma razão:
+    o número num lugar só. Dois arquivos que discordam sobre o papel do repositório são pior que um
+    só, porque cada fiscal pode acreditar em um deles e ambos passam.
+    """
+    if not project_doc or not lock_doc:
+        return
+    declared = (project_doc.get("project") or {}).get("kind")
+    locked = lock_doc.get("kind")
+    if declared != locked:
+        err(f"[alvo] target.lock diz kind={locked!r} e project.yaml diz kind={declared!r} — "
+            f"o papel do repositório não pode depender de qual arquivo se lê primeiro")
+        return
+
+    target = project_doc.get("target")
+    if declared == "derived":
+        # O schema já exige o bloco; aqui cobramos a âncora, que é o que impede o SHA de vazar.
+        if (target or {}).get("lock_source") != "target.lock":
+            err("[alvo] project.yaml: target.lock_source deve ser 'target.lock' — "
+                "o SHA mora num lugar só")
+    elif target is not None:  # pragma: no cover - o schema já reprova antes
+        err("[alvo] project.yaml declara 'target' com kind:mold — "
+            "um molde ancorado num alvo específico deixou de ser genérico")
+
+
+def check_target_roots(project_doc: dict | None) -> None:
+    """As raízes de código declaradas existem de fato no alvo materializado.
+
+    Só verificável com o workspace presente (é `/bootstrap` que o materializa), e por isso a
+    ausência dele é silêncio, não achado: cobrar aqui transformaria "ainda não rodou o bootstrap"
+    em divergência de metadado. Com o workspace presente, porém, raiz declarada que não existe é
+    achado — um code_roots chutado torna a invariante do código órfão verdadeira por vacuidade,
+    que é pior do que não tê-la.
+    """
+    target = (project_doc or {}).get("target")
+    if not target or not rel_exists("workspace/target"):
+        return
+    for root in target.get("code_roots", []):
+        if not rel_exists(f"workspace/target/{root.strip('/')}"):
+            err(f"[alvo] code_roots declara '{root}', que não existe no alvo no SHA de target.lock")
 
 
 def check_capabilities(doc: dict | None) -> dict[str, dict]:
@@ -417,6 +463,8 @@ def main(argv: list[str] | None = None) -> int:
             validate_structural(rel, schema_name, doc)
 
     check_version_single_source(loaded.get("project.yaml"))
+    check_target_lock(loaded.get("project.yaml"), loaded.get("target.lock"))
+    check_target_roots(loaded.get("project.yaml"))
     backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
     req_items = {i.get("id"): i for i in backlog_doc.get("items", [])}
     caps = check_capabilities(loaded.get("business/capabilities.yaml"))

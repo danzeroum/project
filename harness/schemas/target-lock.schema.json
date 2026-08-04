@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/target-lock.schema.json",
+  "title": "target.lock — fonte única do SHA do alvo",
+  "description": "Análogo exato de requirements-qa.txt: aquele fixa a versão da régua, este fixa a versão do alvo. project.yaml declara QUAL alvo (repo, ref) e ONDE o SHA mora (target.lock); o número mora só aqui. Sem essa separação, 'o metadado descreve o alvo' vira afirmação sobre um alvo que já mudou, e o drift fica invisível em vez de detectável.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "kind", "target_sha"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "allOf": [
+    {
+      "comment": "Molde não ancora SHA algum, e derivado sem SHA não ancorou nada. O par kind/target_sha é travado nos dois sentidos para que não exista 'derivado quase pronto' — estado que dura para sempre porque nenhum fiscal o reprova.",
+      "if": { "properties": { "kind": { "const": "derived" } }, "required": ["kind"] },
+      "then": { "properties": { "target_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" } } },
+      "else": { "properties": { "target_sha": { "type": "null" } } }
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "kind": {
+      "enum": ["mold", "derived"],
+      "description": "Espelha project.yaml:project.kind. ci/validate_metadata.py::check_target_lock cobra a igualdade — dois arquivos que discordam sobre o papel do repositório são pior que um só."
+    },
+    "target_sha": {
+      "type": ["string", "null"],
+      "description": "Commit exato do alvo ingerido. null no molde, que não governa alvo algum."
+    }
+  }
+}

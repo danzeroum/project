@@ -167,6 +167,7 @@ stages:
     name: "Governança: identidade, riscos, propostas e privacidade"
     artifacts:
       - "project.yaml"
+      - "target.lock"
       - "governance"
       - "harness/harness.yaml"
       - "harness/stages.yaml"
@@ -187,6 +188,9 @@ stages:
       - kind: ci_script
         ref: ci/audit_lgpd.py
         symbol: check_judgment_currency
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_target_lock
     privacy_lens:
       scan: true
       question: "O papel do sistema (controlador/operador) declarado bate com o que ele de fato trata?"
@@ -218,7 +222,7 @@ stages:
   - id: STAGE-DOCS
     order: 13
     name: "Documentação"
-    artifacts: ["docs", "README.md", "WEBQA_CONSUMER_CONTRACT.md"]
+    artifacts: ["docs", "README.md", "BOOTSTRAP.md", "WEBQA_CONSUMER_CONTRACT.md"]
     enforced_by:
       - kind: ci_script
         ref: ci/generate_graph.py

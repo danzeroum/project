@@ -6,6 +6,17 @@
   "type": "object",
   "required": ["schema_version", "metadata_version", "source_of_truth", "project", "business", "quality_standard", "governance", "classification"],
   "additionalProperties": false,
+  "allOf": [
+    {
+      "comment": "Molde e derivado são papéis estruturalmente distintos, não convenção. O derivado EXIGE o bloco target — sem ele não se sabe o que ele governa, e o repositório vira um molde que finge ter alvo. O molde PROÍBE o bloco: um molde ancorado num alvo específico deixou de ser genérico, e a genericidade é o produto.",
+      "if": {
+        "properties": { "project": { "properties": { "kind": { "const": "derived" } }, "required": ["kind"] } },
+        "required": ["project"]
+      },
+      "then": { "required": ["target"] },
+      "else": { "not": { "required": ["target"] } }
+    }
+  ],
   "oneOf": [
     {
       "properties": {
@@ -28,14 +39,54 @@
     "generated_from": { "type": ["string", "null"] },
     "project": {
       "type": "object",
-      "required": ["id", "name", "type", "lifecycle", "status"],
+      "required": ["id", "name", "kind", "type", "lifecycle", "status"],
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
         "name": { "type": "string" },
+        "kind": {
+          "enum": ["mold", "derived"],
+          "description": "mold = a casca genérica, que não governa alvo algum. derived = o gêmeo de governança de UM alvo, declarado em target. Enum fechado e obrigatório: um campo opcional aqui seria preenchido uma vez e nunca mais conferido."
+        },
         "type": { "type": "string" },
         "lifecycle": { "enum": ["template", "incubating", "active", "maintenance", "sunset"] },
         "status": { "enum": ["active", "paused", "archived"] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "description": "O alvo que este derivado governa. DECLARA o alvo, nunca o copia: o código materializa em workspace/target/ (efêmero) no SHA de target.lock. code_roots e languages são descobertos no reconhecimento e conferidos contra o workspace — raiz declarada que não existe no alvo é achado, não detalhe.",
+      "required": ["repo", "ref", "lock_source", "code_roots", "languages"],
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "description": "owner/repo. Sem URL: o host não é decisão deste arquivo."
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Branch acompanhada. Descoberta no alvo, nunca presumida 'main'."
+        },
+        "lock_source": {
+          "const": "target.lock",
+          "description": "ONDE o SHA mora — nunca o SHA. Mesma fonte única de quality_standard.version_source: duas cópias derivam e a comparação entre estados passa a mentir."
+        },
+        "code_roots": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Raízes de código dentro do alvo. É o universo sobre o qual a invariante do código órfão se aplica."
+        },
+        "languages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Linguagens presentes. Linguagem sem adapter cai no fallback genérico e o laudo declara o que não soube ler — nunca passa verde em silêncio."
+        }
       }
     },
     "business": {
