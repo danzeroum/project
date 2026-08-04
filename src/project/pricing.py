@@ -36,3 +36,15 @@ def total_com_imposto_centavos(
         raise ValueError("taxa deve estar em [0, 1)")
     base = subtotal_centavos(linhas, catalogo)
     return round(base * (1.0 + taxa))
+
+
+# ── INJEÇÃO DE TESTE — NÃO MERGEAR ────────────────────────────────────────────
+# Quebra deliberadamente a inversão de dependência do ADR-005: o módulo de
+# precificação passa a depender do adaptador concreto em vez da porta.
+# Serve para provar que `governance` fica VERMELHO num PR real, e não só que o
+# passo negativo detecta a injeção numa cópia.
+from project.ports import CatalogoEmMemoria
+
+
+def _catalogo_padrao() -> CatalogoEmMemoria:
+    return CatalogoEmMemoria({})
