@@ -3,66 +3,227 @@
   "$id": "https://danzeroum/project/harness/schemas/risk-register.schema.json",
   "title": "risk-register.yaml — registro de riscos que classifica a mudança antes de agir",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "risks"],
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "risks"
+  ],
   "additionalProperties": false,
   "oneOf": [
     {
       "properties": {
-        "source_of_truth": { "const": true },
-        "generated_from": { "const": null }
+        "source_of_truth": {
+          "const": true
+        },
+        "generated_from": {
+          "const": null
+        }
       }
     },
     {
       "properties": {
-        "source_of_truth": { "const": false },
-        "generated_from": { "type": "string", "minLength": 1 }
+        "source_of_truth": {
+          "const": false
+        },
+        "generated_from": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["generated_from"]
+      "required": [
+        "generated_from"
+      ]
     }
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "source_of_truth": { "type": "boolean" },
-    "generated_from": { "type": ["string", "null"] },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "metadata_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "source_of_truth": {
+      "type": "boolean"
+    },
+    "generated_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "risks": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "area", "description", "likelihood", "impact", "treatment", "controls", "owner", "status"],
+        "required": [
+          "id",
+          "area",
+          "description",
+          "likelihood",
+          "impact",
+          "treatment",
+          "controls",
+          "owner",
+          "status"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" },
-          "area": { "enum": ["webqa", "dependencies", "data", "access", "availability", "governance"] },
-          "description": { "type": "string" },
-          "likelihood": { "enum": ["low", "medium", "high"] },
-          "impact": { "enum": ["low", "medium", "high"] },
-          "treatment": { "enum": ["accept", "mitigate", "prevent", "transfer"] },
-          "owner": { "type": "string" },
-          "status": { "enum": ["open", "mitigated", "accepted", "closed"] },
+          "id": {
+            "type": "string",
+            "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$"
+          },
+          "area": {
+            "enum": [
+              "webqa",
+              "dependencies",
+              "data",
+              "access",
+              "availability",
+              "governance"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "likelihood": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "pending_judgment"
+            ],
+            "description": "pending_judgment: escrito pela ingestão, recusado em documento promovido."
+          },
+          "impact": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "pending_judgment"
+            ],
+            "description": "pending_judgment: escrito pela ingestão, recusado em documento promovido."
+          },
+          "treatment": {
+            "enum": [
+              "accept",
+              "mitigate",
+              "prevent",
+              "transfer"
+            ]
+          },
+          "owner": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "mitigated",
+              "accepted",
+              "closed"
+            ]
+          },
           "controls": {
             "type": "array",
             "minItems": 1,
             "description": "Referências TIPADAS. Nem todo controle é arquivo local: o gate mora na suíte externa, o ambiente no GitHub.",
             "items": {
               "type": "object",
-              "required": ["kind", "ref"],
+              "required": [
+                "kind",
+                "ref"
+              ],
               "additionalProperties": false,
               "properties": {
-                "kind": { "enum": ["local_path", "standard_symbol", "github_environment", "branch_protection"] },
-                "ref": { "type": "string", "minLength": 1 },
-                "standard": { "const": "webqa-suite" },
-                "version_source": { "const": "requirements-qa.txt" }
+                "kind": {
+                  "enum": [
+                    "local_path",
+                    "standard_symbol",
+                    "github_environment",
+                    "branch_protection"
+                  ]
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "standard": {
+                  "const": "webqa-suite"
+                },
+                "version_source": {
+                  "const": "requirements-qa.txt"
+                }
               },
               "allOf": [
                 {
                   "comment": "standard_symbol EXIGE âncora de versão; os demais kinds NÃO admitem esses campos.",
-                  "if": { "properties": { "kind": { "const": "standard_symbol" } }, "required": ["kind"] },
-                  "then": { "required": ["standard", "version_source"] },
-                  "else": { "not": { "anyOf": [{ "required": ["standard"] }, { "required": ["version_source"] }] } }
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "standard_symbol"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "standard",
+                      "version_source"
+                    ]
+                  },
+                  "else": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "standard"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "version_source"
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 }
               ]
+            }
+          },
+          "derived_from": {
+            "type": "object",
+            "description": "Proveniência da ingestão: de ONDE no alvo este item foi derivado, e em QUE commit. Sem o sha, 'este metadado descreve o alvo' vira afirmação sobre um alvo que já mudou — o mesmo modo de falha que target.lock resolve, uma camada acima. ci/validate_metadata.py::check_derived_from cobra que repo casa target.repo, que sha casa target.lock exatamente e que path existe no alvo materializado.",
+            "required": [
+              "repo",
+              "sha",
+              "path"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "repo": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Relativo à raiz do alvo, sem o prefixo workspace/target/."
+              },
+              "section": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Âncora dentro do arquivo (título de seção, símbolo). Opcional: nem toda origem tem subdivisão."
+              }
             }
           }
         }

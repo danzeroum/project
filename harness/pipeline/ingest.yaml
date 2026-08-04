@@ -1,0 +1,111 @@
+# As fases da ingestão do alvo, com seus agentes e fiscais.
+#
+# Índice verificável, não segunda descrição: referencia caminhos e símbolos, jamais IDs. A ordem
+# importa — cada fase pressupõe a anterior, e a interligação só fecha depois que os departamentos
+# existem.
+#
+# A regra que atravessa todas: a ingestão LÊ o alvo e escreve no derivado. Nenhum output aponta
+# para fora deste repositório, e nenhuma fase cria branch, commit, issue ou PR no alvo.
+#
+# Schema: ../schemas/ingest-pipeline.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+phases:
+  - id: ING-01-INVENTARIO
+    order: 1
+    name: "Inventariar o código real do alvo"
+    agent: reviewer
+    inputs: ["workspace/target", "project.yaml", "target.lock"]
+    outputs: ["harness/state/code-inventory.json"]
+    fiscal:
+      kind: ci_script
+      ref: ci/inventory_code.py
+      symbol: build
+    gate: none
+
+  - id: ING-02-COLHEITA
+    order: 2
+    name: "Colher o que o alvo já documenta, com proveniência"
+    agent: documenter
+    inputs: ["workspace/target"]
+    outputs: ["harness/state/harvest.json"]
+    fiscal:
+      kind: ci_script
+      ref: ci/validate_metadata.py
+      symbol: check_derived_from
+    gate: none
+
+  - id: ING-03-CARTOGRAFIA
+    order: 3
+    name: "Propor componentes e interfaces a partir do inventário"
+    agent: cartographer
+    inputs: ["harness/state/code-inventory.json", "architecture/components.yaml"]
+    outputs: ["architecture/components.yaml", "architecture/interfaces.yaml"]
+    fiscal:
+      kind: ci_script
+      ref: ci/validate_metadata.py
+      symbol: check_orphan_code
+    gate: none
+
+  - id: ING-04-NEGOCIO
+    order: 4
+    name: "Propor capacidades, regras e requisitos"
+    agent: cartographer
+    inputs: ["harness/state/harvest.json", "harness/state/code-inventory.json"]
+    outputs: ["business/capabilities.yaml", "business/requirements/backlog.yaml"]
+    fiscal:
+      kind: ci_script
+      ref: ci/validate_metadata.py
+      symbol: check_capabilities
+    gate: none
+
+  - id: ING-05-DESIGN
+    order: 5
+    name: "Ligar superfícies de interface às capacidades"
+    agent: cartographer
+    inputs: ["harness/state/code-inventory.json", "business/capabilities.yaml"]
+    outputs: ["design/ui-surfaces.yaml"]
+    fiscal:
+      kind: ci_script
+      ref: ci/validate_metadata.py
+      symbol: check_ui_surfaces
+    gate: none
+
+  - id: ING-06-GOVERNANCA
+    order: 6
+    name: "Lente de privacidade e risco sobre cada elemento novo"
+    agent: privacy
+    inputs: ["harness/state/code-inventory.json", "governance/data-inventory.yaml"]
+    outputs: ["governance/data-inventory.yaml", "governance/risk-register.yaml"]
+    fiscal:
+      kind: ci_script
+      ref: ci/audit_lgpd.py
+      symbol: check_judgment_currency
+    gate: human_approval
+
+  - id: ING-07-PROMOCAO
+    order: 7
+    name: "Substituir pending_judgment por julgamento humano"
+    agent: reviewer
+    inputs: ["business/capabilities.yaml", "governance/risk-register.yaml"]
+    outputs: ["business/capabilities.yaml", "governance/risk-register.yaml"]
+    fiscal:
+      kind: ci_script
+      ref: ci/validate_metadata.py
+      symbol: check_pending_judgment
+    gate: human_approval
+
+  - id: ING-08-INTERLIGACAO
+    order: 8
+    name: "Fechar o ciclo: grafo derivado e validação total"
+    agent: documenter
+    inputs: ["architecture/adr/index.yaml", "business/capabilities.yaml"]
+    outputs: ["docs/metadata-graph.md"]
+    fiscal:
+      kind: ci_script
+      ref: ci/generate_graph.py
+      symbol: main
+    gate: none

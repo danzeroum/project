@@ -27,6 +27,7 @@ from harness_lib import CONCRETE, REPO, SCHEMAS, HarnessError, rel_exists
 DOCS = [
     ("project.yaml", "project.schema.json"),
     ("target.lock", "target-lock.schema.json"),
+    ("harness/pipeline/ingest.yaml", "ingest-pipeline.schema.json"),
     ("governance/risk-register.yaml", "risk-register.schema.json"),
     ("business/capabilities.yaml", "capabilities.schema.json"),
     ("architecture/components.yaml", "components.schema.json"),
@@ -232,6 +233,77 @@ def check_components(doc: dict | None, caps: dict[str, dict], req_items: dict[st
                 elif cap_ref in caps and p not in cap_tests:
                     err(f"[I6] {cmid}: tested_by '{p}' não consta em {cap_ref}.test_paths")
     return comp_ids
+
+
+# Onde a ingestão pode escrever itens com proveniência, e sob qual chave eles vivem.
+DERIVAVEIS = [
+    ("business/capabilities.yaml", "capabilities"),
+    ("architecture/components.yaml", "components"),
+    ("architecture/interfaces.yaml", "interfaces"),
+    ("design/ui-surfaces.yaml", "ui_surfaces"),
+    ("business/requirements/backlog.yaml", "items"),
+    ("governance/risk-register.yaml", "risks"),
+]
+
+# Campos que só um humano preenche. A ingestão escreve o sentinela; promover é substituí-lo.
+PENDENTE = "pending_judgment"
+
+
+def check_derived_from(loaded: dict[str, dict], project_doc: dict | None,
+                       lock_doc: dict | None) -> None:
+    """Proveniência ancorada: de onde no alvo, e em QUE commit.
+
+    A igualdade de SHA é o ponto. Sem ela, "este metadado descreve o alvo" degrada em silêncio
+    para "descrevia o alvo em algum momento" — o mesmo modo de falha que target.lock resolve, uma
+    camada acima. Um item cujo derived_from aponta para um SHA antigo não é um detalhe de
+    procedência: é um metadado que fala de um sistema que já mudou.
+    """
+    target = (project_doc or {}).get("target") or {}
+    lock_sha = (lock_doc or {}).get("target_sha")
+
+    for rel, chave in DERIVAVEIS:
+        for item in (loaded.get(rel) or {}).get(chave, []) or []:
+            proc = item.get("derived_from")
+            if not proc:
+                continue
+            iid = item.get("id", "?")
+            if not target:
+                err(f"[proveniência] {rel}:{iid} declara derived_from, mas este repositório não "
+                    f"governa alvo algum — proveniência sem alvo é ficção")
+                continue
+            if proc.get("repo") != target.get("repo"):
+                err(f"[proveniência] {rel}:{iid}: derived_from.repo {proc.get('repo')!r} não é o "
+                    f"alvo declarado ({target.get('repo')!r})")
+            if proc.get("sha") != lock_sha:
+                err(f"[proveniência] {rel}:{iid}: derived_from.sha não casa target.lock — o item "
+                    f"descreve o alvo em {str(proc.get('sha'))[:12]} e o lock está em "
+                    f"{str(lock_sha)[:12]}; reingerir ou avançar o lock por change-proposal")
+            alvo = f"workspace/target/{proc.get('path', '').lstrip('/')}"
+            if rel_exists("workspace/target") and not rel_exists(alvo):
+                err(f"[proveniência] {rel}:{iid}: derived_from.path não existe no alvo: "
+                    f"{proc.get('path')!r}")
+
+
+def check_pending_judgment(loaded: dict[str, dict]) -> None:
+    """pending_judgment vive só em documento derivado. Promover é substituí-lo.
+
+    É o inverso do 'to-be-assessed' que o CLAUDE.md proíbe: aquele é um campo aberto que nenhum
+    fiscal consegue reprovar, e por isso a pendência vira permanente sem nunca aparecer como
+    falha. Este é reprovável por construção — o documento não pode se declarar fonte de verdade
+    enquanto carregar um julgamento que ninguém fez.
+    """
+    for rel, chave in DERIVAVEIS:
+        doc = loaded.get(rel)
+        if not doc:
+            continue
+        promovido = doc.get("source_of_truth") is True
+        for item in doc.get(chave, []) or []:
+            campos = sorted(k for k, v in item.items() if v == PENDENTE)
+            if campos and promovido:
+                err(f"[julgamento] {rel}:{item.get('id', '?')} está num documento "
+                    f"source_of_truth:true com {', '.join(campos)}={PENDENTE} — "
+                    f"promover é substituir o sentinela por julgamento, não declarar o documento "
+                    f"pronto com ele dentro")
 
 
 def _inventory(project_doc: dict | None) -> dict | None:
@@ -614,6 +686,8 @@ def main(argv: list[str] | None = None) -> int:
     check_version_single_source(loaded.get("project.yaml"))
     check_target_lock(loaded.get("project.yaml"), loaded.get("target.lock"))
     check_target_roots(loaded.get("project.yaml"))
+    check_derived_from(loaded, loaded.get("project.yaml"), loaded.get("target.lock"))
+    check_pending_judgment(loaded)
     backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
     req_items = {i.get("id"): i for i in backlog_doc.get("items", [])}
     code_roots, test_roots = declared_roots(loaded.get("project.yaml"))

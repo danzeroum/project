@@ -4,48 +4,175 @@
   "title": "business/requirements/backlog.yaml — requisitos ligados a capacidades",
   "description": "Cada item de backlog pertence a uma capacidade (CAP-*). Dá ao agente o QUE precisa ser feito e por quê, sem inventar escopo.",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "items"],
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "items"
+  ],
   "additionalProperties": false,
   "oneOf": [
     {
       "properties": {
-        "source_of_truth": { "const": true },
-        "generated_from": { "const": null }
+        "source_of_truth": {
+          "const": true
+        },
+        "generated_from": {
+          "const": null
+        }
       }
     },
     {
       "properties": {
-        "source_of_truth": { "const": false },
-        "generated_from": { "type": "string", "minLength": 1 }
+        "source_of_truth": {
+          "const": false
+        },
+        "generated_from": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["generated_from"]
+      "required": [
+        "generated_from"
+      ]
     }
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "source_of_truth": { "type": "boolean" },
-    "generated_from": { "type": ["string", "null"] },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "metadata_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "source_of_truth": {
+      "type": "boolean"
+    },
+    "generated_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "items": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "title", "type", "capability", "status", "priority"],
+        "required": [
+          "id",
+          "title",
+          "type",
+          "capability",
+          "status",
+          "priority"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^REQ-[0-9]{3}$" },
-          "title": { "type": "string" },
-          "type": { "enum": ["user-story", "task", "bug", "enabler"] },
-          "capability": { "type": "string", "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$" },
-          "status": { "enum": ["proposed", "planned", "in_progress", "done", "dropped"] },
-          "priority": { "enum": ["low", "medium", "high", "critical"] },
-          "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
-          "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^REQ-[0-9]{3}$" } },
-          "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" },
-          "metrics": { "type": "array", "items": { "type": "string", "pattern": "^MET-[A-Z0-9]+(-[A-Z0-9]+)*$" } },
-          "governed_by": { "type": "array", "items": { "type": "string", "pattern": "^RULE-[A-Z0-9]+(-[A-Z0-9]+)*-[0-9]{3}$" } },
-          "validated_by": { "type": "array", "items": { "type": "string" } }
+          "id": {
+            "type": "string",
+            "pattern": "^REQ-[0-9]{3}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "user-story",
+              "task",
+              "bug",
+              "enabler"
+            ]
+          },
+          "capability": {
+            "type": "string",
+            "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "planned",
+              "in_progress",
+              "done",
+              "dropped"
+            ]
+          },
+          "priority": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^REQ-[0-9]{3}$"
+            }
+          },
+          "risk": {
+            "type": "string",
+            "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^MET-[A-Z0-9]+(-[A-Z0-9]+)*$"
+            }
+          },
+          "governed_by": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^RULE-[A-Z0-9]+(-[A-Z0-9]+)*-[0-9]{3}$"
+            }
+          },
+          "validated_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "derived_from": {
+            "type": "object",
+            "description": "Proveniência da ingestão: de ONDE no alvo este item foi derivado, e em QUE commit. Sem o sha, 'este metadado descreve o alvo' vira afirmação sobre um alvo que já mudou — o mesmo modo de falha que target.lock resolve, uma camada acima. ci/validate_metadata.py::check_derived_from cobra que repo casa target.repo, que sha casa target.lock exatamente e que path existe no alvo materializado.",
+            "required": [
+              "repo",
+              "sha",
+              "path"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "repo": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Relativo à raiz do alvo, sem o prefixo workspace/target/."
+              },
+              "section": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Âncora dentro do arquivo (título de seção, símbolo). Opcional: nem toda origem tem subdivisão."
+              }
+            }
+          }
         }
       }
     }

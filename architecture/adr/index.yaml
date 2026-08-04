@@ -426,3 +426,54 @@ adrs:
         description: "A invariante do código órfão roda no CI a cada push, junto dos demais fiscais."
         files: [".github/workflows/governance.yml"]
         pattern: "codigo orfao|código órfão"
+
+  - id: ADR-010
+    title: "A ingestão declara de onde tirou cada coisa, e não julga o que tirou"
+    status: accepted
+    file: architecture/adr/ADR-010-ingestao-com-proveniencia.md
+    related_risks: [RISK-INGEST-001, RISK-INGEST-002]
+    assertions:
+      - id: ADR-010-A1
+        kind: path_present
+        severity: high
+        risk: RISK-INGEST-002
+        description: "O pipeline, seu schema e o contrato do cartographer existem — sem eles a ingestão volta a ser improviso."
+        paths:
+          - harness/pipeline/ingest.yaml
+          - harness/schemas/ingest-pipeline.schema.json
+          - harness/agents/cartographer/AGENT.md
+          - harness/policies/ingestao.md
+      - id: ADR-010-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-INGEST-002
+        description: "Proveniência segue exigindo o SHA: sem ele o metadado descreve um alvo que já mudou."
+        file: harness/schemas/capabilities.schema.json
+        pointer: /properties/capabilities/items/properties/derived_from/required
+        contains: sha
+      - id: ADR-010-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-INGEST-002
+        description: "Toda fase da ingestão segue obrigada a declarar fiscal e gate."
+        file: harness/schemas/ingest-pipeline.schema.json
+        pointer: /properties/phases/items/required
+        contains: fiscal
+      - id: ADR-010-A4
+        kind: file_matches
+        severity: high
+        risk: RISK-INGEST-002
+        description: "O cartographer continua proibido de preencher julgamento — é o que separa cartografar de decidir."
+        files: ["harness/agents/cartographer/AGENT.md"]
+        pattern: "pending_judgment"
+      - id: ADR-010-A5
+        kind: manual
+        severity: medium
+        risk: RISK-INGEST-001
+        description: "Adequação da fronteira de componente proposta ao domínio real do alvo."
+        justification: >
+          Agrupar arquivos em componentes é julgamento de domínio, não dedução: nenhum fiscal
+          decide se packages/auth e packages/session são um componente ou dois. O fiscal cobra
+          pertencimento, proveniência e ausência de julgamento automático; a adequação da fronteira
+          fica com a revisão humana da change-proposal, onde o erro é visível no diff com a
+          proveniência ao lado.

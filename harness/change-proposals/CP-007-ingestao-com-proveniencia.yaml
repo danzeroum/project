@@ -1,0 +1,49 @@
+# Mudança proposta: ingestão do alvo com proveniência ancorada no SHA do lock.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-007
+  title: "Fase D — ingestão: derived_from resolvível e o julgamento que a máquina não faz"
+  author_kind: agent
+  created_at: "2026-08-04T22:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-INGEST-001
+      - RISK-INGEST-002
+      - RISK-META-001
+    rationale: >
+      Risco alto porque introduz metadado ESCRITO POR MÁQUINA num repositório cuja premissa é que
+      o projeto declara. Duas travas mantêm a premissa de pé, e as duas são o coração desta
+      proposta.
+      Primeira, proveniência: todo item ingerido carrega derived_from {repo, sha, path, section},
+      e o fiscal cobra que repo casa target.repo, que sha casa target.lock EXATAMENTE e que path
+      existe no alvo materializado. Sem a igualdade de SHA, "este metadado descreve o alvo" vira
+      afirmação sobre um alvo que já mudou — o mesmo modo de falha que target.lock resolve, uma
+      camada acima.
+      Segunda, o valor sentinela pending_judgment. A ingestão não decide risk_level, likelihood,
+      impact nem base legal: escreve pending_judgment e o fiscal RECUSA esse valor em qualquer
+      documento com source_of_truth:true. Isso parece o "to-be-assessed" que o CLAUDE.md proíbe e
+      é o oposto: aquele é um campo aberto que nenhum fiscal consegue reprovar; este é reprovável
+      por construção e só sobrevive enquanto o documento se declara derivado. Promover é o ato
+      humano de substituí-lo.
+      O que esta proposta NÃO faz, deliberadamente: escrever no alvo. Nenhuma fase do pipeline
+      cria branch, commit, issue ou PR lá.
+
+  required_gates:
+    - metadata-validation
+    - inventory
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_ingestao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

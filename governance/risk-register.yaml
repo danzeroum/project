@@ -192,6 +192,30 @@ risks:
       - kind: local_path
         ref: architecture/adr/ADR-009-codigo-sem-metadado-nao-existe.md
 
+  - id: RISK-INGEST-002
+    area: governance
+    description: "Metadado escrito por máquina passando por declarado: item sem proveniência conferível, ou julgamento que a ingestão preencheu sozinha, entra como se um humano tivesse decidido."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: harness/pipeline/ingest.yaml
+      - kind: local_path
+        ref: harness/schemas/ingest-pipeline.schema.json
+      - kind: local_path
+        ref: harness/agents/cartographer/AGENT.md
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: harness/policies/ingestao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-010-ingestao-com-proveniencia.md
+
   - id: RISK-META-002
     area: access
     description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."

@@ -131,6 +131,36 @@
           },
           "owner": {
             "type": "string"
+          },
+          "derived_from": {
+            "type": "object",
+            "description": "Proveniência da ingestão: de ONDE no alvo este item foi derivado, e em QUE commit. Sem o sha, 'este metadado descreve o alvo' vira afirmação sobre um alvo que já mudou — o mesmo modo de falha que target.lock resolve, uma camada acima. ci/validate_metadata.py::check_derived_from cobra que repo casa target.repo, que sha casa target.lock exatamente e que path existe no alvo materializado.",
+            "required": [
+              "repo",
+              "sha",
+              "path"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "repo": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Relativo à raiz do alvo, sem o prefixo workspace/target/."
+              },
+              "section": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Âncora dentro do arquivo (título de seção, símbolo). Opcional: nem toda origem tem subdivisão."
+              }
+            }
           }
         }
       }

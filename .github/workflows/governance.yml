@@ -207,6 +207,63 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) proveniência com SHA atrasado deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-proveniencia"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          raiz = pathlib.Path(sys.argv[1])
+          p = raiz / "project.yaml"; doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["project"]["kind"] = "derived"
+          doc["target"] = {"repo": "sintetico/alvo", "ref": "principal", "lock_source": "target.lock",
+                           "code_roots": ["src"], "test_roots": ["tests/unit"], "languages": ["python"]}
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          lp = raiz / "target.lock"; lk = yaml.safe_load(lp.read_text(encoding="utf-8"))
+          lk.update(kind="derived", target_sha="1" * 40)
+          lp.write_text(yaml.safe_dump(lk, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          cp = raiz / "architecture/components.yaml"; cd = yaml.safe_load(cp.read_text(encoding="utf-8"))
+          cd["components"][0]["derived_from"] = {"repo": "sintetico/alvo", "sha": "2" * 40,
+                                                 "path": "app/servico.py"}
+          cp.write_text(yaml.safe_dump(cd, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::proveniência com SHA divergente do lock não foi detectada — o metadado voltou a poder descrever um alvo que já mudou."
+            exit 1
+          fi
+
+      - name: (negativo) pending_judgment em documento promovido deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-julgamento"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "business/capabilities.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["capabilities"][0]["risk_level"] = "pending_judgment"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::pending_judgment sobreviveu num documento source_of_truth:true — o sentinela virou o 'to-be-assessed' que o ADR-002 proíbe."
+            exit 1
+          fi
+
+      - name: (negativo) fase de ingestão escrevendo no alvo deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-escrita-alvo"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "harness/pipeline/ingest.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["phases"][0]["outputs"].append("workspace/target/METADATA.md")
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::fase declarando escrita no alvo não foi detectada — a ingestão voltou a poder escrever no repositório que ela audita."
+            exit 1
+          fi
+
       - name: (negativo) validate_all sem dependências não pode sair 0
         run: |
           set -euo pipefail

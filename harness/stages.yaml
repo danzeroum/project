@@ -172,6 +172,7 @@ stages:
     artifacts:
       - "project.yaml"
       - "target.lock"
+      - "harness/pipeline"
       - "governance"
       - "harness/harness.yaml"
       - "harness/stages.yaml"
@@ -195,6 +196,12 @@ stages:
       - kind: ci_script
         ref: ci/validate_metadata.py
         symbol: check_target_lock
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_derived_from
+      - kind: ci_script
+        ref: ci/audit_governance.py
+        symbol: check_ingest_pipeline
     privacy_lens:
       scan: true
       question: "O papel do sistema (controlador/operador) declarado bate com o que ele de fato trata?"

@@ -164,7 +164,8 @@
               "lgpd_retention",
               "lgpd_declaration",
               "lgpd_judgment",
-              "manual_assertion"
+              "manual_assertion",
+              "ingest_pipeline"
             ]
           },
           "severity": {

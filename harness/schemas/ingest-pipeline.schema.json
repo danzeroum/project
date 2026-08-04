@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/ingest-pipeline.schema.json",
+  "title": "harness/pipeline/ingest.yaml — as fases da ingestão e seus fiscais",
+  "description": "Mesma mecânica de stages.yaml: índice verificável, nunca segunda descrição. Cada fase declara inputs, outputs, o agente que a executa e um fiscal RESOLVÍVEL — fase sem fiscal é trabalho que ninguém confere, e num pipeline que escreve metadado isso é pior do que não ter o pipeline. O que este arquivo deliberadamente não tem: qualquer escrita no alvo. A ingestão lê o alvo e escreve no derivado.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "phases"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "order", "name", "agent", "inputs", "outputs", "fiscal", "gate"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^ING-[0-9]{2}-[A-Z0-9-]+$" },
+          "order": { "type": "integer", "minimum": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "agent": {
+            "type": "string",
+            "description": "Subpasta de harness/agents/ com o contrato do agente. Cobrado por ci/audit_governance.py::check_ingest_pipeline — agente citado sem contrato é fase sem dono."
+          },
+          "inputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Caminhos ou globs lidos. workspace/target/** é o alvo materializado; tudo mais é deste repositório."
+          },
+          "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Caminhos escritos. Nenhum pode estar fora deste repositório: a ingestão lê o alvo e nunca escreve nele."
+          },
+          "fiscal": {
+            "type": "object",
+            "description": "Mesma forma de stages.yaml:enforced_by, e resolvido pela mesma mecânica: ci_script com ::simbolo confirmado por AST, schema com arquivo real.",
+            "required": ["kind", "ref"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": { "enum": ["ci_script", "schema"] },
+              "ref": { "type": "string", "minLength": 1 },
+              "symbol": { "type": "string", "minLength": 1 }
+            }
+          },
+          "gate": {
+            "enum": ["none", "human_approval"],
+            "description": "human_approval nas fases que escrevem julgamento ou promovem metadado. Uma fase que decide sozinha o que só um humano pode decidir é a trava que o vigiado desliga."
+          }
+        }
+      }
+    }
+  }
+}
