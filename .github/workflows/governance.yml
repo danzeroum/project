@@ -312,6 +312,27 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) avançar o lock deve vencer a validação semântica
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-lock"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          raiz = pathlib.Path(sys.argv[1])
+          p = raiz / "project.yaml"; doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["project"]["kind"] = "derived"
+          doc["target"] = {"repo": "sintetico/alvo", "ref": "principal", "lock_source": "target.lock",
+                           "code_roots": ["src"], "test_roots": ["tests/unit"], "languages": ["python"]}
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          lp = raiz / "target.lock"; lk = yaml.safe_load(lp.read_text(encoding="utf-8"))
+          lk.update(kind="derived", target_sha="a" * 40)
+          lp.write_text(yaml.safe_dump(lk, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_conformance.py --quiet; then
+            echo "::error::o lock avançou e a validação semântica continuou fresca — o derivado voltou a poder envelhecer em silêncio sobre um alvo reescrito."
+            exit 1
+          fi
+
       - name: (negativo) validate_all sem dependências não pode sair 0
         run: |
           set -euo pipefail

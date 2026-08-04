@@ -31,6 +31,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
     quem mais precisa da mensagem é exatamente quem acabou de clonar.
     """
     import alignment_report
+    import audit_conformance
     import audit_governance
     import audit_lgpd
     import generate_graph
@@ -41,6 +42,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
         ("grafo", generate_graph.main, ["--check"]),
         ("conformidade", audit_governance.main, []),
         ("alinhamento", alignment_report.main, ["--check"]),
+        ("conformidade-continua", audit_conformance.main, []),
         ("lgpd", audit_lgpd.main, []),
     ]
 

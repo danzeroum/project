@@ -238,6 +238,28 @@ risks:
       - kind: local_path
         ref: architecture/adr/ADR-011-alinhamento-medido.md
 
+  - id: RISK-CONF-002
+    area: governance
+    description: "Conformidade verificada e nunca validada: os fiscais confirmam que o repositório bate com o declarado, e ninguém pergunta se o declarado ainda é verdade. Descrição, ADR e risco mitigado envelhecem sem que nada reprove."
+    likelihood: high
+    impact: medium
+    treatment: mitigate
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/audit_conformance.py
+      - kind: local_path
+        ref: governance/conformance-review.yaml
+      - kind: local_path
+        ref: harness/agents/conformance/AGENT.md
+      - kind: local_path
+        ref: harness/schemas/conformance-review.schema.json
+      - kind: local_path
+        ref: .github/workflows/conformance.yml
+      - kind: local_path
+        ref: architecture/adr/ADR-012-conformidade-continua.md
+
   - id: RISK-META-002
     area: access
     description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."

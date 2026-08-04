@@ -354,6 +354,39 @@ def fingerprint(parts: Iterable[tuple[str, str]]) -> str:
     return "sha256:" + sha256_bytes(joined.encode("utf-8"))
 
 
+# Metadados cujo conteúdo pode mudar o veredito de uma revisão de conformidade. Deliberadamente
+# NÃO inclui docs/ nem laudos: o fingerprint responde "a revisão cobre o estado atual do sistema?",
+# e um documento derivado mudar não reabre julgamento nenhum — ele só reflete o que já mudou.
+CONFORMANCE_SCOPE = (
+    "project.yaml",
+    "target.lock",
+    "business/capabilities.yaml",
+    "architecture/components.yaml",
+    "architecture/interfaces.yaml",
+    "architecture/adr/index.yaml",
+    "design/ui-surfaces.yaml",
+    "business/requirements/backlog.yaml",
+    "governance/risk-register.yaml",
+    "harness/stages.yaml",
+)
+
+
+def conformance_fingerprint() -> str:
+    """Estado do metadado governável MAIS o SHA do alvo.
+
+    O SHA é o que faz "esta revisão cobre este estado" significar alguma coisa num derivado. Sem
+    ele, o alvo inteiro pode ser reescrito enquanto o metadado fica idêntico — e a revisão
+    continuaria se declarando fresca, descrevendo com toda a confiança um sistema que já mudou.
+    O efeito colateral é intencional: avançar target.lock invalida a revisão, e é esse o gatilho
+    que /sincronizar existe para tornar visível em vez de deixar passar.
+    """
+    parts: list[tuple[str, str]] = []
+    for rel in CONFORMANCE_SCOPE:
+        if rel_exists(rel):
+            parts.append((rel, sha256_file(REPO / rel)))
+    return fingerprint(parts)
+
+
 # --------------------------------------------------------------------------------------
 # Normalização de identificador (varredura de dado pessoal)
 # --------------------------------------------------------------------------------------

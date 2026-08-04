@@ -524,3 +524,53 @@ adrs:
         description: "O alinhamento roda no CI a cada push, junto dos demais fiscais."
         files: [".github/workflows/governance.yml"]
         pattern: "alignment_report\\.py"
+
+  - id: ADR-012
+    title: "Verificação e validação são coisas distintas, e o agente que valida nunca corrige"
+    status: accepted
+    file: architecture/adr/ADR-012-conformidade-continua.md
+    related_risks: [RISK-CONF-002, RISK-DERIV-001]
+    assertions:
+      - id: ADR-012-A1
+        kind: path_present
+        severity: high
+        risk: RISK-CONF-002
+        description: "O fiscal de frescor, o registro da validação e o contrato do agente existem."
+        paths:
+          - ci/audit_conformance.py
+          - governance/conformance-review.yaml
+          - harness/agents/conformance/AGENT.md
+          - harness/policies/conformidade-continua.md
+      - id: ADR-012-A2
+        kind: schema_lock
+        severity: high
+        risk: RISK-CONF-002
+        description: "Aceitar um achado segue exigindo razão registrada — aceitar em silêncio é como um achado morre."
+        file: harness/schemas/conformance-review.schema.json
+        pointer: /properties/review/properties/findings/items/allOf/0/then/required
+        contains: rationale
+      - id: ADR-012-A3
+        kind: file_matches
+        severity: critical
+        risk: RISK-DERIV-001
+        description: "O fingerprint de conformidade continua incluindo o SHA do alvo — sem ele a revisão se declara fresca sobre um sistema que mudou."
+        files: ["ci/harness_lib.py"]
+        pattern: '"target\.lock",'
+      - id: ADR-012-A4
+        kind: file_matches
+        severity: high
+        risk: RISK-CONF-002
+        description: "O canal de retorno ao alvo continua nascendo desligado."
+        files: ["harness/harness.yaml"]
+        pattern: "open_issues_on_target: false"
+      - id: ADR-012-A5
+        kind: manual
+        severity: medium
+        risk: RISK-CONF-002
+        description: "Qualidade do julgamento semântico do agente de conformidade."
+        justification: >
+          Se a descrição de um componente ainda condiz com o código, e se um ADR aceito continua
+          verdadeiro em espírito, são leituras — não checagens. Nenhum fiscal determinístico as
+          faz, e fingir que faria seria a versão executável de markdown que não morde. O que a
+          máquina cobra é o frescor e a forma: que a revisão exista, cubra este estado (incluindo
+          o SHA do alvo), encaminhe cada achado e declare o que não avaliou.

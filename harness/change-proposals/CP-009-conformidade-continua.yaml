@@ -1,0 +1,46 @@
+# Mudança proposta: conformidade contínua e sincronização com o alvo que continua evoluindo.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-009
+  title: "Fase F — conformidade contínua: fingerprint com o SHA do alvo e /sincronizar"
+  author_kind: agent
+  created_at: "2026-08-04T23:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-CONF-002
+      - RISK-INGEST-002
+      - RISK-DERIV-001
+    rationale: >
+      Risco alto por duas razões independentes.
+      A primeira é o canal de retorno derivado → alvo. Ele nasce false em harness.yaml e é a única
+      capacidade deste repositório que escreveria num repositório de terceiro. Nascer desligado é
+      coerente com decision_policy.default: deny — escrita em repositório que não se governa começa
+      fechada e liga por decisão declarada, nunca por padrão.
+      A segunda é o fingerprint de conformidade passar a incluir o SHA de target.lock. Isso é o
+      que faz "a revisão cobre este estado" significar alguma coisa num derivado: sem o SHA, o
+      alvo inteiro pode ser reescrito e a revisão continuaria se declarando fresca. O efeito
+      colateral é que avançar o lock invalida a revisão — deliberado, e é exatamente o gatilho que
+      /sincronizar existe para tornar visível.
+      Uma separação que esta proposta institui e que não é cosmética: VERIFICAÇÃO é o fiscal
+      determinístico ("está conforme o declarado?"); VALIDAÇÃO é o agente de conformidade ("ainda
+      faz o que deveria?"). O agente NUNCA corrige — cada achado dele vira change-proposal ou
+      entrada de risco. Um agente que conserta o que ele mesmo julga é juiz e parte.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_sincronizacao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

@@ -28,6 +28,7 @@ DOCS = [
     ("project.yaml", "project.schema.json"),
     ("target.lock", "target-lock.schema.json"),
     ("harness/pipeline/ingest.yaml", "ingest-pipeline.schema.json"),
+    ("governance/conformance-review.yaml", "conformance-review.schema.json"),
     ("governance/risk-register.yaml", "risk-register.schema.json"),
     ("business/capabilities.yaml", "capabilities.schema.json"),
     ("architecture/components.yaml", "components.schema.json"),

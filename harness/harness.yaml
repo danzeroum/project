@@ -72,6 +72,14 @@ env_hygiene:
   env_denylist_prefix: ["WEBQA_"]
   fail_on_denied_env: true   # aborta se encontrar, NÃO apenas ignora (erro vira evento auditável)
 
+# Canal de retorno derivado -> alvo. A ÚNICA capacidade deste repositório que escreveria num
+# repositório de terceiro, e por isso nasce desligada: coerente com decision_policy.default: deny,
+# escrita em repositório que não se governa começa fechada e liga por decisão declarada.
+# Ligado, um fiscal novo e ruidoso vira issue de verdade no projeto de outra pessoa.
+target_feedback:
+  open_issues_on_target: false
+  requires_human_approval: true
+
 paths:
   runs: harness/runs         # evidência bruta por run_id
   reports: harness/reports   # laudos normalizados + agregação

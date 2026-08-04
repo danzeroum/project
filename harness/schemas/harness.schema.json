@@ -4,16 +4,33 @@
   "title": "harness.yaml",
   "description": "Plano de controle da harness. Auto-validável: todo modo/runner/env que a harness declara é checado aqui.",
   "type": "object",
-  "required": ["schema_version", "standard", "execution_modes", "env_hygiene", "paths", "repository", "decision_policy"],
+  "required": [
+    "schema_version",
+    "standard",
+    "execution_modes",
+    "env_hygiene",
+    "paths",
+    "repository",
+    "decision_policy"
+  ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "type": "integer", "minimum": 1 },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
     "repository": {
       "type": "object",
-      "required": ["project_manifest", "stages_manifest", "protected_paths"],
+      "required": [
+        "project_manifest",
+        "stages_manifest",
+        "protected_paths"
+      ],
       "additionalProperties": false,
       "properties": {
-        "project_manifest": { "type": "string" },
+        "project_manifest": {
+          "type": "string"
+        },
         "stages_manifest": {
           "const": "harness/stages.yaml",
           "description": "Manifesto das etapas do projeto: fonte única de quais etapas existem e quem as fiscaliza. ci/audit_governance.py exige que todo arquivo do repositório pertença a uma delas ou a uma isenção declarada."
@@ -21,31 +38,49 @@
         "protected_paths": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Caminhos que só mudam com revisão humana. Fiscal real: CODEOWNERS + branch protection + diff-check no CI."
         }
       }
     },
     "decision_policy": {
       "type": "object",
-      "required": ["default", "missing_metadata", "protected_path_change", "dependency_update"],
+      "required": [
+        "default",
+        "missing_metadata",
+        "protected_path_change",
+        "dependency_update"
+      ],
       "additionalProperties": false,
       "properties": {
         "default": {
           "const": "deny",
           "description": "Se a harness não reconhece projeto, capacidade, risco ou modo, ela NÃO infere que pode agir."
         },
-        "missing_metadata": { "const": "stop_and_request_context" },
-        "protected_path_change": { "const": "require_human_review" },
-        "dependency_update": { "const": "require_human_review" }
+        "missing_metadata": {
+          "const": "stop_and_request_context"
+        },
+        "protected_path_change": {
+          "const": "require_human_review"
+        },
+        "dependency_update": {
+          "const": "require_human_review"
+        }
       }
     },
     "standard": {
       "type": "object",
-      "required": ["package", "requirements_file"],
+      "required": [
+        "package",
+        "requirements_file"
+      ],
       "additionalProperties": false,
       "properties": {
-        "package": { "type": "string" },
+        "package": {
+          "type": "string"
+        },
         "requirements_file": {
           "type": "string",
           "description": "O pin exato vive aqui; harness.yaml apenas referencia."
@@ -55,49 +90,131 @@
     "execution_modes": {
       "type": "object",
       "description": "Os quatro modos DEVEM estar todos presentes.",
-      "required": ["inventory", "passive", "load", "active_discovery"],
+      "required": [
+        "inventory",
+        "passive",
+        "load",
+        "active_discovery"
+      ],
       "additionalProperties": false,
       "properties": {
-        "inventory": { "$ref": "#/$defs/mode" },
-        "passive": { "$ref": "#/$defs/mode" },
-        "load": { "$ref": "#/$defs/mode" },
-        "active_discovery": { "$ref": "#/$defs/mode" }
+        "inventory": {
+          "$ref": "#/$defs/mode"
+        },
+        "passive": {
+          "$ref": "#/$defs/mode"
+        },
+        "load": {
+          "$ref": "#/$defs/mode"
+        },
+        "active_discovery": {
+          "$ref": "#/$defs/mode"
+        }
       }
     },
     "env_hygiene": {
       "type": "object",
-      "required": ["env_allowlist", "env_denylist_prefix", "fail_on_denied_env"],
+      "required": [
+        "env_allowlist",
+        "env_denylist_prefix",
+        "fail_on_denied_env"
+      ],
       "additionalProperties": false,
       "properties": {
-        "env_allowlist": { "type": "array", "items": { "type": "string" } },
-        "env_denylist_prefix": { "type": "array", "items": { "type": "string" } },
-        "fail_on_denied_env": { "type": "boolean" }
+        "env_allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env_denylist_prefix": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fail_on_denied_env": {
+          "type": "boolean"
+        }
       }
     },
     "paths": {
       "type": "object",
-      "required": ["runs", "reports", "state"],
+      "required": [
+        "runs",
+        "reports",
+        "state"
+      ],
       "additionalProperties": false,
       "properties": {
-        "runs": { "type": "string" },
-        "reports": { "type": "string" },
-        "state": { "type": "string" }
+        "runs": {
+          "type": "string"
+        },
+        "reports": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        }
+      }
+    },
+    "target_feedback": {
+      "type": "object",
+      "description": "Canal de retorno derivado -> alvo: a única capacidade que escreveria num repositório de terceiro. Ambos os campos nascem no lado fechado, coerentes com decision_policy.default: deny. O schema não força o valor — força a DECLARAÇÃO: quem ligar o canal escreve true num arquivo protegido, sob revisão, em vez de o comportamento aparecer por omissão.",
+      "required": [
+        "open_issues_on_target",
+        "requires_human_approval"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "open_issues_on_target": {
+          "type": "boolean"
+        },
+        "requires_human_approval": {
+          "type": "boolean"
+        }
       }
     }
   },
   "$defs": {
     "mode": {
       "type": "object",
-      "required": ["network", "requires_auth", "agent_may_trigger", "job"],
+      "required": [
+        "network",
+        "requires_auth",
+        "agent_may_trigger",
+        "job"
+      ],
       "additionalProperties": false,
       "properties": {
-        "network": { "type": "boolean" },
-        "requires_auth": { "type": "boolean" },
-        "agent_may_trigger": { "type": "boolean" },
-        "job": { "type": "string", "enum": ["inline", "segregated"] },
-        "trigger": { "type": "string", "enum": ["human_only"] },
-        "requires_proof_of_possession": { "type": "boolean" },
-        "note": { "type": "string" }
+        "network": {
+          "type": "boolean"
+        },
+        "requires_auth": {
+          "type": "boolean"
+        },
+        "agent_may_trigger": {
+          "type": "boolean"
+        },
+        "job": {
+          "type": "string",
+          "enum": [
+            "inline",
+            "segregated"
+          ]
+        },
+        "trigger": {
+          "type": "string",
+          "enum": [
+            "human_only"
+          ]
+        },
+        "requires_proof_of_possession": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
       }
     }
   }
