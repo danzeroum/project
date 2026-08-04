@@ -1,0 +1,106 @@
+# Mudança proposta: os testes de mordida provam que o fiscal morde, não que o repositório
+# já estava vermelho. Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-015
+  title: "Ancorar o baseline dos testes de mordida: asserção sobre o delta, não sobre o código absoluto"
+  author_kind: agent
+  created_at: "2026-08-05T03:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-STAGE-001
+      - RISK-META-001
+    rationale: >
+      Medido num derivado real recém-adotado, não deduzido, e com controle: `pytest
+      tests/governance` sai 23 failed, 89 passed (112 testes, 180s) no derivado, contra
+      129 passed (66s) neste commit do molde. Mesma suíte, mesmos fiscais, cores opostas —
+      o que a suíte mede não é o fiscal, é o papel do repositório em que ela roda.
+
+      Escopo honesto da medição: o derivado foi gerado da casca em c7621439, um merge atrás
+      deste commit, e por isso conta 112 testes em vez de 129. As 17 diferenças são testes
+      acrescentados depois e não foram medidos. O que carrega é o mecanismo: as seis linhas
+      `assert code == 0, "o baseline deveria estar verde"` estão idênticas aqui, e SKIP em
+      conftest.py segue sem workspace/. O achado não depende do que mudou entre os dois commits.
+
+      A causa não é regressão de fiscal algum — é que toda a suíte de
+      mordida presume um baseline VERDE, e o /adotar declara, em letras maiúsculas, que um
+      derivado nasce VERMELHO por construção. As duas afirmações não podem ser verdadeiras ao
+      mesmo tempo, e hoje a suíte é quem perde: no derivado medido o baseline traz 227 achados
+      (146 código órfão, 67 teste órfão, 9 do negócio de exemplo apontando para fora das raízes
+      declaradas, 4 de julgamento vencido, 1 de papel LGPD).
+
+      O sintoma barulhento é a menor metade. O caro é este, e é um caso do modo de falha que
+      este repositório nomeia em toda parte — a trava que não morde:
+
+        test_derivacao_bites.py::test_molde_com_sha_no_lock_reprova
+          _edit_yaml(repo_copy, "target.lock", lambda d: d.update(target_sha=SHA_FICTICIO))
+          assert code == 1                              # passa DE GRAÇA
+          assert any("target.lock" in e for e in errors)  # falha aqui
+
+      O teste grava um SHA num lock que ele PRESUME dizer kind:mold. Onde o repositório já é
+      derivado, o documento resultante é perfeitamente válido — a violação injetada nunca chega
+      a existir. E o primeiro assert passa mesmo assim, porque o baseline já saía 1. Um teste
+      que afirma "o fiscal reprovou" quando o fiscal nunca foi provocado não está medindo o
+      fiscal; está medindo a cor de fundo do repositório. Ele passaria com o fiscal deletado.
+
+      As 23 se distribuem em três famílias, contadas do laudo:
+
+        6   asserção direta de baseline verde (`assert code == 0, "o baseline deveria estar
+            verde"`) em derivacao, ingestao, inventario, lgpd, seguranca e sincronizacao;
+        10  injeções cujo achado esperado se perde no ruído dos 227 pré-existentes;
+        7   testes que presumem kind:mold no repositório real e cuja mutação, portanto, não
+            produz o estado que o nome do teste anuncia (bootstrap, derivacao, ingestao).
+
+      A correção é trocar a asserção absoluta pela asserção sobre o DELTA: capturar o conjunto
+      de achados antes da injeção, injetar, e exigir que o achado esperado apareça como
+      NOVO — e, na direção oposta (isenção declarada, token ambíguo, ausência de falso
+      positivo), que o conjunto não cresça. Um delta é a afirmação que os testes já pretendiam
+      fazer; o código absoluto só era um atalho válido enquanto o baseline era verde por sorte
+      de contexto. Ancorado, o mesmo teste vale no molde e em qualquer derivado, verde ou não —
+      que é o que uma suíte da CASCA precisa valer, já que ela viaja para dentro de todo
+      derivado que a casca gera.
+
+      Os 7 da terceira família não se resolvem por delta: eles falam de um papel específico.
+      Devem declarar essa precondição e PULAR com motivo declarado onde ela não vale, em vez de
+      falhar. Pular é honesto — "este teste não se aplica aqui"; falhar é ruído que ensina a
+      ignorar a suíte, e uma suíte que se aprende a ignorar já está desligada.
+
+      Observação de custo, que não é a proposta mas condiciona a implementação: a fixture
+      repo_copy faz copytree do repositório inteiro por teste, e SKIP não inclui workspace/.
+      Num derivado isso copia o alvo materializado a cada um dos 112 testes — 3min no caso
+      medido, contra segundos no molde. O tempo da suíte passa a escalar com o tamanho do
+      projeto governado, não com o da harness. Excluir workspace/ do SKIP tem efeito colateral
+      próprio (sem alvo materializado, a invariante do código órfão percorre conjunto vazio e o
+      baseline encolhe para 9 achados) — por isso entra como decisão a tomar dentro desta CP,
+      com o efeito declarado, e não como limpeza silenciosa.
+
+      Risco `high` porque a mudança é na prova, não no provado. Um delta mal ancorado — capturar
+      o baseline depois da injeção, comparar por contagem em vez de por identidade do achado —
+      produz uma suíte inteira que passa sempre, e passa exatamente igual a uma suíte correta.
+      É a única classe de erro aqui que nenhum fiscal a jusante pega, porque os fiscais destes
+      testes são estes testes.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_derivacao_bites.py
+    - tests/governance/test_bootstrap_bites.py
+    - tests/governance/test_ingestao_bites.py
+    - tests/governance/test_inventario_bites.py
+    - tests/governance/test_lgpd_bites.py
+    - tests/governance/test_seguranca_bites.py
+    - tests/governance/test_sincronizacao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
