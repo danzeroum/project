@@ -1,0 +1,36 @@
+# Mudança proposta: corrigir o enquadramento do cabeçalho do CODEOWNERS.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-003
+  title: "Cabeçalho do CODEOWNERS: descrever o papel real, não uma pendência"
+  author_kind: agent
+  created_at: "2026-08-04T19:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: low
+    risks:
+      - RISK-META-002
+    rationale: >
+      Comentário apenas — nenhuma regra de propriedade muda, nenhum padrão de caminho é
+      acrescentado ou removido, e check_protected_paths continua vendo os mesmos donos. Toca
+      .github/, que é protected_path, e por isso é declarado e vai por PR. O texto atual diz
+      que "sozinho, CODEOWNERS não morde", o que é verdade técnica escrita com tom de coisa
+      faltando: num repositório de um dono, exigir revisão de code owner não acrescentaria
+      revisor, removeria a capacidade de entregar, porque o GitHub não permite aprovar o
+      próprio PR. Descrever isso como pendência transformaria uma limitação aritmética em
+      dívida imaginária.
+
+  required_gates:
+    - metadata-validation
+
+  tests_required: []
+
+  human_approval_required: true
+  change_mode: pull_request

@@ -4,10 +4,24 @@
 # humana — o fiscal REAL é CODEOWNERS + branch protection". Até aqui esse fiscal não existia:
 # a declaração apontava para um arquivo ausente. Este arquivo é ele.
 #
-# Sozinho, CODEOWNERS não morde: ele só passa a exigir revisão quando a branch protection de
-# `main` marcar "Require review from Code Owners". Sem isso, continua sendo placa, não detector.
-# ci/audit_governance.py::check_protected_paths cobra a parte que dá para verificar aqui —
-# que todo protected_path tenha dono; a outra metade é configuração do GitHub.
+# O que este arquivo faz, e faz com um dono só: responder QUEM responde por cada caminho
+# protegido. É a pergunta que harness.yaml levanta ao declarar protected_paths, e
+# ci/audit_governance.py::check_protected_paths reprova todo caminho protegido sem dono.
+#
+# O que ele deliberadamente NÃO faz é forçar aprovação. Ligar "Require review from Code Owners"
+# num repositório de um único dono não acrescentaria revisor: o GitHub não permite aprovar o
+# próprio PR, então a regra trancaria a main para a única pessoa que pode destrancá-la. Não é
+# lacuna a fechar — é aritmética. Quatro olhos exigem duas pessoas.
+#
+# O que vincula o dono aqui é outra coisa, e existe: o ruleset de `main` com bypass list VAZIA
+# (push direto e force push recusados com GH013, para todos) mais os fiscais de ci/, que
+# reprovam divergência entre o declarado e o real sem depender de ninguém lembrar de olhar.
+# Revisão humana pega intenção; fiscal automático pega desvio. Este projeto tem o segundo, e
+# o construiu de modo que se aplique também a quem o escreveu.
+#
+# Se um dia houver mais de um dono, marcar "Require review from Code Owners" e subir
+# "Required approvals" para 1 passa a fazer sentido. Até lá, este arquivo é o registro de
+# responsabilidade — que é o papel que ele de fato tem.
 
 # Fallback: qualquer mudança tem dono.
 *                       @danzeroum
