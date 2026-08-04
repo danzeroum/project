@@ -1,0 +1,97 @@
+# Mudança proposta: o gate roda onde o alvo existe — bootstrap condicional ao papel no CI.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-016
+  title: "Materializar o alvo no CI quando o papel for derivado: hoje a invariante do código órfão nunca roda no gate"
+  author_kind: agent
+  created_at: "2026-08-05T04:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-INGEST-001
+      - RISK-STAGE-001
+      - RISK-DERIV-001
+    rationale: >
+      Medido no CI de um derivado real, não deduzido. Os dois workflows que rodam os fiscais
+      instalam as dependências e vão direto para `python ci/validate_all.py`. Nenhum executa
+      ci/bootstrap.py. Num derivado o alvo nunca é materializado no runner, e o laudo diz
+      exatamente isso:
+
+        - [inventário] workspace/target ausente: o alvo não foi materializado —
+          rode python ci/bootstrap.py
+
+      O fiscal falha BEM: declara que não conseguiu fiscalizar em vez de percorrer conjunto
+      vazio e reportar verde. É a diferença entre exit 1 e o verde por vacuidade que a política
+      de adoção nomeia como a pior falha possível — indistinguível de cobertura real. Não há nada
+      a corrigir no fiscal.
+
+      O que há para corrigir é onde ele roda. A invariante do código órfão — todo arquivo sob
+      code_roots pertence a um componente ou a uma isenção declarada — é o coração do ADR-009 e
+      da ingestão, e no derivado ela nunca chega a executar no único lugar que a doutrina chama
+      de gate. Dito de outro modo: "o hook é ergonomia, o CI é o gate" é verdadeiro para o molde
+      e falso para todo derivado que o molde gera. O derivado fica com a trava mais cara da
+      harness rodando só na máquina de quem lembrar de rodar — que é a definição de trava que o
+      vigiado desliga sem tocar em nada.
+
+      É lacuna de classe, não deste ou daquele derivado: os workflows foram escritos para um
+      repositório que não tem alvo e são entregues verbatim a repositórios que têm. Consertar num
+      derivado seria o caminho especial que o ADR-008 proíbe — funciona para aquele e falha calado
+      nos outros, e falha PARECENDO que funcionou.
+
+      A correção não é "chamar o bootstrap". São três decisões, e as duas últimas são a razão de
+      isto ser uma proposta em vez de um commit:
+
+      1. CONDICIONAL AO PAPEL. O job lê project.yaml:project.kind e só materializa quando
+         'derived'. No molde, target_sha é null e o bootstrap não tem o que fazer — um passo
+         incondicional ou falharia no molde ou seria um no-op mudo, e no-op mudo é onde a próxima
+         regressão se esconde. O papel já é legível sem dependência extra (ci/adoption_status.py
+         faz isso num clone cru), então a condição não precisa de ferramenta nova.
+
+      2. CREDENCIAL, QUE É DECISÃO DECLARADA E NÃO DESCOBERTA. Materializar exige clonar o alvo
+         no SHA do lock. Alvo público resolve com o token padrão do runner; alvo privado exige um
+         segredo com leitura, e alvo em outra organização pode exigir mais que isso. Esta CP
+         precisa declarar QUAL credencial o job usa e o que acontece quando ela falta — antes do
+         primeiro run vermelho, não depois. Um segredo descoberto por tentativa vira variável de
+         ambiente copiada de outro projeto, e o escopo real de um segredo copiado nunca é o
+         escopo pretendido. Nota de fronteira: o nome de nenhum alvo entra aqui nem em .github/
+         (ADR-008-A5) — o job constrói a URL a partir de project.yaml:target.repo, que é onde
+         tudo que é do alvo mora.
+
+      3. FALHA DE MATERIALIZAÇÃO NÃO É FALHA DE GOVERNANÇA. Clone recusado por rede, credencial
+         ausente ou SHA que sumiu do remoto por force-push no alvo são estados do MUNDO, não
+         divergência entre o declarado e o real. Colapsar os dois num único vermelho ensina a ler
+         "governança falhou" como "provavelmente foi a rede" — e a partir daí o gate está
+         desligado por hábito, sem ninguém ter decidido desligá-lo. O job deve distinguir os dois,
+         e o código de saída da harness já tem a distinção pronta: 2 é "o fiscal não conseguiu
+         fiscalizar", 1 é "achou divergência". Materialização falha ⇒ 2, não 1.
+
+      Risco 'high' porque a mudança é no GATE. Um passo de materialização que falhe aberto —
+      continuar a validação sem o alvo, ou tratar a ausência como skip — produz um CI verde que
+      afirma cobertura sobre um conjunto vazio. Isso é estritamente pior que o vermelho de hoje:
+      o vermelho de hoje é ruidoso e honesto; um verde por vacuidade é silencioso e falso, e
+      seria herdado por todo derivado futuro sem que nenhum outro fiscal o percebesse.
+
+      Deliberadamente separada da CP-015, que aguarda o mesmo revisor. Aquela mexe na PROVA (as
+      asserções da suíte de mordida); esta mexe no GATE (o workflow). Empacotá-las faria um aval
+      valer por dois riscos distintos, e o revisor perderia a chance de aprovar uma e recusar a
+      outra — que é justamente a decisão que um aval humano existe para permitir.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_bootstrap_bites.py
+    - tests/governance/test_inventario_bites.py
+    - tests/governance/test_derivacao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
