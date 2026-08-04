@@ -57,7 +57,7 @@
     },
     "ui_surfaces": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "required": [
@@ -142,7 +142,8 @@
             }
           }
         }
-      }
+      },
+      "description": "Lista vazia é declaração VÁLIDA: um alvo sem interface — biblioteca, CLI, worker — precisa poder dizer 'não tenho UI'. Proibir de declará-lo transformaria o fato em silêncio indistinguível de 'ninguém olhou', pelo mesmo raciocínio de target.test_roots. A regra R3 do alinhamento segue mordendo sobre as superfícies que existirem."
     }
   }
 }

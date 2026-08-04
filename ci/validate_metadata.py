@@ -576,7 +576,7 @@ def check_ui_surfaces(doc: dict | None, caps: dict[str, dict], req_caps: dict[st
                 err(f"[UI] {sid}: satisfies {req} é da capacidade {req_caps[req]}, não de {cap_ref}")
 
 
-def check_business_rules(caps: dict[str, dict]) -> dict[str, str]:
+def check_business_rules(caps: dict[str, dict], test_roots: list[str]) -> dict[str, str]:
     """Cada arquivo de regras aponta para uma capacidade real e é referenciado de volta por ela;
     regras verificadas apontam para testes existentes (condicionado à maturidade).
     Retorna o mapa regra→capacidade para o backlog cruzar governed_by."""
@@ -605,8 +605,9 @@ def check_business_rules(caps: dict[str, dict]) -> dict[str, str]:
                 for p in rule.get("verified_by", []):
                     if not rel_exists(p):
                         err(f"[regra] {rule.get('id', '?')}: verified_by inexistente: {p}")
-                    elif not p.startswith("tests/"):
-                        err(f"[regra] {rule.get('id', '?')}: verified_by fora de tests/: {p}")
+                    elif not any(p.startswith(r) for r in test_roots):
+                        err(f"[regra] {rule.get('id', '?')}: verified_by fora das raízes "
+                            f"declaradas {test_roots}: {p}")
     return rule_caps
 
 
@@ -617,6 +618,7 @@ def metric_ids(vision_doc: dict | None) -> set[str]:
 
 
 def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str],
+                  test_roots: list[str],
                   metrics: set[str], rule_caps: dict[str, str]) -> None:
     """Cada requisito pertence a uma capacidade real; depends_on, risk, metrics e governed_by
     resolvem — e cada regra que rege um requisito compartilha a capacidade dele."""
@@ -650,8 +652,8 @@ def check_backlog(doc: dict | None, caps: dict[str, dict], risk_ids: set[str],
         for t in vtests:
             if not rel_exists(t):
                 err(f"[REQ] {rid}: validated_by teste inexistente: {t}")
-            elif not t.startswith("tests/"):
-                err(f"[REQ] {rid}: validated_by fora de tests/: {t}")
+            elif not any(t.startswith(r) for r in test_roots):
+                err(f"[REQ] {rid}: validated_by fora das raízes declaradas {test_roots}: {t}")
             elif t not in cap_tests:
                 err(f"[REQ] {rid}: validated_by '{t}' não consta em {cap}.test_paths")
 
@@ -787,9 +789,10 @@ def main(argv: list[str] | None = None) -> int:
     check_interfaces(loaded.get("architecture/interfaces.yaml"), loaded.get("architecture/components.yaml"))
     req_caps = {rid: item.get("capability") for rid, item in req_items.items()}
     check_ui_surfaces(loaded.get("design/ui-surfaces.yaml"), caps, req_caps)
-    rule_caps = check_business_rules(caps)
+    rule_caps = check_business_rules(caps, test_roots)
     metrics = metric_ids(loaded.get("business/vision.yaml"))
-    check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids, metrics, rule_caps)
+    check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids,
+                  test_roots, metrics, rule_caps)
     check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, comp_ids, risk_ids)
     check_adr_assertion_refs(loaded.get("architecture/adr/index.yaml"), risk_ids)
     check_data_inventory(loaded.get("governance/data-inventory.yaml"), comp_ids)

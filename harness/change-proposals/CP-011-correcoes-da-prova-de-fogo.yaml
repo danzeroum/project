@@ -1,0 +1,46 @@
+# Mudança proposta: dois defeitos do molde descobertos ao derivar um alvo real de ponta a ponta.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-011
+  title: "Prova de fogo: destravar test_roots nos dois fiscais restantes e admitir alvo sem UI"
+  author_kind: agent
+  created_at: "2026-08-05T00:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-DERIV-002
+      - RISK-META-001
+    rationale: >
+      Nenhum destes dois defeitos aparece no molde: os dois só existem quando o repositório
+      governa um alvo de verdade, e é exatamente por isso que a prova de fogo de ponta a ponta
+      não é opcional. Um molde que só é exercitado sobre si mesmo valida a própria forma e nada
+      mais.
+      Primeiro: check_business_rules e check_backlog ainda exigiam prefixo literal 'tests/' em
+      verified_by e validated_by. É a mesma classe de bug que a Fase C corrigiu em
+      check_capabilities, em dois lugares que passaram despercebidos — e a consequência é a
+      mesma: metadado de derivado, que aponta para workspace/target/, não valida no CI que
+      deveria protegê-lo. Corrigir é fazer o prefixo vir das raízes DECLARADAS, não afrouxar.
+      Segundo: ui-surfaces.schema.json exigia minItems 1. Um alvo sem interface — biblioteca, CLI,
+      worker — não conseguia declarar 'não tenho UI'. Lista vazia passa a ser declaração válida,
+      pelo mesmo raciocínio já aceito em target.test_roots: 'este alvo não tem X' é um fato que a
+      governança precisa saber, e proibir de declará-lo transforma o fato em silêncio
+      indistinguível de 'ninguém olhou'. A regra R3 do alinhamento continua mordendo sobre as
+      superfícies que EXISTIREM.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_inventario_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
