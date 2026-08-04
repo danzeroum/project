@@ -55,14 +55,46 @@ proposta vai por change-proposal e porque o erro fica **visível no diff, com a 
 lado**. O que não seria aceitável é o mesmo agente atribuir `risk_level` junto: aí o erro entraria
 já vestido de julgamento humano, e ninguém reconferiria.
 
+## Coleção vazia é estado de transição, nunca um lugar de descanso
+
+Um derivado recém-adotado tem zero capacidades, zero componentes, zero interfaces e zero
+requisitos — por construção, e por decisão declarada: o negócio de exemplo do molde descreve um
+negócio que não existe ali. Enquanto os schemas exigiam um item, esse estado era inexprimível, e
+sobravam duas saídas piores que o problema: inventar metadado de placeholder — a doença que este
+repositório inteiro existe para combater — ou versionar arquivo que não valida contra o próprio
+schema.
+
+O piso saiu do schema e passou para o fiscal. Não é afrouxamento, é mudança de camada, e a razão é
+estrutural: **um schema valida um documento**. Ele não enxerga `project.yaml` e não consegue
+responder "este repositório já foi ingerido?". Um piso que não sabe distinguir "ainda não" de
+"nunca" responde a pergunta errada com cara de erro estrutural.
+
+Quem sabe distinguir é o fiscal, e o sinal é **declarado, não inferido**: `lifecycle: incubating`
+num derivado suspende o piso; qualquer outro valor o cobra; e no molde ele vale sempre, porque o
+exemplo é o substrato das asserções do ADR-005. Inferir a conclusão a partir do próprio arquivo
+julgado — "a fase acabou porque a coleção está cheia" — seria circular e não reprovaria coleção
+vazia alguma.
+
+O desenho tem a propriedade que se quer de uma permissão temporária: **ela expira por um ato**. O
+evento que a autoriza (adotar) é o que cria o estado, e promover o `lifecycle` é o que a revoga —
+decisão de pessoa, num campo de enum fechado, e não efeito colateral de nada.
+
+Duas coisas ficam de fora, e é deliberado. `business/rules/` não entra: as regras vivem em arquivo
+por capacidade, então a ausência é o arquivo ausente, não uma lista vazia — e `check_business_rules`
+percorre o diretório sem cobrar que ele tenha conteúdo. E o piso não protege sozinho: componente
+exige `capability` no schema, e a invariante do código órfão exige componente, de modo que um
+derivado com código real não consegue deixar essas duas coleções vazias nem que queira.
+
 ---
 
 Fiscalizado por: `ci/validate_metadata.py::check_derived_from` (as três igualdades da
 proveniência); `ci/validate_metadata.py::check_pending_judgment` (sentinela fora de documento
-promovido); `ci/audit_governance.py::check_ingest_pipeline` (fase com agente e fiscal resolvíveis,
+promovido); `ci/validate_metadata.py::check_collection_floor` (coleção vazia só em derivado com
+`lifecycle: incubating`; a fase que preenche vem de `harness/pipeline/ingest.yaml`);
+`ci/audit_governance.py::check_ingest_pipeline` (fase com agente e fiscal resolvíveis,
 ordem sem duplicata, nenhuma escrita no alvo);
 `harness/schemas/ingest-pipeline.schema.json`; `.github/workflows/governance.yml`.
 Declarado em: `harness/pipeline/ingest.yaml`, `architecture/adr/index.yaml`,
 `harness/agents/cartographer/`.
-Falha como: proveniência divergente do lock, julgamento pendente em documento promovido ou fase
-sem fiscal ⇒ exit 1; pipeline ilegível ⇒ exit 2.
+Falha como: proveniência divergente do lock, julgamento pendente em documento promovido, fase
+sem fiscal ou coleção vazia fora da ingestão ⇒ exit 1; pipeline ilegível ⇒ exit 2.
