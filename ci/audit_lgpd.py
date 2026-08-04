@@ -45,6 +45,9 @@ PROJECT_YAML = "project.yaml"
 # acusar a si mesmo de shadow processing.
 SCAN_SELF_EXCLUDE = {INVENTORY, REVIEW}
 
+# Prefixo da evidência da harness: é o que o L9 vigia nos uploads de artifact.
+EVIDENCE_PREFIX = "harness/"
+
 # --------------------------------------------------------------------------------------
 # Léxicos — a régua desta verificação.
 #
@@ -296,6 +299,64 @@ def check_inventory_invariants(inventory: dict, findings: Findings) -> None:
                 )
 
 
+def check_evidence_retention(project_doc: dict, findings: Findings, errors: Errors) -> None:
+    """L9 — a retenção declarada precisa alcançar a cópia da evidência que sobrevive ao runner.
+
+    L8 já cobra a igualdade entre project.yaml e tests/qa/campanha.yaml, mas nenhum dos dois
+    alcança o artifact do CI: sem `retention-days` no upload, a retenção real vem de uma setting
+    do GitHub — editável fora do repositório e invisível a qualquer fiscal. É a mesma mentira de
+    retenção que o L8 fecha, uma camada acima.
+
+    Compara com o valor DECLARADO em project.yaml, não com um literal: subir a retenção exige
+    mudar os dois lugares, e o conjunto continua coerente.
+    """
+    declared = (project_doc or {}).get("governance", {}).get("evidence_retention_days")
+    if declared is None:
+        return
+    wf_dir = hl.REPO / ".github" / "workflows"
+    if not wf_dir.exists():
+        return
+    for wf in sorted(wf_dir.glob("*.yml")):
+        rel = hl.rel(wf)
+        try:
+            doc = hl.read_yaml(rel) or {}
+        except HarnessError as exc:
+            errors.err(str(exc))
+            continue
+        for job_name, job in (doc.get("jobs") or {}).items():
+            for step in (job or {}).get("steps") or []:
+                if not isinstance(step, dict) or "upload-artifact" not in str(step.get("uses", "")):
+                    continue
+                with_ = step.get("with") or {}
+                path = str(with_.get("path", ""))
+                if not path.startswith(EVIDENCE_PREFIX):
+                    continue
+                got = with_.get("retention-days")
+                where = f"{rel} :: {job_name} :: {with_.get('name', '?')}"
+                if got is None:
+                    findings.add(
+                        key=f"ARTIFACT-RETENTION-{rel}-{with_.get('name', job_name)}",
+                        origin="lgpd_retention", severity="medium",
+                        risk="RISK-PRIV-001", location=where,
+                        lgpd_article="Art. 15", pbd_principle=PBD_DEFAULT,
+                        summary=f"O upload de '{path}' não declara retention-days: a retenção "
+                                f"efetiva da evidência vem de uma setting do GitHub, fora do "
+                                f"repositório e fora do alcance de qualquer fiscal.",
+                        remediation=f"Declarar retention-days: {declared}, igual a "
+                                    f"project.yaml:governance.evidence_retention_days.",
+                    )
+                elif int(got) != int(declared):
+                    findings.add(
+                        key=f"ARTIFACT-RETENTION-MISMATCH-{rel}-{with_.get('name', job_name)}",
+                        origin="lgpd_retention", severity="high",
+                        risk="RISK-PRIV-001", location=where,
+                        lgpd_article="Art. 16", pbd_principle=PBD_DEFAULT,
+                        summary=f"O upload de '{path}' retém por {got} dias, mas o projeto declara "
+                                f"{declared} — duas retenções diferentes para a mesma evidência.",
+                        remediation="Alinhar os dois, ou mudar a retenção declarada explicitamente.",
+                    )
+
+
 def check_declaration_consistency(inventory: dict, project_doc: dict,
                                   hit_files: list[Path], findings: Findings) -> None:
     """D1/D7: o papel declarado em project.yaml e o inventário contam a mesma história."""
@@ -473,6 +534,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     check_inventory_invariants(inventory, findings)
+    check_evidence_retention(project_doc, findings, errors)
     check_declaration_consistency(inventory, project_doc, hit_files, findings)
     fingerprint = check_judgment_currency(inventory, review, project_doc, hit_files, findings)
 

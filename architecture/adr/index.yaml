@@ -245,6 +245,14 @@ adrs:
         file: harness/schemas/stages.schema.json
         pointer: /$defs/artifact/not/pattern
         expected: "(CAP|REQ|CMP|IFC|RULE|UI|MET|ADR|RISK)-[A-Z0-9]"
+      - id: ADR-006-A6
+        kind: schema_lock
+        severity: high
+        risk: RISK-CONF-001
+        description: "Achado de LGPD sem artigo citado continua estruturalmente impossível no laudo."
+        file: harness/schemas/audit-report.schema.json
+        pointer: /properties/findings/items/allOf/0/then/required
+        contains: lgpd_article
       - id: ADR-006-A5
         kind: file_matches
         severity: critical

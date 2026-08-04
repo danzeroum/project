@@ -208,6 +208,9 @@ stages:
       - kind: workflow_step
         ref: .github/workflows/governance.yml
         step: "Validação total do projeto"
+      - kind: ci_script
+        ref: ci/audit_lgpd.py
+        symbol: check_evidence_retention
     privacy_lens:
       scan: false
       question: "Segredo ou dado pessoal em log de CI, artifact ou variável de ambiente?"

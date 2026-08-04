@@ -1,0 +1,45 @@
+# Mudança proposta: fechar lacunas onde a regra existe declarada e ninguém a vigia.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-002
+  title: "Retenção do artifact fiscalizada, trava do laudo com prova, e emendas ao parecer"
+  author_kind: agent
+  created_at: "2026-08-04T18:10:00Z"
+
+  # Nenhuma capacidade ou componente de negócio é tocado: a mudança é de governança e
+  # fiscalização. As listas ficam vazias por serem verdadeiras, não por conveniência.
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-PRIV-001
+      - RISK-CONF-001
+      - RISK-META-002
+    rationale: >
+      Toca três caminhos protegidos (ci/, .github/, governance/), o que por si exige revisão
+      humana conforme project.yaml:governance.human_approval_required_for. Nenhuma trava é
+      afrouxada: a mudança ACRESCENTA um fiscal (check_evidence_retention), uma asserção de ADR
+      e um teste, e corrige uma retenção que hoje escapa de qualquer fiscalização. O risco real
+      é de falso positivo no fiscal novo, mitigado por teste de mordida e pelo baseline verde.
+      Nível medium, e não high, porque nada aqui amplia superfície de rede, permissão ou
+      autorização — e porque as mudanças em ci/ são aditivas.
+
+  required_gates:
+    - unit-tests
+    - metadata-validation
+
+  tests_required:
+    - tests/governance/test_lgpd_bites.py
+    - tests/governance/test_conformance_bites.py
+
+  # true por tocar protected_paths, ainda que o schema só o force em high/critical.
+  # A trava estrutural é o piso, não o teto.
+  human_approval_required: true
+  change_mode: pull_request

@@ -34,6 +34,7 @@ não foi avaliado está listado em `privacy-review.yaml:not_assessed`.
 | `project.yaml:business.stakeholders` | identificação dos responsáveis pelo projeto | dado pessoal de colaborador |
 | `tests/qa/escopo-autorizado.yaml` | `proof_of_possession.reference` pode nomear quem autorizou | dado pessoal de colaborador |
 | Metadados de commit | nome e e-mail do autor | inerente ao Git, fora do controle da aplicação |
+| **Artifact e log do CI em repositório público** | os laudos acima, baixáveis por qualquer usuário logado | incidental, efêmero, **público** |
 
 Nenhum desses é dado sensível (Art. 5º, II). Nenhum é coletado de titular-cliente. A varredura
 determinística de `ci/audit_lgpd.py` sobre a superfície declarada em `harness/stages.yaml`
@@ -48,18 +49,26 @@ criptografia é segunda linha para dado já minimizado, não a primeira resposta
    responsabilidade da WebQA Suite, e o contrato de consumo já a declara: os achados chegam
    sanitizados (`harness/schemas/report.schema.json`). Este projeto não pode afrouxar essa
    régua, porque não a possui — é a consequência prática do ADR-001.
-2. **Não coletar (segunda linha, local).** Os modos que geram tráfego contra um alvo real
+2. **A sanitização mora fora, e isso é uma dependência declarada.** A barreira entre a
+   evidência e o espaço público é a sanitização da WebQA Suite — código que este projeto
+   consome e não controla. É consequência aceita do ADR-001 (a régua mora fora), mas precisa
+   estar escrita: se aquela sanitização falhar, o `harness/reports/` de um repositório público
+   é o vetor. Mitiga hoje: `harness/runs/` (evidência bruta) **nunca** sobe como artifact —
+   os dois uploads apontam só para `harness/reports/`, e os laudos citam identificadores de
+   código, nunca valores.
+3. **Não coletar (segunda linha, local).** Os modos que geram tráfego contra um alvo real
    (`load`, `active_discovery`) são `human_only` e vivem em job segregado com aprovação
    (`harness/harness.yaml`, `.github/workflows/qa.yml`). Agente nenhum dispara sondagem.
-3. **Reter pouco.** `evidence_retention_days: 90` em `project.yaml` e `retention_days: 90` em
-   `tests/qa/campanha.yaml`. A igualdade entre os dois é fiscalizada — divergência silenciosa
+4. **Reter pouco.** `evidence_retention_days: 90` em `project.yaml` e `retention_days: 90` em
+   `tests/qa/campanha.yaml`, **e `retention-days: 90` nos dois uploads de artifact**. A
+   igualdade entre os três é fiscalizada — divergência silenciosa
    entre duas declarações de retenção seria uma mentira de retenção.
-4. **Não versionar.** `harness/runs/`, `harness/reports/` e `harness/state/` são gitignored: a
+5. **Não versionar.** `harness/runs/`, `harness/reports/` e `harness/state/` são gitignored: a
    evidência não entra no histórico do Git, de onde não se apaga.
-5. **Minimizar identificação de colaborador.** `business.stakeholders` usa identificador de
+6. **Minimizar identificação de colaborador.** `business.stakeholders` usa identificador de
    conta (handle) em vez de nome civil e e-mail pessoal. Um handle já satisfaz a finalidade
    (saber a quem escalar), e coletar menos é sempre a primeira opção.
-6. **Registro das operações sempre em dia.** `governance/data-inventory.yaml` é fiscalizado a
+7. **Registro das operações sempre em dia.** `governance/data-inventory.yaml` é fiscalizado a
    cada push; um campo com forma de dado pessoal fora dele reprova o CI (Art. 37).
 
 ## 4. Controles descartados, com justificativa
@@ -75,6 +84,14 @@ criptografia é segunda linha para dado já minimizado, não a primeira resposta
 - **RIPD completo (8 seções)** — desproporcional agora, e o próprio fiscal recusaria: com
   `controller.role: none` o tipo exigido é este parecer. Vira obrigatório automaticamente
   quando o papel mudar.
+- **Plano formal de resposta a incidente (Art. 48)** — desproporcional para `controller.role:
+  none`. Não há base de titulares a notificar, e a ANPD não é destinatária de incidente que
+  não envolva dado pessoal de titular. O cenário concreto considerado e descartado: runner de
+  CI comprometido exfiltrando evidência durante um job `passive`. Mitigado pela retenção de 90
+  dias agora fiscalizada em três lugares, por `harness/runs/` nunca virar artifact, e pelos
+  modos de rede serem `human_only` em job segregado. **Gatilho de reavaliação:** o primeiro
+  campo em `data-inventory.yaml`, ou o alvo de `tests/qa/config.yaml` deixar de ser ambiente
+  de teste — ambos alteram o `scope_fingerprint` e forçam refazer este parecer.
 - **Anonimização/pseudonimização de metadado de commit** — fora do alcance da aplicação e
   contrário à rastreabilidade de autoria que a governança do repositório exige (Art. 7º, IX,
   com finalidade legítima e expectativa clara de quem contribui).
@@ -84,6 +101,7 @@ criptografia é segunda linha para dado já minimizado, não a primeira resposta
 | Risco | Severidade | Tratamento |
 |---|---|---|
 | Auditoria `passive` contra alvo de produção capturar dado pessoal de terceiro em `harness/runs/` | Médio | Sanitização no padrão externo + retenção de 90 dias + evidência não versionada. Reabrir este parecer se o alvo declarado em `tests/qa/config.yaml` deixar de ser ambiente de teste — a mudança daquele arquivo altera o `scope_fingerprint` e força a reavaliação. |
+| Laudo em artifact de repositório **público**, se a sanitização do padrão externo falhar | Baixo | `harness/runs/` nunca sobe; laudos citam identificadores, não valores; retenção de 90 dias fiscalizada por `ci/audit_lgpd.py::check_evidence_retention`. Reavaliar se o repositório mudar de visibilidade ou se `harness/runs/` entrar em algum upload. |
 | Consumidor da carcaça adicionar PII sem inventariar | Médio | `RISK-PRIV-001`, fiscalizado por `ci/audit_lgpd.py` (varredura de tratamento-sombra) a cada push. |
 | Este parecer envelhecer em relação ao sistema | Médio | `RISK-PRIV-002`: `scope_fingerprint` em `privacy-review.yaml` é conferido a cada push; divergiu, o CI reprova. |
 

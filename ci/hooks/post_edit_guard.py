@@ -25,6 +25,12 @@ GENERATED = {
     "docs/metadata-graph.md": "python ci/generate_graph.py",
 }
 
+# A change-proposal é o REMÉDIO prescrito para tocar um caminho protegido (ADR-004). Bloqueá-la
+# por estar sob harness/ fecharia o círculo: o hook mandaria declarar a proposta e impediria de
+# escrevê-la. A proposta continua protegida onde importa — schema, check_change_proposals,
+# CODEOWNERS e branch protection; só não é barrada nesta camada de ergonomia.
+EXEMPT_PREFIXES = ("harness/change-proposals/",)
+
 
 def protected_paths() -> list[str]:
     import yaml
@@ -53,6 +59,9 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+
+    if rel.startswith(EXEMPT_PREFIXES):
+        return 0
 
     for p in protected_paths():
         stem = p.rstrip("/")

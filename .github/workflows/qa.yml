@@ -116,6 +116,10 @@ jobs:
           name: qa-reports
           path: harness/reports/
           if-no-files-found: ignore
+          # Sem este campo a retenção real vem de uma setting do GitHub, editável fora do
+          # repositório e invisível a qualquer fiscal — a evidência que sobrevive ao runner
+          # escaparia da retenção declarada. Cobrado por ci/audit_lgpd.py::check_evidence_retention.
+          retention-days: 90
 
   # ---------------------------------------------------------------------------
   # Modos segregados. SÓ workflow_dispatch, disparados por pessoa. Agente/CI automático

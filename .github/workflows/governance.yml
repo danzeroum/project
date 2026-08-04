@@ -120,6 +120,16 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) retenção do artifact fora da declarada deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-retencao"; rm -rf "$mut"; cp -a . "$mut"
+          sed -i 's/retention-days: 90/retention-days: 400/' "$mut/.github/workflows/governance.yml"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_lgpd.py --quiet; then
+            echo "::error::L9 não detectou retenção divergente da declarada — a evidência voltou a escapar da retenção (Art. 16)."
+            exit 1
+          fi
+
       # if: always() é essencial. O laudo é gitignored, e com gate fail-closed ele só interessa
       # quando há achado — que é exatamente quando o job está vermelho.
       - name: Arquivar laudos
@@ -129,3 +139,7 @@ jobs:
           name: governance-reports
           path: harness/reports/
           if-no-files-found: ignore
+          # Sem este campo a retenção real vem de uma setting do GitHub, editável fora do
+          # repositório e invisível a qualquer fiscal — a evidência que sobrevive ao runner
+          # escaparia da retenção declarada. Cobrado por ci/audit_lgpd.py::check_evidence_retention.
+          retention-days: 90
