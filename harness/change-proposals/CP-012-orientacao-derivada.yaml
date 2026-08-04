@@ -1,0 +1,47 @@
+# Mudança proposta: a camada de orientação — onde estou, o que muda junto, o que roda em cima.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-012
+  title: "Skill de orientação: ci/orient.py derivado do estado vivo, sem restatement"
+  author_kind: agent
+  created_at: "2026-08-05T01:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-ORIENT-001
+      - RISK-META-001
+    rationale: >
+      Existe uma lacuna real: BOOTSTRAP.md diz por onde ENTRAR e os comandos dizem como executar
+      cada passo, mas nada responde "vou mexer nestes arquivos — que etapas isso aciona, que
+      fiscais vão rodar, o que precisa mudar junto e o que já está vermelho?". Hoje isso se
+      descobre lendo CLAUDE.md, stages.yaml e sete políticas, ou descobrindo no CI.
+      O risco desta proposta é ela própria: uma skill que ENUMERA os caminhos certos vira uma
+      segunda descrição de harness/stages.yaml e das políticas, e a segunda descrição sempre
+      deriva — em silêncio, e com a aparência de documentação cuidadosa. Seria o ADR-002 violado
+      pela ferramenta que existe para ensinar o ADR-002.
+      A trava é estrutural, não disciplinar: a skill não contém a informação, ela invoca
+      ci/orient.py, que DERIVA tudo do metadado vivo — etapas de stages.yaml, fiscais de
+      enforced_by, caminhos protegidos de harness.yaml, lente de privacidade da própria etapa,
+      cobertura do alvo do inventário. E ADR-014-A3 reprova qualquer id de etapa escrito à mão no
+      SKILL.md, exatamente como stages.schema.json já recusa artefato que seja um ID.
+      Nada de novo é fiscalizado aqui: orient.py não julga e não reprova. Ele lê e ordena. Um
+      orientador que também reprovasse acabaria sendo o oitavo fiscal, com regras próprias e sem
+      política.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_orientacao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

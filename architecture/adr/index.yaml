@@ -625,3 +625,40 @@ adrs:
           que a máquina garante é que a ameaça PENSADA não fica sem mitigação, sem residual e sem
           dono. Um scanner que "gerasse" o modelo produziria julgamento de máquina com aparência
           de análise humana — a pior combinação possível neste repositório.
+
+  - id: ADR-014
+    title: "A orientação deriva do repositório; ela não o descreve"
+    status: accepted
+    file: architecture/adr/ADR-014-orientacao-derivada.md
+    related_risks: [RISK-ORIENT-001, RISK-META-001]
+    assertions:
+      - id: ADR-014-A1
+        kind: path_present
+        severity: medium
+        risk: RISK-ORIENT-001
+        description: "A camada de orientação existe como ferramenta, não como intenção."
+        paths:
+          - ci/orient.py
+          - .claude/skills/desenvolver/SKILL.md
+          - harness/policies/orientacao.md
+      - id: ADR-014-A2
+        kind: file_matches
+        severity: high
+        risk: RISK-ORIENT-001
+        description: "orient.py continua reusando a lista de fiscais de validate_all em vez de manter uma cópia que derivaria."
+        files: ["ci/orient.py"]
+        pattern: "validate_all\\._steps\\(\\)"
+      - id: ADR-014-A3
+        kind: file_lacks
+        severity: high
+        risk: RISK-ORIENT-001
+        description: "Nenhum id de etapa escrito à mão na skill: enumerar é o que transforma orientação em segunda descrição que deriva."
+        files: [".claude/skills/desenvolver/SKILL.md"]
+        pattern: "STAGE-[A-Z]"
+      - id: ADR-014-A4
+        kind: file_lacks
+        severity: medium
+        risk: RISK-ORIENT-001
+        description: "orient.py não reprova: um orientador que também fiscaliza vira o oitavo fiscal, sem política e sem teste de mordida."
+        files: ["ci/orient.py"]
+        pattern: "^\\s*return 1\\b"

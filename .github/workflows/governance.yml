@@ -359,6 +359,16 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) skill que enumera etapas deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-orient"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\n- STAGE-VISION — visão e métricas\n' >> "$mut/.claude/skills/desenvolver/SKILL.md"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::ADR-014-A3 não detectou id de etapa escrito à mão na skill — a orientação voltou a poder virar uma segunda descrição que deriva em silêncio."
+            exit 1
+          fi
+
       - name: (negativo) validate_all sem dependências não pode sair 0
         run: |
           set -euo pipefail

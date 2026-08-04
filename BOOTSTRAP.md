@@ -7,7 +7,12 @@ não presuma, leia.
 
 ```bash
 python ci/adoption_status.py     # responde, e diz qual é o próximo passo
+python ci/orient.py              # o painel completo: fiscais, cobertura, próximo passo
 ```
+
+Para saber o que uma mudança aciona antes de fazê-la — etapa dona, fiscais que vão rodar, se
+exige change-proposal — use `python ci/orient.py --tocar <caminho>…`. A skill `desenvolver`
+embala os dois.
 
 ## `kind: mold` — a casca genérica
 
