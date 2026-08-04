@@ -56,7 +56,7 @@
     "target": {
       "type": "object",
       "description": "O alvo que este derivado governa. DECLARA o alvo, nunca o copia: o código materializa em workspace/target/ (efêmero) no SHA de target.lock. code_roots e languages são descobertos no reconhecimento e conferidos contra o workspace — raiz declarada que não existe no alvo é achado, não detalhe.",
-      "required": ["repo", "ref", "lock_source", "code_roots", "languages"],
+      "required": ["repo", "ref", "lock_source", "code_roots", "test_roots", "languages"],
       "additionalProperties": false,
       "properties": {
         "repo": {
@@ -79,6 +79,13 @@
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 },
           "description": "Raízes de código dentro do alvo. É o universo sobre o qual a invariante do código órfão se aplica."
+        },
+        "test_roots": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Raízes de teste dentro do alvo. Obrigatório declarar, e lista vazia é declaração válida: 'este alvo não tem testes' é um fato sobre o alvo que a governança precisa saber, e omiti-lo o transformaria em silêncio indistinguível de 'ninguém olhou'."
         },
         "languages": {
           "type": "array",

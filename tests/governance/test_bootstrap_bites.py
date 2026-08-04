@@ -76,7 +76,7 @@ def _vira_derivado(root: Path, alvo: Path, sha: str) -> str:
     doc = yaml.safe_load(p.read_text(encoding="utf-8"))
     doc["project"]["kind"] = "derived"
     doc["target"] = {"repo": "sintetico/alvo", "ref": "principal",
-                     "lock_source": "target.lock", "code_roots": ["src"], "languages": ["python"]}
+                     "lock_source": "target.lock", "code_roots": ["src"], "test_roots": ["tests/unit"], "languages": ["python"]}
     p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
     lock = root / "target.lock"
@@ -110,7 +110,7 @@ def test_derivado_sem_sha_nao_levanta(repo_copy, run_bootstrap):
         (doc["project"] if rel == "project.yaml" else doc).update(upd)
         if rel == "project.yaml":
             doc["target"] = {"repo": "a/b", "ref": "principal", "lock_source": "target.lock",
-                             "code_roots": ["src"], "languages": ["python"]}
+                             "code_roots": ["src"], "test_roots": ["tests/unit"], "languages": ["python"]}
         p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
     code, laudo = run_bootstrap(repo_copy)
     assert code == 2

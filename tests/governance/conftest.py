@@ -74,8 +74,16 @@ def run_metadata(monkeypatch):
 
     def _run(root: Path, argv: list[str] | None = None) -> tuple[int, list[str]]:
         monkeypatch.setenv("HARNESS_REPO_ROOT", str(root))
+        # Recarrega o GRAFO INTEIRO de módulos do fiscal, não só a folha. Recarregar pela metade
+        # produz duas classes HarnessError vivas ao mesmo tempo — a que inventory_code levanta e a
+        # que validate_metadata tenta capturar — e o except deixa de casar. Um processo de CI
+        # importa tudo uma vez só; a fixture precisa imitar isso, não improvisar um meio-termo.
         import harness_lib
         importlib.reload(harness_lib)
+        import adapters
+        importlib.reload(adapters)
+        import inventory_code
+        importlib.reload(inventory_code)
         import validate_metadata
         importlib.reload(validate_metadata)
         code = validate_metadata.main(list(argv or []))

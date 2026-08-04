@@ -152,7 +152,21 @@ def check_target_roots(project_doc: dict | None) -> None:
             err(f"[alvo] code_roots declara '{root}', que não existe no alvo no SHA de target.lock")
 
 
-def check_capabilities(doc: dict | None) -> dict[str, dict]:
+def declared_roots(project_doc: dict | None) -> tuple[list[str], list[str]]:
+    """Raízes de código e de teste, com o prefixo do workspace já aplicado no derivado.
+
+    Substitui o prefixo literal 'src/' que estava cravado aqui. Não é afrouxamento: o prefixo
+    passa a vir do que o repositório DECLARA em project.yaml em vez de uma convenção embutida no
+    fiscal — e sem isso o metadado de um derivado, que aponta para workspace/target/, não valida
+    no próprio CI que deveria protegê-lo.
+    """
+    import inventory_code
+
+    prefixo, code_roots, test_roots = inventory_code._roots(project_doc)
+    return ([f"{prefixo}{r}/" for r in code_roots], [f"{prefixo}{r}/" for r in test_roots])
+
+
+def check_capabilities(doc: dict | None, code_roots: list[str], test_roots: list[str]) -> dict[str, dict]:
     caps: dict[str, dict] = {}
     if not doc:
         return caps
@@ -170,13 +184,13 @@ def check_capabilities(doc: dict | None) -> dict[str, dict]:
             for p in srcs:
                 if not rel_exists(p):
                     err(f"[I4] {cid}: source_path inexistente: {p}")
-                elif not p.startswith("src/"):
-                    err(f"[I4] {cid}: source_path fora de src/: {p}")
+                elif not any(p.startswith(r) for r in code_roots):
+                    err(f"[I4] {cid}: source_path fora das raízes declaradas {code_roots}: {p}")
             for p in tsts:
                 if not rel_exists(p):
                     err(f"[I5] {cid}: test_path inexistente: {p}")
-                elif not p.startswith("tests/"):
-                    err(f"[I5] {cid}: test_path fora de tests/: {p}")
+                elif not any(p.startswith(r) for r in test_roots):
+                    err(f"[I5] {cid}: test_path fora das raízes declaradas {test_roots}: {p}")
         for p in cap.get("business_rules", []):
             if not rel_exists(p):
                 err(f"[regra] {cid}: business_rules aponta para arquivo inexistente: {p}")
@@ -218,6 +232,136 @@ def check_components(doc: dict | None, caps: dict[str, dict], req_items: dict[st
                 elif cap_ref in caps and p not in cap_tests:
                     err(f"[I6] {cmid}: tested_by '{p}' não consta em {cap_ref}.test_paths")
     return comp_ids
+
+
+def _inventory(project_doc: dict | None) -> dict | None:
+    """O inventário do código real, in-process. Sem ele os quatro checks abaixo não rodam —
+    e não rodar é exit 2 ('o fiscal não conseguiu fiscalizar'), nunca exit 0."""
+    import inventory_code
+
+    try:
+        return inventory_code.cached(project_doc)
+    except HarnessError as exc:
+        err(f"[inventário] {exc}")
+        return None
+
+
+def check_orphan_code(inv: dict | None, components_doc: dict | None) -> None:
+    """A invariante: todo arquivo de código pertence a exatamente um componente.
+
+    É a direção que faltava. Os demais checks perguntam "esse metadado aponta para código real?";
+    este pergunta "esse código real é apontado por algum metadado?". Sem ele, implementação nova
+    entra no repositório em silêncio e a governança afirma uma cobertura que nunca teve.
+    """
+    if not inv or not components_doc:
+        return
+    donos: dict[str, list[str]] = {}
+    for comp in components_doc.get("components", []):
+        for p in comp.get("source_paths", []):
+            donos.setdefault(p, []).append(comp.get("id", "?"))
+
+    isentos: dict[str, int] = {}
+    for entry in components_doc.get("exemptions", []):
+        isentos[entry["path"]] = 0
+
+    for mod in inv["modulos"]:
+        if mod["kind"] != "code":
+            continue
+        path = mod["path"]
+        if path in isentos:
+            isentos[path] += 1
+            continue
+        if path not in donos:
+            err(f"[órfão] '{path}' não pertence a nenhum componente nem a uma isenção declarada — "
+                f"acrescente-o a source_paths de um CMP-* ou declare a isenção com justificativa "
+                f"em architecture/components.yaml:exemptions")
+        elif len(donos[path]) > 1:
+            err(f"[órfão] '{path}' pertence a mais de um componente ({', '.join(donos[path])}) — "
+                f"dono ambíguo é dono nenhum")
+
+    for path, casou in isentos.items():
+        if not casou:
+            err(f"[órfão] isenção morta em components.yaml: '{path}' não casa arquivo de código "
+                f"algum — isenção que não protege nada só serve para a cobertura parecer fechada")
+
+
+def check_orphan_tests(inv: dict | None, components_doc: dict | None,
+                       caps: dict[str, dict], backlog_doc: dict | None) -> None:
+    """Teste que ninguém declara é teste que ninguém sabe que existe — e cuja remoção não dói."""
+    if not inv:
+        return
+    referenciados: set[str] = set()
+    for comp in (components_doc or {}).get("components", []):
+        referenciados.update(comp.get("tested_by", []))
+    for cap in caps.values():
+        referenciados.update(cap.get("test_paths", []))
+    for item in (backlog_doc or {}).get("items", []):
+        referenciados.update(item.get("validated_by", []))
+
+    for mod in inv["modulos"]:
+        if mod["kind"] == "test" and mod["path"] not in referenciados:
+            err(f"[teste órfão] '{mod['path']}' não é referenciado por tested_by, test_paths nem "
+                f"validated_by — a evidência existe e nenhum metadado a reivindica")
+
+
+def check_declared_dependencies(inv: dict | None, components_doc: dict | None) -> None:
+    """Dependência real ⊆ declarada.
+
+    Import não declarado ACUSA: é acoplamento que existe e que nenhuma decisão registrou.
+    depends_on sem import é só aviso — pode ser dependência legítima que o adapter não enxerga
+    (alias de monorepo, injeção em runtime), e reprovar aí produziria pressão para apagar
+    declarações verdadeiras, que é o oposto do que se quer.
+    """
+    if not inv or not components_doc:
+        return
+    de_arquivo: dict[str, str] = {}
+    for comp in components_doc.get("components", []):
+        for p in comp.get("source_paths", []):
+            de_arquivo[p] = comp.get("id", "?")
+    declarado = {c.get("id"): set(c.get("depends_on", [])) for c in components_doc.get("components", [])}
+
+    real: dict[str, set[str]] = {cid: set() for cid in declarado}
+    for mod in inv["modulos"]:
+        origem = de_arquivo.get(mod["path"])
+        if origem is None:
+            continue
+        for alvo_path in mod["imports"]:
+            destino = de_arquivo.get(alvo_path)
+            if destino and destino != origem:
+                real[origem].add(destino)
+
+    for cid, alvos in real.items():
+        for nao_declarado in sorted(alvos - declarado[cid]):
+            err(f"[dependência] {cid} importa código de {nao_declarado} e não o declara em "
+                f"depends_on — acoplamento que existe e que nenhuma decisão registrou")
+
+
+def check_exposes(inv: dict | None, components_doc: dict | None) -> None:
+    """Símbolo declarado em exposes existe no código.
+
+    Só onde o adapter é semântico: para uma linguagem lida pelo fallback, exigir isso reprovaria
+    por ignorância do fiscal, não por erro do repositório. O que o fallback não leu está declarado
+    no laudo do inventário — o silêncio é que está proibido.
+    """
+    if not inv or not components_doc:
+        return
+    semanticos = {n for n, i in inv["adapters"].items() if i["semantico"]}
+    reais: dict[str, set[str]] = {}
+    lido: set[str] = set()
+    for mod in inv["modulos"]:
+        reais[mod["path"]] = set(mod["exposes"])
+        if mod["adapter"] in semanticos:
+            lido.add(mod["path"])
+
+    for comp in components_doc.get("components", []):
+        paths = [p for p in comp.get("source_paths", []) if p in lido]
+        if not paths:
+            continue
+        disponiveis = set().union(*(reais[p] for p in paths))
+        for sym in comp.get("exposes", []):
+            if sym not in disponiveis:
+                err(f"[exposes] {comp.get('id', '?')}: declara '{sym}', que não existe em "
+                    f"{', '.join(paths)}")
 
 
 def check_risk_controls(doc: dict | None) -> set[str]:
@@ -450,6 +594,11 @@ def check_change_proposals(caps: dict[str, dict], comp_ids: set[str], risk_ids: 
 def main(argv: list[str] | None = None) -> int:
     # Zerado na entrada: validate_all.py chama este main in-process, junto dos demais fiscais.
     errors.clear()
+    # O inventário é memoizado por processo para os quatro checks; entre execuções (o hook Stop,
+    # os testes de mordida) ele precisa ser recalculado, senão o fiscal julgaria o repositório
+    # anterior — que é exatamente o tipo de verde por acidente que este repositório recusa.
+    import inventory_code
+    inventory_code.reset_cache()
     validate_all_schemas_are_valid()
 
     loaded: dict[str, dict] = {}
@@ -467,8 +616,19 @@ def main(argv: list[str] | None = None) -> int:
     check_target_roots(loaded.get("project.yaml"))
     backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
     req_items = {i.get("id"): i for i in backlog_doc.get("items", [])}
-    caps = check_capabilities(loaded.get("business/capabilities.yaml"))
-    comp_ids = check_components(loaded.get("architecture/components.yaml"), caps, req_items)
+    code_roots, test_roots = declared_roots(loaded.get("project.yaml"))
+    caps = check_capabilities(loaded.get("business/capabilities.yaml"), code_roots, test_roots)
+    components_doc = loaded.get("architecture/components.yaml")
+    comp_ids = check_components(components_doc, caps, req_items)
+
+    # A direção que faltava: não "o metadado aponta para código real?", mas "o código real é
+    # apontado por algum metadado?". O inventário é construído in-process — o JSON em
+    # harness/state/ é evidência, nunca dependência de ordem de execução no CI.
+    inv = _inventory(loaded.get("project.yaml"))
+    check_orphan_code(inv, components_doc)
+    check_orphan_tests(inv, components_doc, caps, backlog_doc)
+    check_declared_dependencies(inv, components_doc)
+    check_exposes(inv, components_doc)
     risk_ids = check_risk_controls(loaded.get("governance/risk-register.yaml"))
     check_interfaces(loaded.get("architecture/interfaces.yaml"), loaded.get("architecture/components.yaml"))
     req_caps = {rid: item.get("capability") for rid, item in req_items.items()}

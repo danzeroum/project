@@ -170,6 +170,28 @@ risks:
       - kind: local_path
         ref: architecture/adr/ADR-008-derivado-declara-o-alvo.md
 
+  - id: RISK-INGEST-001
+    area: governance
+    description: "Código sem metadado: implementação entra no repositório e nenhuma capacidade, componente ou decisão a reivindica — a governança afirma uma cobertura que nunca teve."
+    likelihood: high
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/inventory_code.py
+      - kind: local_path
+        ref: ci/adapters/__init__.py
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: architecture/components.yaml
+      - kind: local_path
+        ref: harness/policies/code-metadata.md
+      - kind: local_path
+        ref: architecture/adr/ADR-009-codigo-sem-metadado-nao-existe.md
+
   - id: RISK-META-002
     area: access
     description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."

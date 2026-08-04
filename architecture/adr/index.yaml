@@ -379,3 +379,50 @@ adrs:
         description: "Alvo cravado no molde: URL de repositório em ci/ ou harness/ faz o molde servir a um alvo e falhar calado nos outros."
         files: ["ci/**/*.py", "harness/**/*.yaml", "harness/**/*.json", "harness/**/*.md"]
         pattern: "github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
+
+  - id: ADR-009
+    title: "Código sem metadado não existe, e ignorância de linguagem é declarada"
+    status: accepted
+    file: architecture/adr/ADR-009-codigo-sem-metadado-nao-existe.md
+    related_components: [CMP-PRICING, CMP-CATALOG]
+    related_risks: [RISK-INGEST-001, RISK-DERIV-002]
+    assertions:
+      - id: ADR-009-A1
+        kind: path_present
+        severity: high
+        risk: RISK-INGEST-001
+        description: "O inventário e o registro de adapters existem: sem eles a invariante do código órfão é prosa."
+        paths:
+          - ci/inventory_code.py
+          - ci/adapters/__init__.py
+          - ci/adapters/generico.py
+          - harness/policies/code-metadata.md
+      - id: ADR-009-A2
+        kind: schema_lock
+        severity: high
+        risk: RISK-INGEST-001
+        description: "Isenção de código segue exigindo justificativa — isenção muda é onde pendência dorme."
+        file: harness/schemas/components.schema.json
+        pointer: /properties/exemptions/items/required
+        contains: justification
+      - id: ADR-009-A3
+        kind: file_matches
+        severity: high
+        risk: RISK-DERIV-002
+        description: "O adapter genérico casa qualquer extensão: linguagem sem leitor semântico não pode sair verde por vacuidade."
+        files: ["ci/adapters/generico.py"]
+        pattern: 'extensions=\("\*",\)'
+      - id: ADR-009-A4
+        kind: file_lacks
+        severity: high
+        risk: RISK-DERIV-002
+        description: "O prefixo src/ não volta a ser literal no fiscal: convenção cravada torna o molde específico de um alvo."
+        files: ["ci/validate_metadata.py"]
+        pattern: 'startswith\("src/"\)'
+      - id: ADR-009-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-INGEST-001
+        description: "A invariante do código órfão roda no CI a cada push, junto dos demais fiscais."
+        files: [".github/workflows/governance.yml"]
+        pattern: "codigo orfao|código órfão"

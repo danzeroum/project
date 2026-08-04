@@ -132,9 +132,15 @@ def exact_pin(rel: str = "requirements-qa.txt") -> tuple[str | None, list[str]]:
 # --------------------------------------------------------------------------------------
 
 def is_excluded(rel: str) -> bool:
-    """Ruído de ferramenta ou evidência efêmera: nenhum fiscal percorre."""
+    """Ruído de ferramenta ou evidência efêmera: nenhum fiscal percorre.
+
+    `.egg-info` casa por sufixo porque o nome carrega o do pacote (`project.egg-info`) — enumerar
+    nomes possíveis faria a exclusão depender do nome do projeto, e o inventário passaria a contar
+    resíduo de build como código do negócio no primeiro alvo com outro nome.
+    """
     parts = Path(rel).parts
-    return any(p in EXCLUDED_DIRS for p in parts) or rel.startswith(EXCLUDED_PREFIXES)
+    return (any(p in EXCLUDED_DIRS or p.endswith(".egg-info") for p in parts)
+            or rel.startswith(EXCLUDED_PREFIXES))
 
 
 _is_excluded = is_excluded  # compatibilidade interna

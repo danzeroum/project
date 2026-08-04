@@ -33,6 +33,7 @@ def _vira_derivado(doc: dict) -> None:
         "ref": "principal",
         "lock_source": "target.lock",
         "code_roots": ["src"],
+        "test_roots": ["tests/unit"],
         "languages": ["python"],
     }
 
@@ -54,7 +55,7 @@ def test_kind_mold_com_target_reprova(repo_copy, run_metadata):
     """Molde ancorado num alvo específico deixou de ser genérico — e genérico é o produto."""
     _edit_yaml(repo_copy, "project.yaml", lambda d: d.update(
         target={"repo": ALVO_FICTICIO, "ref": "principal", "lock_source": "target.lock",
-                "code_roots": ["src"], "languages": ["python"]}))
+                "code_roots": ["src"], "test_roots": ["tests/unit"], "languages": ["python"]}))
     code, errors = run_metadata(repo_copy)
     assert code == 1
     assert any("target" in e for e in errors), errors
@@ -97,17 +98,24 @@ def test_molde_com_sha_no_lock_reprova(repo_copy, run_metadata):
     assert any("target.lock" in e for e in errors), errors
 
 
-def test_derivado_bem_formado_passa(repo_copy, run_metadata):
+ANCORA = ("papel do repositório", "lock_source", "target.lock", "code_roots")
+
+
+def test_derivado_bem_formado_nao_gera_achado_de_ancora(repo_copy, run_metadata):
     """A trava tem que deixar passar o caso legítimo — senão ela não é trava, é obstáculo.
 
-    code_roots aponta para 'src', que existe no molde; sem workspace/target materializado,
-    check_target_roots fica em silêncio de propósito (cobrar aí transformaria 'ainda não rodou o
-    bootstrap' em divergência de metadado).
+    Escopo deliberadamente estreito: este arquivo prova a ÂNCORA (papel, lock, raízes declaradas),
+    não a cobertura de metadado. Uma cópia do molde marcada como derivada segue com os metadados
+    do molde apontando para src/ e tests/, o que depois do ADR-009 é divergência real — e é
+    exatamente o que test_inventario_bites cobre, com um alvo materializado de verdade. Afirmar
+    exit 0 aqui obrigaria a montar um derivado inteiro só para testar duas chaves de YAML, e
+    afirmar exit 1 esconderia a regressão que importa atrás de erros de outro fiscal.
     """
     _edit_yaml(repo_copy, "project.yaml", _vira_derivado)
     _edit_yaml(repo_copy, "target.lock", lambda d: d.update(kind="derived", target_sha=SHA_FICTICIO))
-    code, errors = run_metadata(repo_copy)
-    assert code == 0, errors
+    _, errors = run_metadata(repo_copy)
+    ancora = [e for e in errors if any(t in e for t in ANCORA)]
+    assert not ancora, ancora
 
 
 def test_code_root_inexistente_reprova_com_workspace(repo_copy, run_metadata):

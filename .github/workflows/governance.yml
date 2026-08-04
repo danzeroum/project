@@ -166,6 +166,47 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) codigo orfao deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-orfao"; rm -rf "$mut"; cp -a . "$mut"
+          printf 'VALOR = 1\n' > "$mut/src/project/novo_modulo.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::código órfão não foi detectado — implementação nova voltou a entrar sem que metadado algum a reivindique."
+            exit 1
+          fi
+
+      - name: (negativo) isenção de código que não casa nada deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-isencao"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "architecture/components.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc.setdefault("exemptions", []).append({
+              "path": "src/nao/existe.py",
+              "justification": "isenção deliberadamente morta, injetada pelo passo negativo do CI para provar a mordida",
+          })
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::isenção morta não foi detectada — a cobertura voltou a poder ser fingida com uma linha."
+            exit 1
+          fi
+
+      - name: (negativo) raiz de código inexistente não pode sair 0
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-raiz"; rm -rf "$mut"; cp -a . "$mut"
+          rm -rf "$mut/src"
+          code=0
+          HARNESS_REPO_ROOT="$mut" python ci/inventory_code.py --check --quiet || code=$?
+          if [ "$code" != "2" ]; then
+            echo "::error::inventário saiu $code com a raiz ausente; esperado 2. Fiscal que percorre conjunto vazio reporta verde, e verde por vacuidade é indistinguível de cobertura."
+            exit 1
+          fi
+
       - name: (negativo) validate_all sem dependências não pode sair 0
         run: |
           set -euo pipefail
