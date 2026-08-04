@@ -37,6 +37,38 @@ resolve (com `::simbolo`, por AST), e **todo arquivo do repositório pertence a 
 etapa ou a uma isenção declarada com justificativa**. É a partição que faz "todas as etapas" ser
 invariante em vez de aspiração: diretório novo passa a exigir declaração de etapa.
 
+## Vocabulário: regra → id do achado
+
+O plano que originou esta camada batizou as regras internas com nomes que **não** aparecem no
+código: os ids reais são os do laudo, com o ADR ou a etapa embutidos, porque é assim que eles
+servem para achar a linha a corrigir. A tabela existe para que ler o plano e dar `grep` no
+repositório deixem de discordar.
+
+| regra | id do achado | origin |
+|---|---|---|
+| ADR aceito sem asserção | `FIND-<ADR>-NO-ASSERTIONS` | `adr_meta` |
+| Só asserções manuais | `FIND-<ADR>-ONLY-MANUAL` | `adr_meta` |
+| Alvo de asserção não resolve | `FIND-<id>-UNRESOLVABLE` | `adr_assertion` |
+| Id de asserção duplicado | `FIND-<id>-DUPLICATE` | `adr_meta` |
+| Artefato de etapa não casa nada | `FIND-<STAGE>-ARTIFACT-*` | `stage_coverage` |
+| Etapa sem fiscal resolvível | `FIND-<STAGE>-UNENFORCED` | `stage_coverage` |
+| Arquivo fora de qualquer etapa | `FIND-UNCOVERED-*` | `stage_partition` |
+| Isenção que não protege nada | `FIND-UNGOVERNED-STALE-*` | `stage_partition` |
+
+## Duas decisões de desenho, para não serem "corrigidas" depois
+
+**A partição substitui a checagem cruzada de `DOCS`.** Uma versão anterior previa importar
+`DOCS`, `BUSINESS_RULES_DIR` e `CHANGE_PROPOSALS_DIR` de `ci/validate_metadata.py` e exigir que
+todo metadado conhecido fosse reivindicado por uma etapa. `check_repo_partition` percorre a
+árvore inteira, então todo arquivo — inclusive os de `DOCS` — já precisa ser reivindicado. A
+checagem cruzada seria redundante, e duas respostas para a mesma pergunta divergem com o tempo.
+
+**`governance/ripd.md` fica fora do `scope_fingerprint`, de propósito.** O fingerprint responde
+"o julgamento cobre o estado atual do *sistema*?". Se o documento do julgamento entrasse no
+próprio escopo, toda emenda invalidaria o julgamento que a emenda produz — circular, e o parecer
+nunca poderia ser corrigido. O escopo cobre inventário, `classification`, `tests/qa/config.yaml`
+e arquivos com hit de PII: as coisas cuja mudança realmente reabre o juízo.
+
 ## Limite honesto
 
 `.claude/settings.json` é uma trava que o vigiado pode editar. Por isso `.claude/`, `CLAUDE.md`,

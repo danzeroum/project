@@ -224,3 +224,70 @@ def test_lgpd_relevance_livre_e_recusado():
     doc = yaml.safe_load((root / "project.yaml").read_text(encoding="utf-8"))
     doc["classification"]["lgpd_relevance"] = "to-be-assessed"
     assert list(Draft202012Validator(schema).iter_errors(doc))
+
+
+# --------------------------------------------------------------------------------------
+# A trava do próprio laudo: um fiscal que emite achado de LGPD sem artigo citado seria a
+# versão executável de "markdown que não morde". O if/then existia no schema desde o início,
+# mas nada provava que emit_report o aplicasse — trava sem prova é trava por enquanto.
+# --------------------------------------------------------------------------------------
+
+def _report_com(finding: dict) -> dict:
+    return {
+        "schema_version": "1.0",
+        "provenance": {
+            "auditor": "ci/audit_lgpd.py", "auditor_version": "1.0",
+            "repository": "danzeroum/project", "commit": "0" * 40,
+            "generated_at": "2026-08-04T00:00:00+00:00", "stages_covered": ["STAGE-CODE"],
+        },
+        "result": "findings",
+        "summary": {"total": 1, "by_severity": {"medium": 1}},
+        "findings": [finding],
+    }
+
+
+def test_laudo_lgpd_sem_artigo_sai_2_e_nao_escreve(repo_copy, monkeypatch):
+    import importlib
+    monkeypatch.setenv("HARNESS_REPO_ROOT", str(repo_copy))
+    import harness_lib
+    importlib.reload(harness_lib)
+
+    destino = "harness/reports/teste-laudo-invalido.json"
+    ruim = _report_com({
+        "id": "FIND-X", "origin": "lgpd_scan", "severity": "medium",
+        "summary": "achado sem artigo citado",
+        # falta lgpd_article e pbd_principle
+    })
+    with pytest.raises(harness_lib.HarnessError):
+        harness_lib.emit_report(destino, ruim)
+    assert not (repo_copy / destino).exists(), \
+        "nenhum arquivo pode ser escrito quando o laudo não satisfaz o próprio contrato"
+
+    bom = _report_com({
+        "id": "FIND-X", "origin": "lgpd_scan", "severity": "medium",
+        "summary": "achado com artigo citado",
+        "lgpd_article": "Art. 37", "pbd_principle": "Privacidade no Design",
+    })
+    harness_lib.emit_report(destino, bom)
+    assert (repo_copy / destino).exists()
+
+
+def test_upload_sem_retention_days_e_achado(repo_copy, run_auditor):
+    """L9 — a retenção declarada precisa alcançar a evidência que sobrevive ao runner."""
+    p = repo_copy / ".github/workflows/governance.yml"
+    p.write_text(p.read_text(encoding="utf-8").replace("          retention-days: 90\n", ""),
+                 encoding="utf-8")
+    code, findings = run_auditor("audit_lgpd", repo_copy)
+    assert code == 1
+    ret = [f for f in findings if f["origin"] == "lgpd_retention"]
+    assert ret, "upload de harness/reports/ sem retention-days deveria ser achado"
+    assert all(f["lgpd_article"].startswith("Art.") for f in ret)
+
+
+def test_retention_divergente_da_declarada_e_achado(repo_copy, run_auditor):
+    p = repo_copy / ".github/workflows/governance.yml"
+    p.write_text(p.read_text(encoding="utf-8").replace("retention-days: 90", "retention-days: 400"),
+                 encoding="utf-8")
+    code, findings = run_auditor("audit_lgpd", repo_copy)
+    assert code == 1
+    assert any(f["id"].startswith("FIND-ARTIFACT-RETENTION-MISMATCH") for f in findings)
