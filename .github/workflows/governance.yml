@@ -333,6 +333,32 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) dependência fora do inventário deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-sbom"; rm -rf "$mut"; cp -a . "$mut"
+          sed -i 's/    "pyyaml>=6",/    "pyyaml>=6",\n    "requests>=2",/' "$mut/pyproject.toml"
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::dependência declarada e não inventariada não foi detectada — biblioteca nova voltou a entrar sem que ninguém registrasse dono e razão."
+            exit 1
+          fi
+
+      - name: (negativo) ameaça sem residual rastreável deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-threat"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "security/threat-model.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["threats"][0]["residual_risk"] = "RISK-QUE-NAO-EXISTE"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::ameaça com residual inexistente não foi detectada — o modelo de ameaças voltou a ser lista de preocupações que não obriga a nada."
+            exit 1
+          fi
+
       - name: (negativo) validate_all sem dependências não pode sair 0
         run: |
           set -euo pipefail

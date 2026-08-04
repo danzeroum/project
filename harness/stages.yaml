@@ -212,8 +212,25 @@ stages:
       scan: true
       question: "O papel do sistema (controlador/operador) declarado bate com o que ele de fato trata?"
 
-  - id: STAGE-CI-HARNESS
+  - id: STAGE-SECURITY
     order: 12
+    name: "Segurança: ameaças e dependências"
+    artifacts: ["security"]
+    enforced_by:
+      - kind: schema
+        ref: harness/schemas/threat-model.schema.json
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_threat_model
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_dependency_inventory
+    privacy_lens:
+      scan: true
+      question: "Alguma ameaça expõe dado pessoal? A mitigação declarada cobre o vazamento, ou só o acesso?"
+
+  - id: STAGE-CI-HARNESS
+    order: 13
     name: "Fiscais, schemas e entrega"
     artifacts:
       - "ci"
@@ -237,7 +254,7 @@ stages:
       question: "Segredo ou dado pessoal em log de CI, artifact ou variável de ambiente?"
 
   - id: STAGE-DOCS
-    order: 13
+    order: 14
     name: "Documentação"
     artifacts: ["docs", "README.md", "BOOTSTRAP.md", "WEBQA_CONSUMER_CONTRACT.md"]
     enforced_by:

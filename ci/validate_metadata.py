@@ -16,6 +16,7 @@ Sai com código 1 ao primeiro conjunto de inconsistências; 0 se tudo casar.
 from __future__ import annotations
 
 import json
+import re
 import sys
 
 from jsonschema import Draft202012Validator
@@ -29,6 +30,8 @@ DOCS = [
     ("target.lock", "target-lock.schema.json"),
     ("harness/pipeline/ingest.yaml", "ingest-pipeline.schema.json"),
     ("governance/conformance-review.yaml", "conformance-review.schema.json"),
+    ("security/threat-model.yaml", "threat-model.schema.json"),
+    ("security/dependencies.yaml", "dependencies.schema.json"),
     ("governance/risk-register.yaml", "risk-register.schema.json"),
     ("business/capabilities.yaml", "capabilities.schema.json"),
     ("architecture/components.yaml", "components.schema.json"),
@@ -244,6 +247,7 @@ DERIVAVEIS = [
     ("design/ui-surfaces.yaml", "ui_surfaces"),
     ("business/requirements/backlog.yaml", "items"),
     ("governance/risk-register.yaml", "risks"),
+    ("security/threat-model.yaml", "threats"),
 ]
 
 # Campos que só um humano preenche. A ingestão escreve o sentinela; promover é substituí-lo.
@@ -305,6 +309,81 @@ def check_pending_judgment(loaded: dict[str, dict]) -> None:
                     f"source_of_truth:true com {', '.join(campos)}={PENDENTE} — "
                     f"promover é substituir o sentinela por julgamento, não declarar o documento "
                     f"pronto com ele dentro")
+
+
+def check_threat_model(doc: dict | None, comp_ids: set[str], ifc_ids: set[str],
+                       ui_ids: set[str], risk_ids: set[str]) -> None:
+    """Toda ameaça vigia algo que existe e deixa um residual rastreável.
+
+    O schema já garante que existe ao menos uma mitigação e um residual_risk. Aqui se cobra que os
+    alvos RESOLVEM: ameaça contra componente inexistente é trava que não encontra o que vigiar —
+    quebrada, não satisfeita (ADR-006) — e residual apontando para risco inexistente devolve a
+    ameaça ao limbo de onde o residual deveria tirá-la.
+    """
+    if not doc:
+        return
+    conhecidos = comp_ids | ifc_ids | ui_ids
+    for ameaca in doc.get("threats", []):
+        tid = ameaca.get("id", "?")
+        if ameaca.get("target") not in conhecidos:
+            err(f"[ameaça] {tid}: target {ameaca.get('target')} não existe em components, "
+                f"interfaces nem ui-surfaces")
+        if ameaca.get("residual_risk") not in risk_ids:
+            err(f"[ameaça] {tid}: residual_risk {ameaca.get('residual_risk')} não existe no "
+                f"risk-register — ameaça sem residual rastreável volta ao limbo")
+        for mit in ameaca.get("mitigations", []):
+            if mit.get("kind") == "local_path" and not rel_exists(mit.get("ref", "")):
+                err(f"[ameaça] {tid}: mitigação local_path inexistente: {mit.get('ref')}")
+
+
+def _declaradas() -> dict[str, str]:
+    """Dependências que este repositório declara, e onde. Leitura textual e deliberada.
+
+    Sem tomllib nem resolver de ambiente: o que interessa é o que o repositório DECLARA, não o que
+    está instalado na máquina de quem roda. Um inventário conferido contra o site-packages local
+    passaria ou reprovaria conforme o computador, que é o oposto de fiscalizável.
+    """
+    achadas: dict[str, str] = {}
+    if rel_exists("pyproject.toml"):
+        for linha in read_text_lines("pyproject.toml"):
+            m = re.match(r'^\s*"([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:[<>=!~].*)?"\s*,?\s*$', linha)
+            if m:
+                achadas[m.group(1).lower()] = "pyproject.toml"
+    if rel_exists("requirements-qa.txt"):
+        for linha in read_text_lines("requirements-qa.txt"):
+            m = re.match(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*==", linha)
+            if m:
+                achadas[m.group(1).lower()] = "requirements-qa.txt"
+    return achadas
+
+
+def read_text_lines(rel: str) -> list[str]:
+    return hl.read_text(rel).splitlines()
+
+
+def check_dependency_inventory(doc: dict | None) -> None:
+    """Dependência declarada e não inventariada é achado — a direção reversa da Fase E."""
+    if not doc:
+        return
+    inventariadas = {d.get("name", "").lower(): d for d in doc.get("dependencies", [])}
+    declaradas = _declaradas()
+
+    for nome, onde in sorted(declaradas.items()):
+        if nome not in inventariadas:
+            err(f"[dependência] '{nome}' é declarada em {onde} e não está em "
+                f"security/dependencies.yaml — dependência que entra sem passar pelo inventário "
+                f"é superfície de supply chain que ninguém revisou")
+        elif inventariadas[nome].get("declared_in") != onde:
+            err(f"[dependência] '{nome}': inventário diz {inventariadas[nome].get('declared_in')!r} "
+                f"e ela é declarada em {onde!r}")
+
+    for nome, item in sorted(inventariadas.items()):
+        if nome not in declaradas:
+            err(f"[dependência] '{nome}' está inventariada e não é declarada em lugar nenhum — "
+                f"entrada morta faz o inventário parecer mais completo do que é")
+        if not rel_exists(item.get("declared_in", "")):
+            err(f"[dependência] '{nome}': declared_in aponta para arquivo inexistente: "
+                f"{item.get('declared_in')}")
 
 
 def _inventory(project_doc: dict | None) -> dict | None:
@@ -715,6 +794,10 @@ def main(argv: list[str] | None = None) -> int:
     check_adr_assertion_refs(loaded.get("architecture/adr/index.yaml"), risk_ids)
     check_data_inventory(loaded.get("governance/data-inventory.yaml"), comp_ids)
     check_privacy_review(loaded.get("governance/privacy-review.yaml"), risk_ids)
+    ifc_ids = {i.get("id") for i in (loaded.get("architecture/interfaces.yaml") or {}).get("interfaces", [])}
+    ui_ids = {u.get("id") for u in (loaded.get("design/ui-surfaces.yaml") or {}).get("ui_surfaces", [])}
+    check_threat_model(loaded.get("security/threat-model.yaml"), comp_ids, ifc_ids, ui_ids, risk_ids)
+    check_dependency_inventory(loaded.get("security/dependencies.yaml"))
     check_change_proposals(caps, comp_ids, risk_ids)
 
     if errors:

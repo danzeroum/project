@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/dependencies.schema.json",
+  "title": "security/dependencies.yaml — inventário de dependências (SBOM leve)",
+  "description": "A direção reversa da Fase E aplicada a supply chain. Os fiscais já sabiam que a régua está pinada; ninguém verificava que TODA dependência declarada em pyproject.toml e requirements-qa.txt está inventariada, com dono e razão. Dependência declarada e não inventariada é achado — acrescentar biblioteca passa a exigir passar por aqui, que é o efeito pretendido.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "dependencies"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "dependencies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "scope", "declared_in", "pin_kind", "owner", "purpose"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "Nome normalizado do pacote, minúsculo." },
+          "scope": {
+            "enum": ["runtime", "dev", "qa"],
+            "description": "runtime é o que chega ao usuário; dev e qa não. A distinção muda o que uma vulnerabilidade significa."
+          },
+          "declared_in": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Arquivo onde a dependência é declarada. Cobrado por ci/validate_metadata.py::check_dependency_inventory — inventário que aponta para arquivo inexistente não vigia nada."
+          },
+          "pin_kind": {
+            "enum": ["exact", "range", "unpinned"],
+            "description": "Descreve o que É, não o que deveria ser. 'range' declarado é uma decisão auditável; 'range' escondido é uma dependência que muda sozinha entre dois runs."
+          },
+          "owner": { "type": "string", "minLength": 1 },
+          "purpose": { "type": "string", "minLength": 15, "description": "Por que ela existe. Dependência sem razão registrada é a que ninguém ousa remover." }
+        }
+      }
+    }
+  }
+}

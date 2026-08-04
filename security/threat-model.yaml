@@ -1,0 +1,65 @@
+# Modelo de ameaças por componente e interface.
+#
+# Duas travas estruturais definem este arquivo: toda ameaça exige ao menos uma mitigação e um
+# residual_risk apontando para um RISK-* real. Ameaça catalogada e não tratada é o "to-be-assessed"
+# do ADR-002 vestido de diligência — parece trabalho de segurança e não obriga a nada. Com o
+# residual ancorado, a ameaça herda dono, prazo e a cobertura reversa da Fase E.
+#
+# Schema: ../harness/schemas/threat-model.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+threats:
+  - id: THREAT-CATALOG-TAMPER
+    stride: tampering
+    target: CMP-CATALOG
+    attack_vector: >
+      O catálogo em memória é populado por quem constrói o adaptador. Uma origem de dados
+      comprometida ou um caller descuidado injeta preços arbitrários, e a precificação inteira
+      passa a calcular sobre valores adulterados sem que nada acuse.
+    severity: medium
+    mitigations:
+      - kind: local_path
+        ref: business/rules/catalog.yaml
+      - kind: local_path
+        ref: tests/unit/test_ports.py
+      - kind: local_path
+        ref: architecture/adr/ADR-005-catalogo-via-porta.md
+    residual_risk: RISK-SEC-001
+
+  - id: THREAT-PRICING-INFO
+    stride: information_disclosure
+    target: CMP-PRICING
+    attack_vector: >
+      Erro não tratado na precificação carrega o pedido inteiro no traceback. Em produção isso
+      transforma uma exceção comum em vazamento de composição de preço e de itens do cliente
+      para quem quer que leia o log.
+    severity: medium
+    mitigations:
+      - kind: local_path
+        ref: tests/unit/test_pricing.py
+      - kind: local_path
+        ref: governance/data-inventory.yaml
+      - kind: accepted
+        ref: "Sem runtime neste molde: não há log de produção. O derivado que governar um alvo com serviço herda a ameaça e precisa de mitigação real."
+    residual_risk: RISK-SEC-001
+
+  - id: THREAT-HARNESS-ELEVATION
+    stride: elevation_of_privilege
+    target: CMP-PRICING
+    attack_vector: >
+      Um agente com shell define WEBQA_* no ambiente do runner e se autoriza a sondar o alvo,
+      convertendo acesso de desenvolvimento em capacidade de auditoria ativa que ninguém aprovou.
+    severity: high
+    mitigations:
+      - kind: local_path
+        ref: harness/policies/env-hygiene.md
+      - kind: local_path
+        ref: ci/hooks/pre_bash_env_hygiene.py
+      - kind: standard_symbol
+        standard: webqa-suite
+        version_source: requirements-qa.txt
+        ref: "webqa/gates.py::require_discovery"
+    residual_risk: RISK-WEBQA-001

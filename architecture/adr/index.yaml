@@ -574,3 +574,54 @@ adrs:
           faz, e fingir que faria seria a versão executável de markdown que não morde. O que a
           máquina cobra é o frescor e a forma: que a revisão exista, cubra este estado (incluindo
           o SHA do alvo), encaminhe cada achado e declare o que não avaliou.
+
+  - id: ADR-013
+    title: "Segurança é departamento com artefato e fiscal, não um campo security_owner"
+    status: accepted
+    file: architecture/adr/ADR-013-seguranca-como-departamento.md
+    related_components: [CMP-PRICING, CMP-CATALOG]
+    related_risks: [RISK-SEC-001, RISK-DEP-001]
+    assertions:
+      - id: ADR-013-A1
+        kind: path_present
+        severity: high
+        risk: RISK-SEC-001
+        description: "O departamento existe como artefato, não como intenção."
+        paths:
+          - security/threat-model.yaml
+          - security/dependencies.yaml
+          - harness/policies/seguranca.md
+      - id: ADR-013-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-SEC-001
+        description: "Ameaça segue exigindo mitigação e residual rastreável — sem eles o modelo é lista de preocupações."
+        file: harness/schemas/threat-model.schema.json
+        pointer: /properties/threats/items/required
+        contains: residual_risk
+      - id: ADR-013-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-SEC-001
+        description: "Ameaça sem nenhuma mitigação continua estruturalmente impossível."
+        file: harness/schemas/threat-model.schema.json
+        pointer: /properties/threats/items/properties/mitigations/minItems
+        expected: 1
+      - id: ADR-013-A4
+        kind: schema_lock
+        severity: high
+        risk: RISK-DEP-001
+        description: "Dependência inventariada segue exigindo dono e razão: sem eles o inventário é uma lista de nomes."
+        file: harness/schemas/dependencies.schema.json
+        pointer: /properties/dependencies/items/required
+        contains: owner
+      - id: ADR-013-A5
+        kind: manual
+        severity: medium
+        risk: RISK-SEC-001
+        description: "Completude do modelo de ameaças em relação ao sistema real."
+        justification: >
+          Nenhum fiscal descobre a ameaça que ninguém pensou. O modelo é escrito por gente, e o
+          que a máquina garante é que a ameaça PENSADA não fica sem mitigação, sem residual e sem
+          dono. Um scanner que "gerasse" o modelo produziria julgamento de máquina com aparência
+          de análise humana — a pior combinação possível neste repositório.

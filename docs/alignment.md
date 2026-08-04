@@ -16,14 +16,14 @@ fazem: **o que ficou de fora?**
 
 | Componente | Status | Capacidade | Implementa | Coberto por risco |
 |---|---|---|---|---|
-| `CMP-CATALOG` | verified | `CAP-CATALOG` | — | não |
-| `CMP-PRICING` | verified | `CAP-PRICING` | REQ-001 | não |
+| `CMP-CATALOG` | verified | `CAP-CATALOG` | — | sim |
+| `CMP-PRICING` | verified | `CAP-PRICING` | REQ-001 | sim |
 
 ## Riscos por área
 
 | Área | Total | Abertos |
 |---|---|---|
-| access | 1 | 0 |
+| access | 2 | 0 |
 | data | 2 | 0 |
 | dependencies | 1 | 0 |
 | governance | 10 | 0 |

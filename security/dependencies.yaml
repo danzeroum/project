@@ -1,0 +1,40 @@
+# Inventário de dependências — SBOM leve.
+#
+# A direção reversa da Fase E aplicada a supply chain. Os fiscais já sabiam que a régua está
+# pinada; ninguém verificava que TODA dependência declarada está inventariada, com dono e razão.
+# Acrescentar biblioteca passa a exigir passar por aqui.
+#
+# Schema: ../harness/schemas/dependencies.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+dependencies:
+  - name: pytest
+    scope: dev
+    declared_in: pyproject.toml
+    pin_kind: range
+    owner: technical_owner
+    purpose: "Executa os testes de unidade e os testes de mordida dos fiscais."
+
+  - name: jsonschema
+    scope: dev
+    declared_in: pyproject.toml
+    pin_kind: range
+    owner: technical_owner
+    purpose: "Valida todo metadado contra seu schema; sem ela nenhum fiscal estrutural roda."
+
+  - name: pyyaml
+    scope: dev
+    declared_in: pyproject.toml
+    pin_kind: range
+    owner: technical_owner
+    purpose: "Lê os metadados YAML que a harness inteira declara."
+
+  - name: webqa-suite
+    scope: qa
+    declared_in: requirements-qa.txt
+    pin_kind: exact
+    owner: security_owner
+    purpose: "A régua externa de auditoria. Pin exato por decisão do ADR-003: a superfície do que a suíte procura é dado de segurança e não deve mudar sozinha entre dois runs."

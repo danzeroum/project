@@ -12,7 +12,7 @@ generated_from: null
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: "sha256:7406dbbb16c7906c6e147266b8a474c2bac034b720e8a27c427428dcaa6aab85"
+  scope_fingerprint: "sha256:744fe18f57614fd45de9bef60e97d7091bc146596e01985c6a4b61062416edf9"
 
   findings:
     - id: CONF-001
@@ -54,6 +54,19 @@ review:
         exigir toolchain de Node para fiscalizar qualquer alvo — inclusive alvos sem Node. A perda
         é declarada no laudo do inventário em vez de ficar invisível, que é a diferença entre um
         fiscal que não sabe e um que finge saber. Reverter a decisão exige ADR novo, não silêncio.
+
+    - id: CONF-004
+      severity: medium
+      summary: >
+        THREAT-PRICING-INFO é mitigada por 'accepted' com a razão de que este molde não tem
+        runtime. A ameaça é real e continua real no derivado: um alvo com serviço herda o
+        vazamento por traceback e a mitigação aceita aqui não vale lá.
+      disposition: risk_entry
+      ref: RISK-SEC-001
+      rationale: >
+        Registrada como herança explícita em vez de resolvida: mitigar aqui exigiria inventar um
+        log de produção que não existe, e uma mitigação de fachada é pior que a herança declarada.
+        O /adotar leva a ameaça ao derivado, onde ela tem alvo real; RISK-SEC-001 carrega o dono.
 
   # O que esta revisão NÃO olhou. "Sem achados" numa categoria que ninguém examinou é a forma
   # mais silenciosa de laudo falso.

@@ -260,6 +260,31 @@ risks:
       - kind: local_path
         ref: architecture/adr/ADR-012-conformidade-continua.md
 
+  - id: RISK-SEC-001
+    area: access
+    description: "Ameaça catalogada sem tratamento rastreável: o modelo de ameaças vira lista de preocupações que não obriga a nada, e a segurança volta a ser difusa — declarada num owner e em nenhum artefato."
+    likelihood: medium
+    impact: high
+    treatment: mitigate
+    owner: security_owner
+    related:
+      - CMP-PRICING
+      - CMP-CATALOG
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: security/threat-model.yaml
+      - kind: local_path
+        ref: security/dependencies.yaml
+      - kind: local_path
+        ref: harness/schemas/threat-model.schema.json
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: harness/policies/seguranca.md
+      - kind: local_path
+        ref: architecture/adr/ADR-013-seguranca-como-departamento.md
+
   - id: RISK-META-002
     area: access
     description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."
