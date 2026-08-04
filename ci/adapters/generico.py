@@ -22,11 +22,14 @@ from . import Adapter, Modulo, register
 
 
 def analyze(path: Path, root: Path) -> Modulo:
+    # A conta fecha em zero: ele não LÊ especificador algum, então não há o que particionar.
+    # Zero declarado é diferente de zero por descarte, e é essa diferença que o laudo carrega.
     return Modulo(
         path=path.relative_to(root).as_posix(),
         language=path.suffix.lstrip(".").lower() or "sem-extensao",
         exposes=[],
         imports=[],
+        total_especificadores=0,
     )
 
 

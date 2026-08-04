@@ -84,7 +84,10 @@ repositório vermelho no meio:
    `assertion_unresolvable` sem ele. Uma trava que não encontra o que vigiar está quebrada, não
    satisfeita;
 3. ajustar `harness/stages.yaml`: os artefatos de `STAGE-CODE` e `STAGE-TESTS` passam a ser os do
-   alvo, não os do molde.
+   alvo, não os do molde;
+4. remover a asserção **ADR-008-A6**. Ela crava `kind: "mold"` e diz respeito só ao repositório de
+   origem — herdada aqui, reprovaria corretamente, porque aqui o kind é `derived`. O derivado não
+   é o molde e não carrega as travas que falam só dele.
 
 Risco `high` → o schema de change-proposal força `human_approval_required: true`. Espere o aval.
 

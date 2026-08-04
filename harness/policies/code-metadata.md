@@ -45,8 +45,9 @@ O inventário é multi-linguagem por adapters registrados — acrescentar lingua
 em `ci/adapters/`, não um `elif` no dispatcher. Três níveis:
 
 - **semântico** (`python`): símbolos e arestas de import de verdade;
-- **semântico parcial** (`typescript`): imports relativos por parser próprio; declara que não
-  resolve alias de workspace, re-export em cadeia nem import dinâmico;
+- **semântico parcial** (`typescript`): imports relativos e **alias de workspace**, resolvidos
+  pelos `package.json` sob as raízes — não por `tsconfig:paths`, que um alvo real provou
+  insuficiente. Declara que não resolve re-export em cadeia nem import dinâmico;
 - **genérico** (o resto): resolve só pertencimento — que é o que a invariante precisa — e declara
   que não leu símbolos nem arestas.
 
@@ -59,6 +60,22 @@ O TypeScript usa parser próprio, e não `dependency-cruiser`, deliberadamente: 
 molde — Python puro — passar a exigir toolchain de Node para fiscalizar qualquer alvo, inclusive
 alvos sem Node. Trocar isso por resolução de alias é uma decisão futura legítima; tomá-la em
 silêncio, não.
+
+## A conta fecha, ou o inventário é recusado
+
+Todo especificador de import cai em exatamente um balde — **resolvido**, **externo** ou
+**unresolved** — e o inventário é recusado (exit 2) quando
+`resolvidos + externos + unresolved ≠ total`.
+
+Isto não é zelo: foi medido. Num monorepo real, 84 arestas entre pacotes sumiam porque o adapter
+resolvia só caminho relativo e descartava alias de workspace em silêncio. Ele cumpria *nunca
+inventar aresta* e quebrava *declarar o que não leu* — e com um componente por pacote, aquelas 84
+arestas **eram** o grafo de dependência: `check_declared_dependencies` validava `depends_on`
+contra conjunto vazio e reportava verde.
+
+A aritmética é a trava certa porque o modo de falha não é resolver errado, é **engolir**. Um teste
+de caso pega o bug de hoje; a conta pega o próximo caminho de código que ler um import e não o
+classificar.
 
 ## Por que import não declarado acusa e `depends_on` sobrando não
 

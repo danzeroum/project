@@ -28,6 +28,27 @@ SKIP = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules",
         ".ruff_cache", ".mypy_cache", "build", "dist"}
 
 
+# Ordem de dependência: harness_lib primeiro (resolve HARNESS_REPO_ROOT), depois quem o importa.
+# Recarregar pela metade deixa DUAS classes HarnessError vivas e um REPO congelado do teste
+# anterior — os dois bugs mais caros desta suíte, e ambos já aconteceram.
+MODULOS_DOS_FISCAIS = (
+    "harness_lib", "adapters", "inventory_code", "validate_metadata",
+    "generate_graph", "audit_governance", "alignment_report", "audit_conformance",
+    "audit_lgpd", "validate_all",
+)
+
+
+def recarregar_fiscais() -> None:
+    """Recarrega o GRAFO INTEIRO de módulos dos fiscais contra o HARNESS_REPO_ROOT atual."""
+    import importlib
+    for nome in MODULOS_DOS_FISCAIS:
+        try:
+            modulo = importlib.import_module(nome)
+        except ImportError:  # pragma: no cover - módulo opcional ausente
+            continue
+        importlib.reload(modulo)
+
+
 @pytest.fixture
 def repo_copy(tmp_path: Path) -> Path:
     dest = tmp_path / "repo"
@@ -74,18 +95,8 @@ def run_metadata(monkeypatch):
 
     def _run(root: Path, argv: list[str] | None = None) -> tuple[int, list[str]]:
         monkeypatch.setenv("HARNESS_REPO_ROOT", str(root))
-        # Recarrega o GRAFO INTEIRO de módulos do fiscal, não só a folha. Recarregar pela metade
-        # produz duas classes HarnessError vivas ao mesmo tempo — a que inventory_code levanta e a
-        # que validate_metadata tenta capturar — e o except deixa de casar. Um processo de CI
-        # importa tudo uma vez só; a fixture precisa imitar isso, não improvisar um meio-termo.
-        import harness_lib
-        importlib.reload(harness_lib)
-        import adapters
-        importlib.reload(adapters)
-        import inventory_code
-        importlib.reload(inventory_code)
+        recarregar_fiscais()
         import validate_metadata
-        importlib.reload(validate_metadata)
         code = validate_metadata.main(list(argv or []))
         return code, list(validate_metadata.errors)
 

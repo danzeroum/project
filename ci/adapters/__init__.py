@@ -28,12 +28,35 @@ from typing import Callable
 
 @dataclass
 class Modulo:
-    """Um arquivo de código lido por um adapter."""
+    """Um arquivo de código lido por um adapter.
+
+    Os quatro campos de import formam uma PARTIÇÃO, e ci/inventory_code.py recusa o inventário
+    quando ela não fecha (exit 2). A conta existe porque o modo de falha real não é resolver
+    errado — é engolir: um especificador que some sem cair em nenhuma das três listas deixa uma
+    aresta invisível, e nenhum teste de caso específico pega o próximo caminho de código que
+    fizer o mesmo. Aritmética pega.
+    """
 
     path: str                                  # relativo à raiz do inventário
     language: str
     exposes: list[str] = field(default_factory=list)
-    imports: list[str] = field(default_factory=list)   # caminhos relativos, dentro da raiz
+
+    # Arestas para consumo: alvos internos, sem duplicata e sem o próprio arquivo.
+    imports: list[str] = field(default_factory=list)
+
+    # A PARTIÇÃO. Três listas CRUAS — uma entrada por especificador encontrado no arquivo, com
+    # duplicatas preservadas. É o que torna a conta capaz de pegar um descarte: `imports` é
+    # deduplicado e por isso nunca serviria de prova.
+    internos_crus: list[str] = field(default_factory=list)   # resolveram para dentro da raiz
+    externos: list[str] = field(default_factory=list)        # fora da raiz: dependência, não aresta
+    unresolved: list[str] = field(default_factory=list)      # parecem internos e não resolveram
+    total_especificadores: int = 0                           # contados ANTES de classificar
+
+    def conta_fecha(self) -> bool:
+        """Todo especificador caiu em exatamente um balde. Sem isto, um caminho de código novo
+        que engolisse um import passaria — e nenhum teste de caso específico o pegaria."""
+        return self.total_especificadores == (
+            len(self.internos_crus) + len(self.externos) + len(self.unresolved))
 
 
 @dataclass

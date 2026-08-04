@@ -285,6 +285,26 @@ risks:
       - kind: local_path
         ref: architecture/adr/ADR-013-seguranca-como-departamento.md
 
+  - id: RISK-ORIENT-001
+    area: governance
+    description: "Orientação que enumera em vez de derivar: uma segunda descrição das etapas e das políticas deriva da primeira em silêncio, com a aparência de documentação cuidadosa — e passa a ensinar o repositório errado."
+    likelihood: high
+    impact: medium
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/orient.py
+      - kind: local_path
+        ref: .claude/skills/desenvolver/SKILL.md
+      - kind: local_path
+        ref: architecture/adr/index.yaml
+      - kind: local_path
+        ref: harness/policies/orientacao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-014-orientacao-derivada.md
+
   - id: RISK-META-002
     area: access
     description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."
