@@ -197,3 +197,73 @@ def test_ordem_duplicada_reprova(repo_copy, run_auditor):
     code, findings = run_auditor("audit_governance", repo_copy)
     assert code == 1
     assert any(i.startswith("FIND-INGEST-ORDER-") for i in ids_of(findings)), ids_of(findings)
+
+
+# --------------------------------------------------------------------------------------
+# Piso das coleções (CP-017): a permissão é temporária-por-estado, não permanente-por-papel
+# --------------------------------------------------------------------------------------
+
+COLECOES = [("business/capabilities.yaml", "capabilities"),
+            ("architecture/components.yaml", "components"),
+            ("architecture/interfaces.yaml", "interfaces"),
+            ("business/requirements/backlog.yaml", "items")]
+
+
+def _esvaziar(root, alvos=COLECOES) -> None:
+    """O estado que o CP-000 produz: exemplo removido, ingestão ainda não rodou."""
+    for rel, chave in alvos:
+        doc = _ler(root, rel)
+        doc[chave] = []
+        _gravar(root, rel, doc)
+
+
+def _lifecycle(root, valor: str) -> None:
+    doc = _ler(root, "project.yaml")
+    doc["project"]["lifecycle"] = valor
+    _gravar(root, "project.yaml", doc)
+
+
+def test_derivado_em_ingestao_pode_ter_colecao_vazia(repo_copy, run_metadata):
+    """A metade permissiva, e a razão do CP-017 existir: sem ela o estado 'adotado, ainda não
+    ingerido' é inexprimível, e restam inventar metadado de placeholder ou deixar arquivo que não
+    valida contra o próprio schema."""
+    _derivado(repo_copy)
+    _lifecycle(repo_copy, "incubating")
+    _esvaziar(repo_copy)
+    _, errors = run_metadata(repo_copy)
+    assert not [e for e in errors if "[piso]" in e], errors
+
+
+def test_derivado_ingerido_com_colecao_vazia_reprova(repo_copy, run_metadata):
+    """O teste que o CP-017 exige de si mesmo. Sem ele, tirar o piso do schema seria a primeira
+    trava deste repositório afrouxada sem prova de mordida — e um derivado maduro declararia zero
+    de tudo, passaria em tudo, e afirmaria cobertura sobre conjunto vazio."""
+    _derivado(repo_copy)
+    _lifecycle(repo_copy, "active")
+    _esvaziar(repo_copy)
+    code, errors = run_metadata(repo_copy)
+    assert code == 1
+    achados = [e for e in errors if "[piso]" in e]
+    assert len(achados) == len(COLECOES), achados
+    for rel, _ in COLECOES:
+        assert any(rel in e for e in achados), (rel, achados)
+
+
+def test_molde_com_colecao_vazia_reprova(repo_copy, run_metadata):
+    """O piso não desapareceu — mudou de camada. O molde carrega sempre o negócio de exemplo,
+    que é o substrato das asserções do ADR-005; vazio aqui não é estado de transição nenhum."""
+    _esvaziar(repo_copy, [("business/capabilities.yaml", "capabilities")])
+    code, errors = run_metadata(repo_copy)
+    assert code == 1
+    assert any("[piso]" in e and "capabilities" in e for e in errors), errors
+
+
+def test_a_mensagem_do_piso_nomeia_a_fase_que_preenche(repo_copy, run_metadata):
+    """A fase vem de ingest.yaml, não de uma tabela paralela: um mapa arquivo→fase duplicado aqui
+    derivaria do pipeline em silêncio, que é o modo de falha que a fonte única existe para impedir."""
+    _derivado(repo_copy)
+    _lifecycle(repo_copy, "active")
+    _esvaziar(repo_copy, [("architecture/components.yaml", "components")])
+    _, errors = run_metadata(repo_copy)
+    piso = [e for e in errors if "[piso]" in e and "components.yaml" in e]
+    assert piso and "ING-03-CARTOGRAFIA" in piso[0], piso

@@ -157,6 +157,64 @@ def check_target_roots(project_doc: dict | None) -> None:
             err(f"[alvo] code_roots declara '{root}', que não existe no alvo no SHA de target.lock")
 
 
+# Coleções cujo piso saiu do schema e passou a viver aqui (CP-017). O mapa arquivo→coleção é
+# local; o mapa arquivo→FASE é lido de harness/pipeline/ingest.yaml, que já o declara — a mensagem
+# de erro diz qual fase deveria ter preenchido, sem uma segunda fonte de verdade para derivar.
+COLECOES_COM_PISO = [
+    ("business/capabilities.yaml", "capabilities"),
+    ("architecture/components.yaml", "components"),
+    ("architecture/interfaces.yaml", "interfaces"),
+    ("business/requirements/backlog.yaml", "items"),
+]
+
+
+def _fase_que_preenche(rel: str) -> str:
+    """Qual fase de ingestão declara este arquivo como output. Vazio se nenhuma."""
+    try:
+        pipeline = hl.read_yaml("harness/pipeline/ingest.yaml")
+    except (HarnessError, OSError):  # pragma: no cover - o próprio DOCS já reprova o ilegível
+        return ""
+    for fase in (pipeline or {}).get("phases", []):
+        if rel in (fase.get("outputs") or []):
+            return fase.get("id", "")
+    return ""
+
+
+def check_collection_floor(loaded: dict[str, dict], project_doc: dict | None) -> None:
+    """Coleção vazia só enquanto a ingestão não terminou — e "terminou" é declarado, não inferido.
+
+    O piso de um item saiu dos schemas (CP-017) porque um schema valida UM documento: ele não
+    enxerga o project.yaml e não pode responder "este repositório já foi ingerido?". Fingir que
+    enxerga produziria a única coisa pior que a pergunta errada — a resposta errada com cara de
+    estrutural.
+
+    Aqui a pergunta tem contexto. O molde carrega sempre o negócio de exemplo, então o piso vale
+    para ele sem ressalva. No derivado, `lifecycle: incubating` é a declaração de que a ingestão
+    está em curso, e é o que suspende o piso; qualquer outro valor volta a cobrá-lo. A permissão
+    expira por um ato declarado — promover o lifecycle — e não por dedução a partir do próprio
+    arquivo que se está julgando, que seria circular: "a fase acabou porque o arquivo está cheio"
+    não reprova arquivo vazio nenhum.
+
+    O risco que esta função existe para impedir é o oposto do que a motivou: sem ela, tirar o piso
+    do schema deixaria um repositório declarar zero de tudo, passar em tudo, e afirmar cobertura
+    sobre conjunto vazio.
+    """
+    projeto = (project_doc or {}).get("project") or {}
+    kind, lifecycle = projeto.get("kind"), projeto.get("lifecycle")
+    if kind == "derived" and lifecycle == "incubating":
+        return
+    motivo = ("molde: o negócio de exemplo é o substrato das asserções"
+              if kind != "derived" else f"derivado com lifecycle {lifecycle!r}, não 'incubating'")
+    for rel, chave in COLECOES_COM_PISO:
+        doc = loaded.get(rel)
+        if doc is None or (doc.get(chave) or []):
+            continue
+        fase = _fase_que_preenche(rel)
+        onde = f" — {fase} é a fase que a preenche" if fase else ""
+        err(f"[piso] {rel}: '{chave}' está vazia e o piso se aplica ({motivo}){onde}. "
+            f"Coleção vazia só é aceitável em derivado ainda em ingestão")
+
+
 def declared_roots(project_doc: dict | None) -> tuple[list[str], list[str]]:
     """Raízes de código e de teste, com o prefixo do workspace já aplicado no derivado.
 
@@ -768,6 +826,7 @@ def main(argv: list[str] | None = None) -> int:
     check_version_single_source(loaded.get("project.yaml"))
     check_target_lock(loaded.get("project.yaml"), loaded.get("target.lock"))
     check_target_roots(loaded.get("project.yaml"))
+    check_collection_floor(loaded, loaded.get("project.yaml"))
     check_derived_from(loaded, loaded.get("project.yaml"), loaded.get("target.lock"))
     check_pending_judgment(loaded)
     backlog_doc = loaded.get("business/requirements/backlog.yaml") or {}
