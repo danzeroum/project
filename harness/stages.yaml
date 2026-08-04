@@ -202,6 +202,9 @@ stages:
       - kind: ci_script
         ref: ci/audit_governance.py
         symbol: check_ingest_pipeline
+      - kind: ci_script
+        ref: ci/alignment_report.py
+        symbol: r1_capacidade_de_alto_risco_sem_risco
     privacy_lens:
       scan: true
       question: "O papel do sistema (controlador/operador) declarado bate com o que ele de fato trata?"

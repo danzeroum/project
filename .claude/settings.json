@@ -11,6 +11,8 @@
     "deny": [
       "Edit(docs/metadata-graph.md)",
       "Write(docs/metadata-graph.md)",
+      "Edit(docs/alignment.md)",
+      "Write(docs/alignment.md)",
       "Edit(harness/reports/**)",
       "Write(harness/reports/**)"
     ]

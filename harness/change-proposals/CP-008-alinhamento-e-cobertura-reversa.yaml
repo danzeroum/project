@@ -1,0 +1,50 @@
+# Mudança proposta: cobertura reversa de risco e alinhamento entre departamentos.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-008
+  title: "Fase E — alinhamento: docs/alignment.md derivado e R1–R4 de cobertura reversa"
+  author_kind: agent
+  created_at: "2026-08-04T22:30:00Z"
+  capabilities_affected:
+    - CAP-PRICING
+    - CAP-CATALOG
+  components_affected:
+    - CMP-PRICING
+    - CMP-CATALOG
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-ALIGN-001
+      - RISK-META-001
+    rationale: >
+      Risco alto porque muda o significado de verde uma segunda vez, e na camada mais sensível.
+      check_risk_control_coverage já verificava que todo controle aponta para algo real — a direção
+      fácil. Ninguém verificava a inversa: que todo ativo relevante é apontado por algum risco.
+      Prova de que a lacuna é real e não hipotética: os treze riscos deste repositório são todos
+      sobre a própria harness, e o enum de area traz 'availability' sem nenhum risco usando. A
+      governança afirmava uma cobertura que nunca teve.
+      Uma decisão explícita contra o plano original: NÃO se cria o campo 'criticality'. O schema de
+      capacidades já exige risk_level, e duas escalas para a mesma pergunta é exatamente a deriva
+      que este repositório existe para combater — a segunda começa espelhando a primeira e as duas
+      passam a discordar sem que nada reprove.
+      risk_exemptions herda a mecânica de stages.yaml:ungoverned, incluindo a propriedade que a
+      torna honesta: isenção que não casa nada é ela própria um achado. Sem isso a lista vira o
+      lugar onde a cobertura é fingida com uma linha.
+      docs/alignment.md nasce protegido contra edição manual como docs/metadata-graph.md: um
+      artefato derivado editado à mão cria uma fonte paralela que o --check do CI contradiz.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_alinhamento_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

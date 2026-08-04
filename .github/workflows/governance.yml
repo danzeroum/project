@@ -264,6 +264,54 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) capacidade de alto risco sem risco associado deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-r1"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "business/capabilities.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["capabilities"][0]["risk_level"] = "critical"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/alignment_report.py --check --quiet; then
+            echo "::error::R1 não detectou capacidade critical sem RISK-* associado — a cobertura de risco voltou a ser afirmada e nunca verificada."
+            exit 1
+          fi
+
+      - name: (negativo) risco aberto sem prazo deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-r2"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "governance/risk-register.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["risks"][0]["status"] = "open"      # sem 'due'
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::risco 'open' sem due passou no schema — risco aberto sem prazo é aceite silencioso que dura para sempre."
+            exit 1
+          fi
+
+      - name: (negativo) superfície de UI órfã deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-r3"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "design/ui-surfaces.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["ui_surfaces"][0].pop("satisfies", None)
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/alignment_report.py --check --quiet; then
+            echo "::error::R3 não detectou superfície órfã — uma tela que não serve requisito algum voltou a passar em silêncio."
+            exit 1
+          fi
+
       - name: (negativo) validate_all sem dependências não pode sair 0
         run: |
           set -euo pipefail

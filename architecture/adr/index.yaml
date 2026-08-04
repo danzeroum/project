@@ -477,3 +477,50 @@ adrs:
           pertencimento, proveniência e ausência de julgamento automático; a adequação da fronteira
           fica com a revisão humana da change-proposal, onde o erro é visível no diff com a
           proveniência ao lado.
+
+  - id: ADR-011
+    title: "Cobertura de risco é medida na direção difícil, e risk_level continua sendo a única escala"
+    status: accepted
+    file: architecture/adr/ADR-011-alinhamento-medido.md
+    related_capabilities: [CAP-PRICING, CAP-CATALOG]
+    related_risks: [RISK-ALIGN-001]
+    assertions:
+      - id: ADR-011-A1
+        kind: path_present
+        severity: high
+        risk: RISK-ALIGN-001
+        description: "O fiscal do alinhamento e sua matriz derivada existem — sem eles a cobertura volta a ser afirmada."
+        paths:
+          - ci/alignment_report.py
+          - docs/alignment.md
+          - harness/policies/alinhamento.md
+      - id: ADR-011-A2
+        kind: schema_lock
+        severity: high
+        risk: RISK-ALIGN-001
+        description: "Risco aberto segue exigindo prazo: 'open' sem due é aceite silencioso que dura para sempre."
+        file: harness/schemas/risk-register.schema.json
+        pointer: /properties/risks/items/allOf/0/then/required
+        contains: due
+      - id: ADR-011-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-ALIGN-001
+        description: "Isenção de risco segue exigindo justificativa — sem ela a cobertura é fingida com uma linha."
+        file: harness/schemas/risk-register.schema.json
+        pointer: /properties/risk_exemptions/items/required
+        contains: justification
+      - id: ADR-011-A4
+        kind: file_lacks
+        severity: medium
+        risk: RISK-ALIGN-001
+        description: "Nenhuma segunda escala de criticidade de capacidade: duas escalas divergem sem que nada reprove."
+        files: ["harness/schemas/capabilities.schema.json"]
+        pattern: '"criticality"'
+      - id: ADR-011-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-ALIGN-001
+        description: "O alinhamento roda no CI a cada push, junto dos demais fiscais."
+        files: [".github/workflows/governance.yml"]
+        pattern: "alignment_report\\.py"

@@ -30,6 +30,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
     no topo, este módulo morria de ModuleNotFoundError antes de conseguir dizer o que fazer — e
     quem mais precisa da mensagem é exatamente quem acabou de clonar.
     """
+    import alignment_report
     import audit_governance
     import audit_lgpd
     import generate_graph
@@ -39,6 +40,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
         ("metadados", validate_metadata.main, []),
         ("grafo", generate_graph.main, ["--check"]),
         ("conformidade", audit_governance.main, []),
+        ("alinhamento", alignment_report.main, ["--check"]),
         ("lgpd", audit_lgpd.main, []),
     ]
 
