@@ -1,0 +1,32 @@
+# Fiscal REAL dos protected_paths declarados em harness/harness.yaml.
+#
+# harness.yaml diz, em comentário, que a lista de caminhos protegidos "só muda com revisão
+# humana — o fiscal REAL é CODEOWNERS + branch protection". Até aqui esse fiscal não existia:
+# a declaração apontava para um arquivo ausente. Este arquivo é ele.
+#
+# Sozinho, CODEOWNERS não morde: ele só passa a exigir revisão quando a branch protection de
+# `main` marcar "Require review from Code Owners". Sem isso, continua sendo placa, não detector.
+# ci/audit_governance.py::check_protected_paths cobra a parte que dá para verificar aqui —
+# que todo protected_path tenha dono; a outra metade é configuração do GitHub.
+
+# Fallback: qualquer mudança tem dono.
+*                       @danzeroum
+
+# A régua e quem a aplica. Editar um fiscal é mudar o que o CI consegue enxergar.
+/ci/                    @danzeroum
+/.github/               @danzeroum
+/harness/               @danzeroum
+
+# Governança: riscos, inventário de dado pessoal e o julgamento de privacidade.
+/governance/            @danzeroum
+
+# Decisões versionadas e suas asserções executáveis.
+/architecture/adr/      @danzeroum
+
+# Escopo de autorização de sondagem e o pin do padrão externo.
+/tests/qa/              @danzeroum
+/requirements-qa.txt    @danzeroum
+
+# Doutrina carregada em toda sessão de agente, e os hooks que a aplicam.
+/CLAUDE.md              @danzeroum
+/.claude/               @danzeroum

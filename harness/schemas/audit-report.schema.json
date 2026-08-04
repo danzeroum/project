@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/audit-report.schema.json",
+  "title": "Laudo dos fiscais locais de conformidade e privacidade",
+  "description": "Irmão de report.schema.json, NÃO derivado dele. Aquele envelope carrega a procedência do padrão externo WebQA (standard.version, consumer_project, execution.mode); estes fiscais são outro produtor — scripts deste repositório, sem régua externa e sem modo de suíte. Forçá-los naquele envelope produziria campos mentirosos.",
+  "type": "object",
+  "required": ["schema_version", "provenance", "result", "summary", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "provenance": {
+      "type": "object",
+      "description": "Quem produziu o laudo, sobre qual estado do repositório.",
+      "required": ["auditor", "auditor_version", "repository", "commit", "generated_at", "stages_covered"],
+      "additionalProperties": false,
+      "properties": {
+        "auditor": { "enum": ["ci/audit_governance.py", "ci/audit_lgpd.py"] },
+        "auditor_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+        "repository": { "type": "string" },
+        "commit": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "stages_covered": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^STAGE-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+          "uniqueItems": true
+        },
+        "scope_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "result": {
+      "enum": ["ok", "findings", "error"],
+      "description": "ok = o real corresponde ao declarado; findings = há divergência; error = o fiscal não conseguiu fiscalizar."
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "by_severity"],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Divergências entre o declarado e o real. severity é TRIAGEM, não gate: com fail-closed qualquer achado derruba o CI.",
+      "items": {
+        "type": "object",
+        "required": ["id", "origin", "severity", "summary"],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "comment": "Regra inegociável da revisão de privacidade: toda afirmação de violação cita o artigo. Achado de LGPD sem artigo e sem princípio PbD é opinião, não parecer — e aqui isso é estrutural.",
+            "if": {
+              "properties": { "origin": { "pattern": "^lgpd_" } },
+              "required": ["origin"]
+            },
+            "then": { "required": ["lgpd_article", "pbd_principle"] }
+          },
+          {
+            "comment": "Achado vindo de asserção de ADR nomeia o ADR e a asserção — senão não se sabe qual linha de index.yaml corrigir.",
+            "if": {
+              "properties": { "origin": { "const": "adr_assertion" } },
+              "required": ["origin"]
+            },
+            "then": { "required": ["adr", "assertion"] }
+          }
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^FIND-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+          "origin": {
+            "enum": [
+              "adr_assertion", "adr_meta", "stage_coverage", "stage_partition",
+              "policy_pointer", "risk_control", "protected_path",
+              "lgpd_inventory", "lgpd_scan", "lgpd_declaration", "lgpd_judgment",
+              "manual_assertion"
+            ]
+          },
+          "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+          "summary": { "type": "string", "minLength": 1 },
+          "adr": { "type": "string", "pattern": "^ADR-[0-9]{3}$" },
+          "assertion": { "type": "string" },
+          "stage": { "type": "string", "pattern": "^STAGE-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+          "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" },
+          "location": { "type": "string" },
+          "evidence": { "type": "string" },
+          "remediation": { "type": "string" },
+          "lgpd_article": { "type": "string", "pattern": "^Art\\. [0-9]+" },
+          "pbd_principle": {
+            "enum": [
+              "Proativo e Preventivo", "Privacy by Default", "Privacidade no Design",
+              "Soma Positiva", "Transparência", "Segurança Ponta-a-Ponta", "Centrado no Usuário"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

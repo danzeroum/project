@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/data-inventory.schema.json",
+  "title": "governance/data-inventory.yaml — inventário de dados pessoais",
+  "description": "Registro das operações de tratamento (Lei 13.709/2018, Art. 37): que dado pessoal existe, para qual finalidade, sob qual base legal, por quanto tempo e sob qual componente. Nasce vazio; a partir do primeiro campo o schema passa a exigir encarregado (Art. 41) e o fiscal passa a exigir RIPD completo (Art. 38).",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "controller", "purposes", "fields", "subject_rights", "scan"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "$defs": {
+    "base_legal_art_7": {
+      "description": "Hipóteses do Art. 7º da LGPD, para dado pessoal comum.",
+      "enum": [
+        "consentimento",
+        "obrigacao_legal",
+        "politicas_publicas",
+        "estudo_orgao_pesquisa",
+        "execucao_contrato",
+        "exercicio_direitos_processo",
+        "protecao_vida",
+        "tutela_saude",
+        "legitimo_interesse",
+        "protecao_credito"
+      ]
+    },
+    "base_legal_art_11": {
+      "description": "Hipóteses do Art. 11 da LGPD, para dado SENSÍVEL. Note as duas ausências deliberadas: legitimo_interesse e protecao_credito não existem para dado sensível.",
+      "enum": [
+        "consentimento",
+        "obrigacao_legal",
+        "politicas_publicas",
+        "estudo_orgao_pesquisa",
+        "exercicio_direitos_processo",
+        "protecao_vida",
+        "tutela_saude",
+        "prevencao_fraude_seguranca"
+      ]
+    },
+    "field": {
+      "type": "object",
+      "required": ["id", "name", "classification", "purpose", "legal_basis", "owning_component", "retention", "locations"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^PD-[0-9]{3}$" },
+        "name": { "type": "string", "minLength": 1 },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Outros identificadores do mesmo dado no código — é o que impede a varredura de acusar shadow processing de um campo já inventariado."
+        },
+        "classification": { "enum": ["pessoal", "sensivel", "pseudonimizado", "anonimizado"] },
+        "art_11_category": {
+          "description": "Categoria do Art. 5º, II. Obrigatória quando classification é sensivel, proibida caso contrário.",
+          "enum": [
+            "origem_racial_etnica", "conviccao_religiosa", "opiniao_politica",
+            "filiacao_sindical", "filiacao_religiosa_filosofica_politica",
+            "saude", "vida_sexual", "genetico", "biometrico"
+          ]
+        },
+        "purpose": { "type": "string", "pattern": "^PURP-[0-9]{3}$" },
+        "legal_basis": { "$ref": "#/$defs/base_legal_art_7" },
+        "owning_component": { "type": "string", "pattern": "^CMP-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+        "locations": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "retention": {
+          "type": "object",
+          "required": ["policy"],
+          "additionalProperties": false,
+          "properties": {
+            "policy": { "enum": ["prazo_definido", "obrigacao_legal", "ate_revogacao"] },
+            "max_days": { "type": "integer", "minimum": 1 },
+            "legal_ref": { "type": "string", "minLength": 3 }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "policy": { "const": "prazo_definido" } }, "required": ["policy"] },
+              "then": { "required": ["max_days"] }
+            },
+            {
+              "comment": "Retenção por obrigação legal precisa dizer QUAL obrigação — senão é retenção indefinida com outro nome.",
+              "if": { "properties": { "policy": { "const": "obrigacao_legal" } }, "required": ["policy"] },
+              "then": { "required": ["legal_ref"] }
+            }
+          ]
+        },
+        "transfers_international": { "type": "boolean" },
+        "masked_at_rest": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "comment": "Art. 11: dado sensível exige a categoria e NÃO admite legítimo interesse nem proteção ao crédito. A trava é ESTRUTURAL — a violação não pode ser escrita, então não precisa ser detectada em runtime. Art. 46: sensível em repouso é mascarado.",
+          "if": {
+            "properties": { "classification": { "const": "sensivel" } },
+            "required": ["classification"]
+          },
+          "then": {
+            "required": ["art_11_category", "masked_at_rest"],
+            "properties": {
+              "legal_basis": { "$ref": "#/$defs/base_legal_art_11" },
+              "masked_at_rest": { "const": true }
+            }
+          },
+          "else": { "not": { "required": ["art_11_category"] } }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "controller": {
+      "type": "object",
+      "required": ["role"],
+      "additionalProperties": false,
+      "properties": {
+        "role": { "enum": ["none", "incidental", "controller", "operator", "controller_and_operator"] },
+        "dpo_contact": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "comment": "Art. 41: quem trata dado pessoal indica encarregado. Papel declarado sem contato do encarregado é papel de fachada.",
+          "if": {
+            "properties": { "role": { "enum": ["controller", "operator", "controller_and_operator"] } },
+            "required": ["role"]
+          },
+          "then": { "required": ["dpo_contact"] }
+        }
+      ]
+    },
+    "purposes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "legal_basis"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^PURP-[0-9]{3}$" },
+          "description": { "type": "string", "minLength": 10 },
+          "legal_basis": { "$ref": "#/$defs/base_legal_art_7" }
+        }
+      }
+    },
+    "fields": { "type": "array", "minItems": 0, "items": { "$ref": "#/$defs/field" } },
+    "subject_rights": {
+      "type": "object",
+      "description": "Art. 18. Não existe direito do titular sem endpoint: se confirmação, acesso, eliminação ou portabilidade não têm onde ser exercidos, o direito não existe no sistema.",
+      "required": ["confirmation", "access", "deletion", "portability"],
+      "additionalProperties": false,
+      "properties": {
+        "confirmation": { "type": ["string", "null"] },
+        "access": { "type": ["string", "null"] },
+        "deletion": { "type": ["string", "null"] },
+        "portability": { "type": ["string", "null"] }
+      }
+    },
+    "international_transfer": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["destination", "mechanism", "fields"],
+        "additionalProperties": false,
+        "properties": {
+          "destination": { "type": "string" },
+          "mechanism": { "enum": ["adequacao", "clausulas_padrao", "clausulas_especificas", "selos_certificados", "consentimento_especifico"] },
+          "fields": { "type": "array", "items": { "type": "string", "pattern": "^PD-[0-9]{3}$" } }
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "description": "Supressões da varredura de dado pessoal. A régua (os léxicos) vive em ci/audit_lgpd.py como constante, não em YAML editável: suprimir é DECLARAR aqui com motivo, nunca apagar um termo da lista.",
+      "required": ["exclusions"],
+      "additionalProperties": false,
+      "properties": {
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path_glob", "token", "justification"],
+            "additionalProperties": false,
+            "properties": {
+              "path_glob": { "type": "string", "minLength": 1 },
+              "token": { "type": "string", "minLength": 2 },
+              "justification": { "type": "string", "minLength": 30 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

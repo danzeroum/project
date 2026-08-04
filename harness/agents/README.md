@@ -17,3 +17,4 @@ dispara `load` ou `active_discovery` (ver `../policies/execution-modes.md`). O a
 | `reviewer` | `inventory` | comentários de revisão, `harness/reports/` |
 | `tester` | `inventory`, `passive` (só com alvo pré-configurado) | `tests/`, `harness/reports/` |
 | `documenter` | nenhum modo da suíte | `docs/`, `README`, laudos legíveis |
+| `privacy` | `inventory` | `governance/ripd.md`, `governance/privacy-review.yaml`, `harness/reports/` |

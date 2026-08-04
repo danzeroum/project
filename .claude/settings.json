@@ -1,0 +1,66 @@
+{
+  "$comment": [
+    "Camada de agente da harness. Ergonomia e feedback rápido — NUNCA o gate.",
+    "Um arquivo que o vigiado pode editar não trava nada: por isso .claude/ e CLAUDE.md estão em",
+    "protected_paths (harness/harness.yaml) e a enforcement de verdade vive em",
+    ".github/workflows/governance.yml mais branch protection.",
+    "Custo: só o hook Stop roda o conjunto completo, uma vez por turno em vez de a cada edição;",
+    "validate_all.py chama os quatro fiscais in-process e harness_lib memoiza os schemas."
+  ],
+  "permissions": {
+    "deny": [
+      "Edit(docs/metadata-graph.md)",
+      "Write(docs/metadata-graph.md)",
+      "Edit(harness/reports/**)",
+      "Write(harness/reports/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 60,
+            "command": "python ci/validate_all.py --summary"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "command": "python ci/hooks/pre_bash_env_hygiene.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "command": "python ci/hooks/post_edit_guard.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 180,
+            "command": "python ci/validate_all.py --hook"
+          }
+        ]
+      }
+    ]
+  }
+}

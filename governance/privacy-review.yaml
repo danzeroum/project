@@ -1,0 +1,31 @@
+# Registro TIPADO do julgamento de privacidade. A prosa é governance/ripd.md.
+#
+# Separar os dois é o que permite fiscalizar sem tentar fiscalizar prosa: o fiscal
+# determinístico não julga legalidade — ele confere que o julgamento existe, é do tipo que o
+# estado do sistema exige, e cobre exatamente este estado (scope_fingerprint).
+#
+# Atualizar o fingerprint: python ci/audit_lgpd.py --print-fingerprint
+# Schema: harness/schemas/privacy-review.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+review:
+  kind: parecer_proporcionalidade
+  document: governance/ripd.md
+  produced_by: agent
+  skill: revisao-lgpd
+  scope_fingerprint: "sha256:70ccccd49b49a69dfe9417cd004990f66720d59b25b935e89028ad8f79b94d71"
+  issues: []
+
+  # Escopo honesto: categorias do checklist sem material correspondente neste repositório.
+  # Registrar o que não foi avaliado é requisito da revisão — "sem achados" numa categoria que
+  # ninguém olhou é a forma mais silenciosa de laudo falso.
+  not_assessed:
+    - "Consentimento e preferências (não há frontend nem coleta de titular)"
+    - "Criptografia por campo e KMS (não há banco de dados)"
+    - "Cookies, pixels e scripts de terceiros (não há superfície web publicada)"
+    - "Transferência internacional (não há integração que exporte dado)"
+    - "Modelos de ML e datasets de treino (não há)"
+    - "Job de expurgo (não há dado persistido além da evidência efêmera de auditoria)"

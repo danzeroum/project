@@ -1,0 +1,131 @@
+name: governance
+
+# Sem filtro de paths, de propósito: a análise de conformidade e de LGPD é do projeto COMO UM
+# TODO. Filtrar por caminho faria a validação depender de qual arquivo alguém tocou — e é
+# exatamente a mudança não prevista que se quer pegar.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  full-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar ferramentas de validação
+        run: pip install "jsonschema>=4" "pyyaml>=6" "pytest>=8"
+
+      - name: Validação total do projeto
+        run: python ci/validate_all.py
+
+      - name: Testes dos fiscais
+        run: pytest tests/governance -q
+
+      # ------------------------------------------------------------------------------------
+      # Passos negativos: o passo PASSA quando a detecção dispara e FALHA quando não dispara.
+      # Mesmo idioma do WEBQA_LEAK=1 em qa.yml. Cada um muta uma CÓPIA em $RUNNER_TEMP, então
+      # nenhum passo posterior herda repositório sujo — e HARNESS_REPO_ROOT aponta o fiscal
+      # para a cópia. Sem isto, "o fiscal existe" e "o fiscal morde" seriam a mesma afirmação
+      # não verificada.
+      # ------------------------------------------------------------------------------------
+
+      - name: (negativo) import do adaptador concreto deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-adr005"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\nfrom project.ports import CatalogoEmMemoria  # injetado\n' >> "$mut/src/project/pricing.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::ADR-005-A2 não detectou o import do adaptador concreto — a inversão de dependência parou de morder."
+            exit 1
+          fi
+
+      - name: (negativo) régua copiada deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-adr001"; rm -rf "$mut"; cp -a . "$mut"
+          mkdir -p "$mut/checks" && echo "regra local" > "$mut/checks/local.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::ADR-001-A1 não detectou a régua copiada — declarar-não-copiar parou de morder."
+            exit 1
+          fi
+
+      - name: (negativo) ADR aceito sem asserção deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-noassert"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "architecture/adr/index.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["adrs"][4]["assertions"] = []
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::adr_without_assertions não disparou — um ADR aceito voltou a ser prosa sem fiscal."
+            exit 1
+          fi
+
+      - name: (negativo) fiscal renomeado deve ser detectado (auto-referência)
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-rename"; rm -rf "$mut"; cp -a . "$mut"
+          sed -i 's/^def check_adr_conformance/def check_adr_conformance_RENAMED/' "$mut/ci/audit_governance.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::STAGE-DECISIONS não detectou o fiscal renomeado — a auto-referência do ADR-002 não morde."
+            exit 1
+          fi
+
+      - name: (negativo) etapa sem fiscal deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-stage"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "harness/stages.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["stages"][0]["enforced_by"] = [{"kind": "schema", "ref": "harness/schemas/nao-existe.json"}]
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::stage_unenforced não disparou — cobertura de etapa voltou a ser afirmação."
+            exit 1
+          fi
+
+      - name: (negativo) dado pessoal fora do inventário deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-pii"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\n\nclass Cliente:\n    cpf: str\n    data_nascimento: str\n' >> "$mut/src/project/ports.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_lgpd.py --quiet; then
+            echo "::error::A varredura não detectou tratamento-sombra de dado pessoal (Art. 37)."
+            exit 1
+          fi
+
+      - name: (negativo) julgamento de privacidade vencido deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-stale"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\n# comentário que altera o escopo declarado\n' >> "$mut/governance/data-inventory.yaml"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_lgpd.py --quiet; then
+            echo "::error::judgment_stale não disparou — o parecer venceria em silêncio (Art. 38)."
+            exit 1
+          fi
+
+      # if: always() é essencial. O laudo é gitignored, e com gate fail-closed ele só interessa
+      # quando há achado — que é exatamente quando o job está vermelho.
+      - name: Arquivar laudos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: governance-reports
+          path: harness/reports/
+          if-no-files-found: ignore

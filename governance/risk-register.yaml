@@ -80,3 +80,108 @@ risks:
         ref: harness/policies/change-proposals.md
       - kind: local_path
         ref: architecture/adr/ADR-004-mudanca-proposta-declarada.md
+
+  # ------------------------------------------------------------------------------------
+  # Divergência entre governança e código, e privacidade. Os fiscais destes riscos são eles
+  # próprios controles local_path: remover um fiscal quebra check_risk_controls e o registro
+  # deixa de fechar. É assim que "divergência vira risco" sem que ferramenta alguma escreva
+  # num arquivo source_of_truth.
+  # ------------------------------------------------------------------------------------
+
+  - id: RISK-CONF-001
+    area: governance
+    description: "Código evolui e diverge de decisão arquitetural aceita; o ADR vira prosa e o CI não percebe."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: architecture/adr/index.yaml
+      - kind: local_path
+        ref: harness/schemas/adr-index.schema.json
+      - kind: local_path
+        ref: harness/policies/conformance.md
+      - kind: local_path
+        ref: architecture/adr/ADR-006-conformidade-como-assercao.md
+      - kind: branch_protection
+        ref: "main:require_pull_request_reviews"
+
+  - id: RISK-STAGE-001
+    area: governance
+    description: "Etapa do projeto sem fiscal resolvível: a cobertura é afirmada, nunca verificada."
+    likelihood: medium
+    impact: medium
+    treatment: mitigate
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: harness/stages.yaml
+      - kind: local_path
+        ref: harness/schemas/stages.schema.json
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: .github/workflows/governance.yml
+
+  - id: RISK-META-002
+    area: access
+    description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: security_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: harness/harness.yaml
+      - kind: local_path
+        ref: .github/CODEOWNERS
+      - kind: branch_protection
+        ref: "main:require_pull_request_reviews"
+
+  - id: RISK-PRIV-001
+    area: data
+    description: "Dado pessoal tratado fora do inventário: campo com forma de PII sem finalidade, base legal ou retenção declaradas."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: security_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/audit_lgpd.py
+      - kind: local_path
+        ref: governance/data-inventory.yaml
+      - kind: local_path
+        ref: harness/schemas/data-inventory.schema.json
+      - kind: local_path
+        ref: harness/policies/lgpd.md
+      - kind: local_path
+        ref: architecture/adr/ADR-007-lgpd-sempre-em-dois-niveis.md
+
+  - id: RISK-PRIV-002
+    area: data
+    description: "Julgamento de privacidade ausente ou desatualizado: RIPD/parecer que não cobre o estado atual do sistema."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: security_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: governance/privacy-review.yaml
+      - kind: local_path
+        ref: governance/ripd.md
+      - kind: local_path
+        ref: harness/schemas/privacy-review.schema.json
+      - kind: local_path
+        ref: harness/agents/privacy/AGENT.md
+      - kind: local_path
+        ref: harness/prompts/lgpd-task.md
+      - kind: local_path
+        ref: ci/audit_lgpd.py

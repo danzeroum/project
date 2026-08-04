@@ -10,10 +10,14 @@
     "schema_version": { "type": "integer", "minimum": 1 },
     "repository": {
       "type": "object",
-      "required": ["project_manifest", "protected_paths"],
+      "required": ["project_manifest", "stages_manifest", "protected_paths"],
       "additionalProperties": false,
       "properties": {
         "project_manifest": { "type": "string" },
+        "stages_manifest": {
+          "const": "harness/stages.yaml",
+          "description": "Manifesto das etapas do projeto: fonte única de quais etapas existem e quem as fiscaliza. ci/audit_governance.py exige que todo arquivo do repositório pertença a uma delas ou a uma isenção declarada."
+        },
         "protected_paths": {
           "type": "array",
           "minItems": 1,
