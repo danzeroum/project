@@ -1,0 +1,112 @@
+# Mudança proposta: o estado "derivado adotado, ainda não ingerido" passa a ser exprimível —
+# e a permissão expira sozinha quando a fase que a justifica fecha.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-017
+  title: "Coleção vazia enquanto a fase de ingestão que a preenche não fechou: piso sai do schema, entra no fiscal"
+  author_kind: agent
+  created_at: "2026-08-05T05:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-META-001
+      - RISK-INGEST-001
+      - RISK-DERIV-001
+    rationale: >
+      Medido ao tentar executar o CP-000 num derivado real, com aval humano já registrado — a
+      execução parou porque o resultado que a proposta descreve é recusado pelos schemas deste
+      repositório:
+
+        - [estrutural] business/capabilities.yaml em 'capabilities': [] should be non-empty
+        - [estrutural] architecture/components.yaml em 'components': [] should be non-empty
+        - [estrutural] architecture/interfaces.yaml em 'interfaces': [] should be non-empty
+        - [estrutural] business/requirements/backlog.yaml em 'items': [] should be non-empty
+
+      O estado "derivado adotado, ainda não ingerido" — exatamente o que o CP-000 produz e o que
+      o /ingerir depois preenche — é hoje inexprimível. Restam duas saídas, e as duas são piores
+      que o problema: inventar metadado de placeholder, que é a doença fundadora que esta harness
+      existe para combater, ou deixar arquivos que não validam contra o próprio schema.
+
+      É a mesma forma dos CP-013, CP-015 e CP-016, todos já mergeados: regra escrita para o
+      molde, herdada pelo derivado. O molde SEMPRE carrega o negócio de exemplo, então o piso de
+      um item nunca o incomodou. O derivado recém-adotado tem zero de cada — por construção, e
+      por uma decisão declarada.
+
+      CORREÇÃO DE ESCOPO EM RELAÇÃO AO DIAGNÓSTICO INICIAL. São QUATRO coleções, não cinco.
+      business-rules.rules também tem minItems: 1, mas não entra: check_business_rules faz glob
+      em business/rules/*.yaml e retorna vazio sem erro quando o diretório não tem arquivos —
+      medido. Regras vivem em arquivo POR CAPACIDADE, com 'capability' obrigatório no schema, e
+      o CP-000 APAGA esses arquivos em vez de esvaziá-los. Tirar o piso de business-rules
+      resolveria um problema que não existe e criaria um de verdade: um arquivo de regras que
+      declara uma capacidade e não rege nada. Fica como está.
+
+      A FORMA, EM TRÊS CAMADAS. A tentação é "coleção pode ser vazia quando kind: derived", e ela
+      está errada — transforma uma permissão temporária-por-estado em permanente-por-papel. Um
+      derivado maduro, inteiramente ingerido, com backlog eternamente vazio ficaria verde para
+      sempre, e o CP-000 nunca pediu isso. A cadeia de travas existentes não fecha essa porta
+      sozinha: componentes e capacidades se sustentam (components.schema.json exige 'capability'
+      em cada item — medido — então componente real obriga capacidade real, e a invariante do
+      código órfão obriga componente), mas backlog não tem corrente equivalente; o que sobra são
+      ALIGN-R3 e ALIGN-R4, severidade medium, que não são piso.
+
+        1. SCHEMA — contexto-livre. `if kind: derived` remove minItems de capabilities,
+           components, interfaces e backlog.items. Um schema não enxerga estado entre arquivos e
+           não deve fingir que enxerga: é a camada errada para a pergunta "a ingestão já passou
+           por aqui?".
+
+        2. FISCAL — ciente de estado. Coleção vazia é aceitável apenas ENQUANTO a fase de
+           ingestão que a preenche não concluiu. Concluída, vazio vira achado. O mapeamento
+           arquivo→fase JÁ EXISTE e não inventa fonte de verdade nova —
+           harness/pipeline/ingest.yaml declara ING-03-CARTOGRAFIA com outputs
+           architecture/components.yaml e architecture/interfaces.yaml, e ING-04-NEGOCIO com
+           outputs business/capabilities.yaml e business/requirements/backlog.yaml. As quatro
+           coleções desta proposta estão cobertas pelas duas fases, sem resíduo.
+
+        3. TESTE NEGATIVO — obrigatório pela régua da casa. Derivado com a fase concluída e
+           components: [] tem que REPROVAR. Sem esse passo, esta seria a primeira trava do
+           repositório afrouxada sem prova de mordida — e "o fiscal existe" e "o fiscal morde"
+           são afirmações diferentes, das quais só a segunda importa.
+
+      O desenho tem a propriedade que se quer de uma permissão: ela expira sozinha. O mesmo
+      evento que hoje quebra o schema (a adoção) é o que a autoriza, e o mesmo evento que a
+      tornaria perigosa (a fase de ingestão fechando) é o que a revoga. Não há janela deixada
+      aberta com promessa de fechar depois.
+
+      LACUNA ADJACENTE, DECLARADA E NÃO CORRIGIDA AQUI. business/rules/ não é output de fase
+      alguma em ingest.yaml — ING-04 menciona "regras" no NOME e declara nos outputs apenas
+      capabilities e backlog. Não afeta esta proposta, porque business-rules ficou de fora por
+      outro motivo; mas significa que, se um dia o piso de regras for questionado, a camada 2 não
+      terá fase em que se ancorar. Registrado para que o próximo a olhar não o descubra como
+      surpresa. Também fora daqui, e pela mesma disciplina: ao apagar os arquivos de regra do
+      exemplo, o diretório business/rules/ deixa de existir no versionamento e o artefato
+      declarado por STAGE-RULES em harness/stages.yaml para de casar arquivo real — o que é
+      trabalho do CP-000, cujo item 3 hoje só cita STAGE-CODE e STAGE-TESTS.
+
+      Risco 'high' porque a mudança RETIRA um piso de validação. O modo de falha a temer não é
+      o vermelho de hoje, é o verde de amanhã: se a camada 2 for esquecida, adiada ou implementada
+      com o mapeamento errado, o resultado é um derivado que declara zero capacidades, zero
+      componentes e zero requisitos, passa em tudo, e afirma cobertura sobre conjunto vazio.
+      Verde por vacuidade é silencioso e falso, e seria herdado por todo derivado futuro. É por
+      isso que as três camadas são UMA proposta e não uma seguida de follow-up: uma trava
+      afrouxada agora com compensação prometida depois é precisamente a janela que esta harness
+      existe para não deixar aberta.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_derivacao_bites.py
+    - tests/governance/test_ingestao_bites.py
+    - tests/governance/test_inventario_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
