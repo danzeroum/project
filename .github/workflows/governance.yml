@@ -359,6 +359,26 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) adapter que engole especificador não pode sair 0
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-conta"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, pathlib
+          p = pathlib.Path(sys.argv[1]) / "ci/adapters/typescript.py"
+          s = p.read_text(encoding="utf-8").replace(
+              "        else:\n            unresolved.append(esp)",
+              "        else:\n            pass  # engolido pelo passo negativo")
+          p.write_text(s, encoding="utf-8")
+          PY
+          mkdir -p "$mut/src/app" && printf 'import { x } from "./sumiu.js"\nexport const y = x\n' > "$mut/src/app/a.ts"
+          code=0
+          HARNESS_REPO_ROOT="$mut" python "$mut/ci/inventory_code.py" --check --quiet || code=$?
+          if [ "$code" != "2" ]; then
+            echo "::error::inventário saiu $code com especificador engolido; esperado 2. A aritmética de completude parou de morder, e aresta interna volta a sumir sem entrar em unresolved."
+            exit 1
+          fi
+
       - name: (negativo) molde virando derivado deve ser detectado
         run: |
           set -euo pipefail

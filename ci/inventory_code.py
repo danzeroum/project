@@ -89,6 +89,19 @@ def build(project_doc: dict | None = None) -> dict:
                     raise
                 except Exception as exc:  # noqa: BLE001 - ilegível é exit 2, nunca exit 0
                     raise HarnessError(f"[{adapter.name}] {hl.rel(path)}: {exc}") from exc
+
+                # A aritmética de completude, verificada a CADA arquivo. É exit 2 e não achado
+                # porque a conta que não fecha não diz "o repositório está errado" — diz que o
+                # inventário perdeu um especificador pelo caminho, e um inventário com resíduo
+                # invisível não pode fundamentar a invariante do código órfão. Foi assim que 84
+                # arestas internas de um alvo real sumiram sem que nada acusasse.
+                if not mod.conta_fecha():
+                    raise HarnessError(
+                        f"[{adapter.name}] {hl.rel(path)}: a partição de imports não fecha — "
+                        f"{mod.total_especificadores} especificador(es) lidos, "
+                        f"{len(mod.internos_crus)} internos + {len(mod.externos)} externos + "
+                        f"{len(mod.unresolved)} unresolved. A diferença é aresta engolida.")
+
                 item = {
                     "path": prefixo + mod.path,
                     "language": mod.language,
@@ -96,14 +109,20 @@ def build(project_doc: dict | None = None) -> dict:
                     "adapter": adapter.name,
                     "exposes": mod.exposes,
                     "imports": [prefixo + i for i in mod.imports],
+                    "unresolved": mod.unresolved,
                 }
                 modulos.append(item)
                 info = adapters_usados.setdefault(
                     adapter.name,
-                    {"arquivos": 0, "semantico": adapter.semantico, **(
+                    {"arquivos": 0, "especificadores": 0, "arestas": 0, "externos": 0,
+                     "unresolved": 0, "semantico": adapter.semantico, **(
                         {"nao_lido": adapter.nao_lido} if adapter.nao_lido else {})},
                 )
                 info["arquivos"] += 1
+                info["especificadores"] += mod.total_especificadores
+                info["arestas"] += len(mod.internos_crus)
+                info["externos"] += len(mod.externos)
+                info["unresolved"] += len(mod.unresolved)
 
     return {
         "schema_version": "1.0",
@@ -151,8 +170,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.quiet:
         print(f"✓ inventário: {len(doc['modulos'])} arquivo(s) em {doc['raiz']}")
         for nome, info in sorted(doc["adapters"].items()):
-            nota = "" if info["semantico"] else f" — não lido: {info.get('nao_lido', '?')}"
-            print(f"  · {nome}: {info['arquivos']} arquivo(s){nota}")
+            print(f"  · {nome}: {info['arquivos']} arquivo(s) · "
+                  f"{info['especificadores']} import(s) = {info['arestas']} interno(s) + "
+                  f"{info['externos']} externo(s) + {info['unresolved']} unresolved")
+            if not info["semantico"]:
+                print(f"      não lido: {info.get('nao_lido', '?')}")
     return 0
 
 

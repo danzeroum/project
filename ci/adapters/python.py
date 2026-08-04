@@ -31,32 +31,77 @@ def _exposes(path: Path) -> list[str]:
     return sorted(f"{prefixo}.{n}" for n in nomes if not n.startswith("_"))
 
 
-def _imports(path: Path, root: Path) -> list[str]:
-    """Arestas para arquivos DENTRO da raiz. Import de biblioteca externa não é aresta interna."""
-    por_modulo: dict[str, str] = {}
-    for cand in root.rglob("*.py"):
-        if hl.is_excluded(cand.relative_to(root).as_posix()):
-            continue
-        por_modulo[hl.module_name(cand)] = cand.relative_to(root).as_posix()
+def _especificadores(path: Path) -> list[str]:
+    """Módulos citados por instrução de import, em nome absoluto. Lista CRUA, com duplicatas.
 
-    alvos: set[str] = set()
-    for sym in hl.module_symbols(path):
-        # 'project.ports.CatalogoProdutos' casa o módulo 'project.ports'; o mais longo primeiro,
-        # para que um pacote não roube a aresta de um submódulo com nome prefixo.
+    Só instruções de import — deliberadamente NÃO o uso por atributo que `module_symbols` também
+    devolve. Aquele existe para as asserções do ADR-005, onde alcançar o símbolo é o que importa;
+    aqui a pergunta é outra, e contar um uso como se fosse import inflaria a conta sem que
+    houvesse aresta nova.
+    """
+    tree = hl.parse_module(path)
+    mod_name = hl.module_name(path)
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            out += [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                pkg = mod_name.rsplit(".", 1)[0] if "." in mod_name else ""
+                partes = pkg.split(".") if pkg else []
+                if node.level > 1:
+                    partes = partes[: max(0, len(partes) - (node.level - 1))]
+                base = ".".join(partes)
+                out.append(f"{base}.{node.module}" if (base and node.module) else (node.module or base))
+            else:
+                out.append(node.module or "")
+    return [e for e in out if e]
+
+
+def _mapa_de_modulos(root: Path) -> dict[str, str]:
+    """nome de módulo -> caminho, para tudo que é Python dentro da raiz."""
+    mapa: dict[str, str] = {}
+    for cand in root.rglob("*.py"):
+        rel = cand.relative_to(root).as_posix()
+        if hl.is_excluded(rel):
+            continue
+        mapa[hl.module_name(cand)] = rel
+    return mapa
+
+
+def _classificar(path: Path, root: Path) -> tuple[list[str], list[str], list[str], int]:
+    """(internos crus, externos, unresolved, total). Todo especificador cai em um balde."""
+    por_modulo = _mapa_de_modulos(root)
+    internos: list[str] = []
+    externos: list[str] = []
+    unresolved: list[str] = []
+
+    especificadores = _especificadores(path)
+    for esp in especificadores:
+        alvo = None
         for mod in sorted(por_modulo, key=len, reverse=True):
-            if sym == mod or sym.startswith(mod + "."):
-                alvos.add(por_modulo[mod])
+            if esp == mod or esp.startswith(mod + "."):
+                alvo = por_modulo[mod]
                 break
-    proprio = path.relative_to(root).as_posix()
-    return sorted(alvos - {proprio})
+        if alvo:
+            internos.append(alvo)
+        else:
+            externos.append(esp)  # stdlib ou dependência: fora da raiz, não é aresta interna
+    return internos, externos, unresolved, len(especificadores)
 
 
 def analyze(path: Path, root: Path) -> Modulo:
+    proprio = path.relative_to(root).as_posix()
+    internos, externos, unresolved, total = _classificar(path, root)
     return Modulo(
-        path=path.relative_to(root).as_posix(),
+        path=proprio,
         language="python",
         exposes=_exposes(path),
-        imports=_imports(path, root),
+        imports=sorted(set(internos) - {proprio}),
+        internos_crus=internos,
+        externos=externos,
+        unresolved=unresolved,
+        total_especificadores=total,
     )
 
 

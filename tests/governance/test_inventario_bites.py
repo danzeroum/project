@@ -258,3 +258,112 @@ def test_raiz_declarada_inexistente_e_exit_2(repo_copy, inventariar):
     # aqui no topo do módulo deixa de ser a mesma que o fiscal levanta. A mensagem é o contrato.
     with pytest.raises(Exception, match="vacuidade"):
         inventariar(repo_copy)
+
+
+# --------------------------------------------------------------------------------------
+# Aritmética de completude: nenhum especificador some
+# --------------------------------------------------------------------------------------
+
+def _monorepo(root: Path) -> None:
+    """Workspace com dois pacotes que se referenciam por ALIAS, e entrypoint só na fonte.
+
+    O `main` aponta para `dist/`, que não existe em clone fresco — é o layout real de um
+    monorepo não construído, e foi ele que expôs o bug: resolver só pelo entrypoint declarado
+    faria TODA aresta entre pacotes virar unresolved.
+    """
+    _escrever(root, {
+        "packages/nucleo/package.json":
+            '{"name": "@org/nucleo", "main": "./dist/index.js"}\n',
+        "packages/nucleo/src/index.ts":
+            "export function somar(a: number, b: number) { return a + b }\n",
+        "packages/nucleo/src/util.ts": "export const VERSAO = 1\n",
+        "apps/web/package.json": '{"name": "@org/web", "main": "./dist/index.js"}\n',
+        "apps/web/src/index.ts": (
+            'import { somar } from "@org/nucleo"\n'
+            'import { VERSAO } from "@org/nucleo/util"\n'
+            'import { local } from "./local.js"\n'
+            'import express from "express"\n'
+            'import { readFile } from "node:fs/promises"\n'
+            'import { sumiu } from "./nao-existe.js"\n'
+            "export const total = somar(VERSAO, local)\n"
+        ),
+        "apps/web/src/local.ts": "export const local = 1\n",
+    })
+    _ancora(root, ["packages", "apps"], [], ["typescript"])
+
+
+def test_alias_de_workspace_resolve_para_o_pacote_certo(repo_copy, inventariar):
+    """O achado que originou a correção: 84 arestas internas de um alvo real sumiam porque o
+    adapter só resolvia caminho relativo."""
+    _monorepo(repo_copy)
+    mods = _por_path(inventariar(repo_copy))
+    web = mods["workspace/target/apps/web/src/index.ts"]
+    assert "workspace/target/packages/nucleo/src/index.ts" in web["imports"], web
+    assert "workspace/target/packages/nucleo/src/util.ts" in web["imports"], web
+    assert "workspace/target/apps/web/src/local.ts" in web["imports"], web
+
+
+def test_a_conta_fecha_no_monorepo(repo_copy, inventariar):
+    """resolvidos + externos + unresolved == total, sem resíduo invisível."""
+    _monorepo(repo_copy)
+    ts = inventariar(repo_copy)["adapters"]["typescript"]
+    assert ts["especificadores"] == ts["arestas"] + ts["externos"] + ts["unresolved"], ts
+    assert ts["especificadores"] == 6, ts        # os seis imports de index.ts
+    assert ts["arestas"] == 3 and ts["externos"] == 2 and ts["unresolved"] == 1, ts
+
+
+def test_relativo_quebrado_vira_unresolved_e_nao_externo(repo_copy, inventariar):
+    """Aresta interna que não resolve é ignorância declarada; classificá-la como dependência de
+    terceiro seria inventar um fato sobre o código."""
+    _monorepo(repo_copy)
+    mods = _por_path(inventariar(repo_copy))
+    web = mods["workspace/target/apps/web/src/index.ts"]
+    assert web["unresolved"] == ["./nao-existe.js"], web
+
+
+def test_pacote_do_workspace_sem_arquivo_algum_vira_unresolved(repo_copy, inventariar):
+    """Pacote declarado e sem fonte: não há o que apontar, e o adapter diz isso em vez de
+    escolher um arquivo plausível."""
+    _monorepo(repo_copy)
+    _escrever(repo_copy, {"packages/vazio/package.json": '{"name": "@org/vazio"}\n'})
+    (repo_copy / "workspace/target/apps/web/src/index.ts").write_text(
+        'import { x } from "@org/vazio"\nexport const y = x\n', encoding="utf-8")
+    mods = _por_path(inventariar(repo_copy))
+    web = mods["workspace/target/apps/web/src/index.ts"]
+    assert web["unresolved"] == ["@org/vazio"], web
+    assert web["imports"] == [], web
+
+
+def test_adapter_que_engole_especificador_e_exit_2(repo_copy, inventariar, monkeypatch):
+    """A trava permanente, e a razão de ela existir.
+
+    Um teste de caso pega o bug de hoje — alias de workspace não resolvido. A aritmética pega o
+    PRÓXIMO caminho de código que ler um especificador e não o classificar, que é a forma como
+    este bug nasceu e como ele voltaria. Aqui o adapter conta um import a mais do que classifica:
+    exatamente o resíduo invisível que fez 84 arestas de um alvo real sumirem.
+    """
+    from dataclasses import replace
+
+    _monorepo(repo_copy)
+    inventariar(repo_copy)          # aponta os módulos para a cópia
+    import adapters
+    import inventory_code
+
+    original = adapters.for_path
+
+    def engolindo(path):
+        ad = original(path)
+        if ad.name != "typescript":
+            return ad
+
+        def analyze_com_residuo(p, root, _a=ad):
+            mod = _a.analyze(p, root)
+            mod.total_especificadores += 1      # lido e não classificado
+            return mod
+
+        return replace(ad, analyze=analyze_com_residuo)
+
+    monkeypatch.setattr(adapters, "for_path", engolindo)
+    inventory_code.reset_cache()
+    with pytest.raises(Exception, match="não fecha"):
+        inventory_code.build()

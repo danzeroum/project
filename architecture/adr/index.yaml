@@ -426,6 +426,13 @@ adrs:
         description: "O prefixo src/ não volta a ser literal no fiscal: convenção cravada torna o molde específico de um alvo."
         files: ["ci/validate_metadata.py"]
         pattern: 'startswith\("src/"\)'
+      - id: ADR-009-A6
+        kind: file_matches
+        severity: critical
+        risk: RISK-INGEST-001
+        description: "A aritmética de completude continua verificada a cada arquivo: especificador lido e não classificado é aresta engolida, e engolir foi como 84 arestas de um alvo real sumiram."
+        files: ["ci/inventory_code.py"]
+        pattern: "conta_fecha\\(\\)"
       - id: ADR-009-A5
         kind: file_matches
         severity: critical

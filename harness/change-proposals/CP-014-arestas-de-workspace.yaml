@@ -1,0 +1,51 @@
+# Mudança proposta: aresta interna que some sem entrar em unresolved é o silêncio que o exit 2 proíbe.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-014
+  title: "Adapters fecham a conta: resolvidos + externos + unresolved = total, verificado em runtime"
+  author_kind: agent
+  created_at: "2026-08-05T03:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-INGEST-001
+      - RISK-DERIV-002
+      - RISK-META-001
+
+    rationale: >
+      Medido no código de um alvo real, sem adivinhação: 585 especificadores relativos resolvidos,
+      419 externos corretamente ignorados, e 84 internos por alias de workspace DESCARTADOS sem
+      aparecer em lugar nenhum. O adapter cumpria "nunca inventar aresta" e quebrava a outra
+      metade — "declarar o que não leu". Aresta que some sem entrar em unresolved é exatamente o
+      silêncio que o exit 2 existe para impedir.
+      A gravidade é de classe, não de grau. Num monorepo com um componente por pacote, essas 84
+      arestas SÃO o grafo de dependência entre componentes: check_declared_dependencies validaria
+      depends_on contra conjunto vazio e reportaria verde. É verde por vacuidade na Fase C
+      inteira, no formato de repositório mais provável de alvo real.
+      A correção tem duas partes, e a segunda é a que importa a longo prazo. A primeira resolve
+      alias de workspace lendo nome→diretório dos package.json sob as raízes — genérico para
+      npm, yarn, pnpm e bun, e deliberadamente NÃO por tsconfig:paths, que o reconhecimento provou
+      insuficiente (o alvo medido não tem paths algum). A segunda torna a completude uma
+      invariante de runtime: todo adapter particiona seus especificadores em resolvidos, externos
+      e unresolved, e ci/inventory_code.py RECUSA um inventário cuja conta não fecha — exit 2, não
+      achado. Sem isso, o próximo caminho de código que engolir um especificador reintroduz o
+      mesmo bug em silêncio, e nenhum teste de caso específico o pegaria.
+
+  required_gates:
+    - metadata-validation
+    - inventory
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_inventario_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

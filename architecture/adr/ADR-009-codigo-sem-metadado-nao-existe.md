@@ -47,6 +47,22 @@ um derivado — que aponta para `workspace/target/` — não valida no CI que de
 — que é o que a invariante precisa e que não depende de entender a linguagem. O que ele não leu
 entra no laudo em `nao_lido`. O silêncio é que está proibido, não a ignorância.
 
+**5b. Todo especificador cai em exatamente um balde, e a conta é verificada.** Resolvido,
+externo ou `unresolved` — e `ci/inventory_code.py` recusa o inventário quando
+`resolvidos + externos + unresolved ≠ total`, com exit 2. Medido num alvo real: o adapter de TS
+cumpria "nunca inventar aresta" e quebrava "declarar o que não leu" — 84 arestas entre pacotes de
+um monorepo sumiam sem entrar em lugar nenhum, e `check_declared_dependencies` validava
+`depends_on` contra conjunto vazio. Verde por vacuidade, no formato de repositório mais provável
+de alvo real. A aritmética é a trava porque o modo de falha não é resolver errado: é engolir, e
+nenhum teste de caso específico pega o próximo caminho de código que engolir.
+
+**5c. Alias de workspace resolve pelos `package.json`, não por `tsconfig:paths`.** O alvo medido
+não declara `paths` algum — a resolução vem do link do gerenciador de pacotes, e o registro de
+verdade é o `name` de cada `package.json`. Quando o entrypoint declarado aponta para build
+inexistente (`./dist/index.js` num clone fresco), o adapter mapeia o nome de volta para a fonte
+antes de desistir; desistir ali faria toda aresta entre pacotes virar `unresolved` — tecnicamente
+honesto e praticamente inútil.
+
 **6. Raiz declarada ausente é exit 2, não achado.** "O fiscal não conseguiu fiscalizar" é uma
 resposta diferente de "está tudo certo", e confundi-las é o que produz verde por vacuidade.
 
