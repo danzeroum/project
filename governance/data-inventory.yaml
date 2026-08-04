@@ -1,0 +1,43 @@
+# Registro das operações de tratamento de dado pessoal (Lei 13.709/2018, Art. 37).
+#
+# Nasce VAZIO e isso é uma afirmação, não uma omissão: o negócio de exemplo (precificação e
+# catálogo) opera sobre sku, preço e quantidade — nenhum dado de pessoa natural. O fiscal
+# ci/audit_lgpd.py continua rodando sobre o projeto inteiro mesmo assim: é a varredura que
+# detecta o primeiro campo com forma de dado pessoal entrando pela porta dos fundos.
+#
+# A partir do primeiro campo aqui, três travas disparam juntas: o schema passa a exigir
+# encarregado (Art. 41), project.yaml precisa deixar de declarar 'none', e o julgamento exigido
+# sobe de Parecer de Proporcionalidade para RIPD completo (Art. 38).
+#
+# Schema: harness/schemas/data-inventory.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+controller:
+  role: none   # none | incidental | controller | operator | controller_and_operator
+
+# Finalidades declaradas (PURP-*). Todo campo aponta para uma delas — dado sem finalidade
+# específica viola o Art. 6º, I antes de qualquer outra coisa.
+purposes: []
+
+# Cada campo: classificação (pessoal / sensível Art. 5º II), finalidade, base legal (Art. 7º,
+# ou Art. 11 quando sensível), retenção com prazo, componente dono e onde vive no código.
+fields: []
+
+# Art. 18. Não existe direito do titular sem endpoint: enquanto fields estiver vazio estes
+# podem ser null; a partir do primeiro campo, o fiscal cobra os quatro.
+subject_rights:
+  confirmation: null
+  access: null
+  deletion: null
+  portability: null
+
+international_transfer: []
+
+# Supressões da varredura. A régua (os léxicos) mora em ci/audit_lgpd.py como constante, e
+# ci/ é protected_path: suprimir é declarar aqui, com motivo e sob revisão — nunca apagar um
+# termo da lista, que seria desligar a busca em silêncio.
+scan:
+  exclusions: []

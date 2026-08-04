@@ -4,7 +4,7 @@
   "title": "project.yaml — manifesto de identidade do projeto",
   "description": "Completa (não substitui) o pyproject.toml: propósito, domínio, criticidade, donos, governança. Legível por humano, CI e agente.",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "project", "business", "quality_standard", "governance"],
+  "required": ["schema_version", "metadata_version", "source_of_truth", "project", "business", "quality_standard", "governance", "classification"],
   "additionalProperties": false,
   "oneOf": [
     {
@@ -84,12 +84,25 @@
     },
     "classification": {
       "type": "object",
+      "description": "Enums, não texto livre. Um campo string aberto aceita 'to-be-assessed' para sempre: nenhum fiscal consegue reprovar, e a pendência vira permanente sem nunca aparecer como falha. lgpd_relevance é cruzado com governance/data-inventory.yaml por ci/audit_lgpd.py — declarar aqui e tratar dado lá é divergência.",
+      "required": ["data_classification", "lgpd_relevance", "internet_exposed"],
       "additionalProperties": false,
       "properties": {
-        "data_classification": { "type": "string" },
-        "lgpd_relevance": { "type": "string" },
-        "internet_exposed": { "type": "boolean" }
-      }
+        "data_classification": { "enum": ["public", "internal", "confidential", "restricted"] },
+        "lgpd_relevance": { "enum": ["none", "incidental", "controller", "operator", "controller_and_operator"] },
+        "internet_exposed": { "type": "boolean" },
+        "dpo_contact": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "comment": "Art. 41: quem trata dado pessoal indica encarregado. Papel declarado sem contato é papel de fachada.",
+          "if": {
+            "properties": { "lgpd_relevance": { "enum": ["controller", "operator", "controller_and_operator"] } },
+            "required": ["lgpd_relevance"]
+          },
+          "then": { "required": ["dpo_contact"] }
+        }
+      ]
     }
   }
 }

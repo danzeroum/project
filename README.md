@@ -68,12 +68,22 @@ project/
 │   ├── prompts/          templates de tarefa
 │   ├── change-proposals/ mudanças declaradas antes de executadas (ponte para execução agentic)
 │   └── runs/ reports/ state/   evidência (gitignored)
-├── ci/validate_metadata.py      fiscal semântico dos metadados (linter de CI, não runner)
+├── ci/
+│   ├── validate_all.py          um comando, um significado de "validado" (roda os quatro)
+│   ├── validate_metadata.py     schema, IDs e coerência entre documentos
+│   ├── audit_governance.py      asserções de ADR + cobertura das etapas
+│   ├── audit_lgpd.py            inventário de dado pessoal + frescor do julgamento
+│   ├── generate_graph.py        artefato derivado (docs/metadata-graph.md)
+│   └── hooks/                   env-hygiene e guarda de caminho protegido, na sessão do agente
 ├── requirements-qa.txt   webqa-suite==1.0.0  (padrão DECLARADO, nunca copiado — FONTE ÚNICA da versão)
 ├── WEBQA_CONSUMER_CONTRACT.md   a interface entre este repo e a suíte
-└── .github/workflows/
-    ├── qa.yml                   CI: inventário+passivo automáticos; carga/sondagem segregados
-    └── validate-metadata.yml    CI: valida schema + existência de paths + coerência entre docs
+├── CLAUDE.md / .claude/         doutrina carregada em sessão de agente + hooks (ergonomia, não gate)
+└── .github/
+    ├── CODEOWNERS               o fiscal real dos protected_paths (com branch protection)
+    └── workflows/
+        ├── qa.yml               CI: inventário+passivo automáticos; carga/sondagem segregados
+        ├── validate-metadata.yml  CI: validação total, filtrada por paths
+        └── governance.yml       CI: validação total SEM filtro + passos negativos de mordida
 ```
 
 ## Metadados governáveis
@@ -120,12 +130,31 @@ comentário ("markdown que não morde").
 - **Mapa gerado dos IDs:** `docs/metadata-graph.md` é um diagrama Mermaid **gerado** por
   `ci/generate_graph.py` a partir dos metadados — artefato derivado, mantido em dia pelo CI
   (`--check`), nunca uma fonte manual paralela.
+- **Decisão com asserção executável:** cada ADR declara `assertions[]` em
+  `architecture/adr/index.yaml` — afirmações tipadas sobre o repositório real, executadas por
+  `ci/audit_governance.py`. ADR `accepted` sem asserção é recusado pelo schema, e asserção cujo
+  alvo não existe vira `assertion_unresolvable`: uma trava que não encontra o que vigiar está
+  quebrada, não satisfeita. É o que fecha o vão entre "o ADR-005 decide inversão de dependência"
+  e "o CI reprova quando `pricing.py` importa o adaptador concreto".
+- **Todas as etapas com fiscal:** `harness/stages.yaml` enumera as treze etapas do projeto com
+  seus artefatos e fiscais. O fiscal cobra que cada artefato exista, que cada `enforced_by`
+  resolva (com `::simbolo`, por AST) e que **todo arquivo do repositório pertença a exatamente
+  uma etapa ou a uma isenção justificada**. É a partição que faz cobertura ser invariante em vez
+  de aspiração: diretório novo exige declarar a que etapa pertence.
+- **LGPD sempre ligada, em dois níveis:** `ci/audit_lgpd.py` roda a cada push sobre o projeto
+  inteiro — registro das operações (Art. 37), varredura de tratamento-sombra, coerência do papel
+  declarado, direitos do titular com endpoint (Art. 18) e frescor do julgamento por fingerprint
+  de conteúdo (Art. 38). Duas travas são estruturais no schema: dado sensível não admite legítimo
+  interesse (Art. 11) e papel de tratador exige encarregado (Art. 41). **O fiscal determinístico
+  não julga legalidade** — ele garante que o julgamento (skill `/revisao-lgpd`, agente `privacy`)
+  existe, é do tipo certo e cobre este estado do repositório.
 
 ## Quickstart
 
 ```bash
 pip install -e ".[dev]"     # instala o pacote de negócio + ferramentas de teste
-pytest tests/unit           # o alvo do inventário é código real e testado
+pytest                      # negócio (tests/unit) + mordida dos fiscais (tests/governance)
+python ci/validate_all.py   # metadados + grafo + conformidade + LGPD — o mesmo comando do CI
 ```
 
 A régua é declarada em `requirements-qa.txt` na versão real (`webqa-suite==1.0.0`). Como a suíte

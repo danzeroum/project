@@ -3,6 +3,12 @@ name: validate-metadata
 # Fiscal dos metadados declarativos, separado do qa.yml por clareza: roda a cada mudança de
 # metadado ou código, independente da WebQA. Transforma divergência declaração×repositório em
 # falha visível de CI (schema + existência de paths + coerência entre documentos).
+#
+# Chama ci/validate_all.py — o mesmo comando do governance.yml e do hook Stop do agente. Manter
+# aqui uma lista própria de passos criaria duas definições de "verde": um PR poderia passar
+# neste workflow e reprovar no outro, e ninguém saberia qual dos dois é "validado".
+# Este workflow filtra por paths; governance.yml não filtra. É a diferença entre "mudou algo
+# relevante" e "sempre".
 
 on:
   push:
@@ -18,10 +24,11 @@ on:
       - "harness/change-proposals/**"
       - "src/**"
       - "tests/**"
-      - "ci/validate_metadata.py"
-      - "ci/generate_graph.py"
+      - "ci/**"
       - "docs/metadata-graph.md"
       - "requirements-qa.txt"
+      - "CLAUDE.md"
+      - ".claude/**"
 
 permissions:
   contents: read
@@ -36,7 +43,5 @@ jobs:
           python-version: "3.11"
       - name: Instalar dependências do fiscal
         run: pip install "jsonschema>=4" "pyyaml>=6"
-      - name: Validar metadados (schema + semântica)
-        run: python ci/validate_metadata.py
-      - name: Diagrama de relacionamento em dia (artefato derivado)
-        run: python ci/generate_graph.py --check
+      - name: Validação total do projeto
+        run: python ci/validate_all.py

@@ -1,0 +1,233 @@
+# As etapas do projeto e seus fiscais.
+#
+# Este arquivo é um ÍNDICE, não uma segunda descrição do projeto. Ele referencia artefatos por
+# CAMINHO e fiscais por caminho/símbolo — nunca restata um ID (CAP-, REQ-, CMP-, RULE-, UI-,
+# MET-, ADR-, RISK-), e o schema recusa estruturalmente quem tentar. IDs moram no arquivo dono.
+#
+# O que torna a cobertura verificável em vez de aspiracional são três checagens em
+# ci/audit_governance.py: todo artefato casa arquivo real; todo fiscal resolve (com ::simbolo,
+# o AST confirma que a função existe); e todo arquivo do repositório pertence a exatamente uma
+# etapa ou a uma isenção declarada. Diretório novo passa a exigir declaração de etapa.
+#
+# Schema: harness/schemas/stages.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+stages:
+  - id: STAGE-VISION
+    order: 1
+    name: "Visão e métricas de sucesso"
+    artifacts: ["business/vision.yaml"]
+    enforced_by:
+      - kind: schema
+        ref: harness/schemas/vision.schema.json
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: metric_ids
+    privacy_lens:
+      scan: true
+      question: "A proposta de valor exige tratar dado pessoal? Com qual finalidade declarada?"
+
+  - id: STAGE-CAPABILITIES
+    order: 2
+    name: "Capacidades de negócio"
+    artifacts: ["business/capabilities.yaml"]
+    enforced_by:
+      - kind: schema
+        ref: harness/schemas/capabilities.schema.json
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_capabilities
+    privacy_lens:
+      scan: true
+      question: "Alguma capacidade depende de dado pessoal para existir? Ela é minimizável?"
+
+  - id: STAGE-RULES
+    order: 3
+    name: "Regras de negócio"
+    artifacts: ["business/rules"]
+    enforced_by:
+      - kind: schema
+        ref: harness/schemas/business-rules.schema.json
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_business_rules
+    privacy_lens:
+      scan: true
+      question: "Alguma regra decide sobre pessoa? Decisão automatizada exige revisão (Art. 20)."
+
+  - id: STAGE-BACKLOG
+    order: 4
+    name: "Requisitos e backlog"
+    artifacts: ["business/requirements"]
+    enforced_by:
+      - kind: schema
+        ref: harness/schemas/backlog.schema.json
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_backlog
+    privacy_lens:
+      scan: true
+      question: "O requisito coleta dado novo? Coletar menos resolveria o mesmo problema?"
+
+  - id: STAGE-ARCHITECTURE
+    order: 5
+    name: "Componentes e interfaces"
+    artifacts: ["architecture/components.yaml", "architecture/interfaces.yaml"]
+    enforced_by:
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_components
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_interfaces
+    privacy_lens:
+      scan: true
+      question: "Qual componente é dono de qual dado pessoal? A interface expõe além da finalidade?"
+
+  - id: STAGE-DECISIONS
+    order: 6
+    name: "Decisões de arquitetura (ADRs)"
+    artifacts: ["architecture/adr"]
+    enforced_by:
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_adr_index
+      - kind: ci_script
+        ref: ci/audit_governance.py
+        symbol: check_adr_conformance
+    privacy_lens:
+      scan: true
+      question: "A decisão muda o fluxo de dado pessoal? Se muda, o julgamento de impacto venceu."
+
+  - id: STAGE-DESIGN
+    order: 7
+    name: "Design system e superfícies de UI"
+    artifacts: ["design"]
+    enforced_by:
+      - kind: schema
+        ref: harness/schemas/ui-surfaces.schema.json
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_ui_surfaces
+    privacy_lens:
+      scan: true
+      question: "A superfície pede dado além do necessário? Há toggle pré-marcado (privacy by default)?"
+
+  - id: STAGE-CODE
+    order: 8
+    name: "Código de negócio"
+    artifacts: ["src"]
+    enforced_by:
+      - kind: workflow_step
+        ref: .github/workflows/qa.yml
+        step: "Rodar testes de unidade (alvo do inventário é código real)"
+      - kind: external_standard
+        ref: "webqa inventario"
+        standard: webqa-suite
+        version_source: requirements-qa.txt
+    privacy_lens:
+      scan: true
+      question: "Existe campo com forma de dado pessoal fora do inventário? Log grava PII?"
+
+  - id: STAGE-TESTS
+    order: 9
+    name: "Testes"
+    artifacts: ["tests/unit", "tests/integration", "tests/e2e", "tests/governance"]
+    enforced_by:
+      - kind: workflow_step
+        ref: .github/workflows/qa.yml
+        step: "Rodar testes de unidade (alvo do inventário é código real)"
+      - kind: workflow_step
+        ref: .github/workflows/governance.yml
+        step: "Testes dos fiscais"
+    privacy_lens:
+      scan: true
+      question: "Há dado pessoal real em fixture? Massa de teste é dado de produção disfarçado."
+
+  - id: STAGE-QA-CONFIG
+    order: 10
+    name: "Configuração declarativa de QA"
+    artifacts: ["tests/qa", "requirements-qa.txt"]
+    enforced_by:
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_version_single_source
+      - kind: workflow_step
+        ref: .github/workflows/qa.yml
+        step: "Auditoria passiva (Trabalho A — só se escopo autorizar)"
+    privacy_lens:
+      scan: true
+      question: "O escopo autorizado e a evidência retida contêm dado pessoal do alvo?"
+
+  - id: STAGE-GOVERNANCE
+    order: 11
+    name: "Governança: identidade, riscos, propostas e privacidade"
+    artifacts:
+      - "project.yaml"
+      - "governance"
+      - "harness/harness.yaml"
+      - "harness/stages.yaml"
+      - "harness/policies"
+      - "harness/change-proposals"
+      - "harness/agents"
+      - "harness/prompts"
+      - "harness/runs"
+      - "harness/reports"
+      - "harness/state"
+    enforced_by:
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_risk_controls
+      - kind: ci_script
+        ref: ci/audit_governance.py
+        symbol: check_risk_control_coverage
+      - kind: ci_script
+        ref: ci/audit_lgpd.py
+        symbol: check_judgment_currency
+    privacy_lens:
+      scan: true
+      question: "O papel do sistema (controlador/operador) declarado bate com o que ele de fato trata?"
+
+  - id: STAGE-CI-HARNESS
+    order: 12
+    name: "Fiscais, schemas e entrega"
+    artifacts:
+      - "ci"
+      - ".github"
+      - ".claude"
+      - "CLAUDE.md"
+      - "harness/schemas"
+      - "pyproject.toml"
+    enforced_by:
+      - kind: ci_script
+        ref: ci/validate_all.py
+        symbol: main
+      - kind: workflow_step
+        ref: .github/workflows/governance.yml
+        step: "Validação total do projeto"
+    privacy_lens:
+      scan: false
+      question: "Segredo ou dado pessoal em log de CI, artifact ou variável de ambiente?"
+
+  - id: STAGE-DOCS
+    order: 13
+    name: "Documentação"
+    artifacts: ["docs", "README.md", "WEBQA_CONSUMER_CONTRACT.md"]
+    enforced_by:
+      - kind: ci_script
+        ref: ci/generate_graph.py
+        symbol: main
+    privacy_lens:
+      scan: false
+      question: "A documentação expõe dado real em exemplo? Exemplo com CPF válido é vazamento."
+
+# Isenções DECLARADAS. Uma isenção que não casa nenhum arquivo é isenção morta e vira achado:
+# serve só para fazer a partição parecer fechada.
+ungoverned:
+  - path: LICENSE
+    justification: "Texto legal imutável de terceiro; não descreve nem governa o produto, e alterá-lo não muda comportamento algum do sistema."
+  - path: .gitignore
+    justification: "Configuração de ferramenta; a evidência que ele exclui do versionamento já é declarada e fiscalizada em harness/harness.yaml:paths."

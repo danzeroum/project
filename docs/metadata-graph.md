@@ -70,8 +70,13 @@ graph TD
   REQ_004 ==>|move| MET_DISCOVERY
   REQ_004 -.->|regido por| RULE_CATALOG_001
   RISK_CHANGE_001["RISK-CHANGE-001"]
+  RISK_CONF_001["RISK-CONF-001"]
   RISK_DEP_001["RISK-DEP-001"]
   RISK_META_001["RISK-META-001"]
+  RISK_META_002["RISK-META-002"]
+  RISK_PRIV_001["RISK-PRIV-001"]
+  RISK_PRIV_002["RISK-PRIV-002"]
+  RISK_STAGE_001["RISK-STAGE-001"]
   RISK_WEBQA_001["RISK-WEBQA-001"]
   ADR_001["ADR-001"]
   ADR_001 -->|mitiga| RISK_WEBQA_001
@@ -86,6 +91,12 @@ graph TD
   ADR_005 -->|decide| CAP_CATALOG
   ADR_005 -->|decide| CMP_CATALOG
   ADR_005 -->|decide| CMP_PRICING
+  ADR_006["ADR-006"]
+  ADR_006 -->|mitiga| RISK_CONF_001
+  ADR_006 -->|mitiga| RISK_STAGE_001
+  ADR_007["ADR-007"]
+  ADR_007 -->|mitiga| RISK_PRIV_001
+  ADR_007 -->|mitiga| RISK_PRIV_002
   classDef project fill:#1f2937,stroke:#111827,color:#fff;
   class PROJ_danzeroum_project project;
   classDef cap fill:#2563eb,stroke:#1e40af,color:#fff;
@@ -105,7 +116,7 @@ graph TD
   classDef test fill:#57534e,stroke:#44403c,color:#fff;
   class TEST_tests_unit_test_ports_py,TEST_tests_unit_test_pricing_py test;
   classDef adr fill:#ca8a04,stroke:#a16207,color:#fff;
-  class ADR_001,ADR_002,ADR_003,ADR_004,ADR_005 adr;
+  class ADR_001,ADR_002,ADR_003,ADR_004,ADR_005,ADR_006,ADR_007 adr;
   classDef risk fill:#dc2626,stroke:#991b1b,color:#fff;
-  class RISK_CHANGE_001,RISK_DEP_001,RISK_META_001,RISK_WEBQA_001 risk;
+  class RISK_CHANGE_001,RISK_CONF_001,RISK_DEP_001,RISK_META_001,RISK_META_002,RISK_PRIV_001,RISK_PRIV_002,RISK_STAGE_001,RISK_WEBQA_001 risk;
 ```

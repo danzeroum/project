@@ -12,11 +12,19 @@ standard:
 # CODEOWNERS + branch protection + diff-check no CI, não esta lista (que é a declaração).
 repository:
   project_manifest: project.yaml
+  stages_manifest: harness/stages.yaml   # as etapas do projeto e seus fiscais
   protected_paths:
     - .github/
     - harness/
     - tests/qa/escopo-autorizado.yaml
     - requirements-qa.txt
+    # ci/ e governance/ entraram junto com os fiscais de conformidade e privacidade: um fiscal
+    # que o fiscalizado edita sem revisão não é fiscal. CLAUDE.md e .claude/ pelo mesmo motivo —
+    # um hook que o agente pode reescrever é ergonomia, nunca a trava (o gate é o CI).
+    - ci/
+    - governance/
+    - CLAUDE.md
+    - .claude/
 
 # Política de decisão da harness. default: deny — sem reconhecer projeto/capacidade/risco/modo,
 # não age. missing_metadata para e pede contexto em vez de inferir.

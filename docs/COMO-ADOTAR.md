@@ -34,6 +34,21 @@ Estas regras valem para todo repositório. Se um passo as feriria, o agente para
    `workflow_dispatch`; agente/CI automático nunca dispara.
 6. **Metadado só com fiscal.** Todo YAML novo ganha schema + passo no `validate_metadata.py`, senão é
    "markdown que não morde".
+7. **ADR sem asserção não é decisão fiscalizável.** Todo ADR `accepted` declara ao menos uma
+   asserção executável em `architecture/adr/index.yaml` — ou uma `manual` com justificativa quando
+   o que ele promete genuinamente não for verificável por máquina. O schema recusa o contrário.
+8. **Etapa sem fiscal não é cobertura.** Todo arquivo do `REPO_ALVO` pertence a exatamente uma etapa
+   de `harness/stages.yaml` ou a uma isenção justificada. Diretório novo exige declarar a etapa.
+9. **Dado pessoal só com inventário e julgamento.** Campo com forma de PII exige entrada em
+   `governance/data-inventory.yaml` **e** revisão pela skill `/revisao-lgpd`, registrada em
+   `governance/privacy-review.yaml` com o `scope_fingerprint` do estado avaliado. Suprimir um
+   achado é declarar a exclusão com motivo, nunca apagar termo do léxico do fiscal.
+
+> **Migração `metadata_version` 1.0 → 1.1.** Quem copiou a casca antes desta versão tem
+> `classification` como bloco opcional de texto livre em `project.yaml`. Agora ele é obrigatório e
+> com enums: `data_classification` ∈ `public|internal|confidential|restricted` e `lgpd_relevance` ∈
+> `none|incidental|controller|operator|controller_and_operator`. Um `"to-be-assessed"` deixa de
+> passar — que é o ponto: pendência que nenhum fiscal reprova dura para sempre.
 
 ## 2. Reconhecimento do `REPO_ALVO` (o agente descobre, não presume)
 

@@ -1,0 +1,71 @@
+"""Base dos testes de mordida dos fiscais.
+
+Cada teste copia o repositório para tmp_path, injeta UMA violação e exige que o fiscal reprove.
+É o idioma do passo negativo de .github/workflows/qa.yml (injeta WEBQA_LEAK=1 e falha se a
+detecção não disparar): "o fiscal existe" e "o fiscal morde" são afirmações diferentes, e só a
+segunda importa.
+
+O fiscal é apontado para a cópia por HARNESS_REPO_ROOT — nenhum teste toca a árvore de trabalho.
+"""
+
+from __future__ import annotations
+
+import importlib
+import os
+import shutil
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parent.parent.parent
+CI = REPO / "ci"
+if str(CI) not in sys.path:
+    sys.path.insert(0, str(CI))
+
+# Diretórios que não precisam ser copiados para o fiscal funcionar (e que só custariam tempo).
+SKIP = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules",
+        ".ruff_cache", ".mypy_cache", "build", "dist"}
+
+
+@pytest.fixture
+def repo_copy(tmp_path: Path) -> Path:
+    dest = tmp_path / "repo"
+    shutil.copytree(REPO, dest, ignore=shutil.ignore_patterns(*SKIP))
+    return dest
+
+
+@pytest.fixture
+def run_auditor(monkeypatch):
+    """Roda um fiscal contra uma cópia, recarregando os módulos para que REPO aponte para ela."""
+
+    def _run(module_name: str, root: Path, argv: list[str] | None = None) -> tuple[int, list[dict]]:
+        monkeypatch.setenv("HARNESS_REPO_ROOT", str(root))
+        import harness_lib
+        importlib.reload(harness_lib)
+        module = importlib.import_module(module_name)
+        importlib.reload(module)
+        code = module.main(list(argv or []) + ["--quiet"])
+        report_path = root / (
+            "harness/reports/governance-audit.json"
+            if module_name == "audit_governance"
+            else "harness/reports/lgpd-audit.json"
+        )
+        findings = []
+        if report_path.exists():
+            import json
+            findings = json.loads(report_path.read_text(encoding="utf-8"))["findings"]
+        return code, findings
+
+    yield _run
+    os.environ.pop("HARNESS_REPO_ROOT", None)
+    import harness_lib
+    importlib.reload(harness_lib)
+
+
+def ids_of(findings: list[dict]) -> set[str]:
+    return {f["id"] for f in findings}
+
+
+def origins_of(findings: list[dict]) -> set[str]:
+    return {f["origin"] for f in findings}

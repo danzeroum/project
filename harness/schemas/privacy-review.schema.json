@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/privacy-review.schema.json",
+  "title": "governance/privacy-review.yaml — registro tipado do julgamento de privacidade",
+  "description": "O RIPD/Parecer é prosa (governance/ripd.md); ESTE arquivo é a parte fiscalizável. Separar os dois é o que permite verificar que o julgamento existe, é do tipo certo e cobre o estado atual — sem tentar fiscalizar prosa. O fiscal determinístico não julga legalidade; ele garante que o julgamento aconteceu e não está vencido.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "review"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "review": {
+      "type": "object",
+      "required": ["kind", "document", "produced_by", "skill", "scope_fingerprint", "issues"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["ripd_completo", "parecer_proporcionalidade"],
+          "description": "Art. 38. Sistema que trata dados de titulares exige RIPD completo (8 seções); tratamento apenas incidental/efêmero admite Parecer de Proporcionalidade (4 seções). Qual dos dois é exigido é derivado do inventário pelo fiscal, não escolhido livremente."
+        },
+        "document": { "type": "string", "pattern": "^governance/.*\\.md$" },
+        "produced_by": { "enum": ["agent", "human"] },
+        "skill": { "const": "revisao-lgpd" },
+        "scope_fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Hash do escopo que o julgamento cobriu. Divergiu do escopo atual ⇒ o julgamento não fala deste sistema. Obter com: python ci/audit_lgpd.py --print-fingerprint"
+        },
+        "issues": {
+          "type": "array",
+          "description": "Achados do julgamento, no formato da skill. P0/P1 exigem um RISK-* do registro — um issue crítico sem risco declarado é um risco não gerido.",
+          "items": {
+            "type": "object",
+            "required": ["id", "severity", "location", "category", "lgpd_article", "pbd_principle", "status"],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "severity": { "enum": ["P0", "P1"] } },
+                  "required": ["severity"]
+                },
+                "then": { "required": ["risk"] }
+              }
+            ],
+            "properties": {
+              "id": { "type": "string", "pattern": "^RISCO-[0-9]{3}$" },
+              "severity": { "enum": ["P0", "P1", "P2", "P3"] },
+              "location": { "type": "string", "minLength": 1 },
+              "category": { "type": "string", "minLength": 3 },
+              "lgpd_article": { "type": "string", "pattern": "^Art\\. [0-9]+" },
+              "pbd_principle": {
+                "enum": [
+                  "Proativo e Preventivo", "Privacy by Default", "Privacidade no Design",
+                  "Soma Positiva", "Transparência", "Segurança Ponta-a-Ponta", "Centrado no Usuário"
+                ]
+              },
+              "status": { "enum": ["open", "mitigated", "accepted"] },
+              "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" },
+              "summary": { "type": "string" }
+            }
+          }
+        },
+        "not_assessed": {
+          "type": "array",
+          "description": "Categorias do checklist fora do material avaliado. Escopo honesto é requisito da skill: o que não foi visto entra aqui, nunca como 'sem achados'.",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

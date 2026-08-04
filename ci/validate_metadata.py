@@ -16,18 +16,12 @@ Sai com código 1 ao primeiro conjunto de inconsistências; 0 se tudo casar.
 from __future__ import annotations
 
 import json
-import re
 import sys
-from pathlib import Path
 
-import yaml
 from jsonschema import Draft202012Validator
 
-REPO = Path(__file__).resolve().parent.parent
-SCHEMAS = REPO / "harness" / "schemas"
-
-# Maturidades em que código e teste DEVEM existir fisicamente.
-CONCRETE = {"implemented", "verified"}
+import harness_lib as hl
+from harness_lib import CONCRETE, REPO, SCHEMAS, HarnessError, rel_exists
 
 # (arquivo de metadado, schema) — schema None = só validação de YAML + invariantes de cabeçalho.
 DOCS = [
@@ -41,6 +35,10 @@ DOCS = [
     ("architecture/adr/index.yaml", "adr-index.schema.json"),
     ("business/requirements/backlog.yaml", "backlog.schema.json"),
     ("business/vision.yaml", "vision.schema.json"),
+    ("harness/harness.yaml", "harness.schema.json"),
+    ("harness/stages.yaml", "stages.schema.json"),
+    ("governance/data-inventory.yaml", "data-inventory.schema.json"),
+    ("governance/privacy-review.yaml", "privacy-review.schema.json"),
 ]
 
 # Propostas de mudança: artefatos versionados validados por schema + semântica.
@@ -56,14 +54,13 @@ def err(msg: str) -> None:
 
 
 def load_yaml(rel: str) -> dict | None:
-    path = REPO / rel
-    if not path.exists():
+    if not rel_exists(rel):
         err(f"[falta] arquivo de metadado ausente: {rel}")
         return None
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:  # pragma: no cover - defensivo
-        err(f"[yaml] {rel}: {exc}")
+        return hl.read_yaml(rel)
+    except HarnessError as exc:  # pragma: no cover - defensivo
+        err(str(exc))
         return None
 
 
@@ -76,33 +73,21 @@ def validate_all_schemas_are_valid() -> None:
 
 
 def validate_structural(rel: str, schema_name: str, doc: dict) -> None:
-    schema = json.loads((SCHEMAS / schema_name).read_text(encoding="utf-8"))
-    for e in sorted(Draft202012Validator(schema).iter_errors(doc), key=lambda e: e.path):
-        loc = "/".join(str(p) for p in e.path) or "(raiz)"
-        err(f"[estrutural] {rel} em '{loc}': {e.message}")
+    for msg in hl.schema_errors(rel, schema_name, doc):
+        err(msg)
 
 
 def check_header_invariants(rel: str, doc: dict) -> None:
     # I11 (reforço; o schema já garante via oneOf onde há schema).
-    sot = doc.get("source_of_truth")
-    gen = doc.get("generated_from")
-    if sot is True and gen not in (None,):
-        err(f"[I11] {rel}: source_of_truth:true exige generated_from:null")
-    if sot is False and not gen:
-        err(f"[I11] {rel}: source_of_truth:false exige generated_from não-vazio")
+    for msg in hl.header_invariant_errors(rel, doc):
+        err(msg)
 
 
 def exact_pin(rel: str = "requirements-qa.txt") -> str | None:
-    path = REPO / rel
-    if not path.exists():
-        err(f"[falta] {rel} ausente — o pin do padrão é obrigatório")
-        return None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^\s*webqa-suite==([^\s#]+)", line)
-        if m:
-            return m.group(1)
-    err(f"[I2] {rel}: webqa-suite deve estar pinado com == (sem faixa)")
-    return None
+    pin, problems = hl.exact_pin(rel)
+    for msg in problems:
+        err(msg)
+    return pin
 
 
 def check_version_single_source(project_doc: dict | None) -> None:
@@ -114,16 +99,11 @@ def check_version_single_source(project_doc: dict | None) -> None:
         if qs.get("version_source") != "requirements-qa.txt":
             err("[I2] project.yaml: quality_standard.version_source deve ser 'requirements-qa.txt'")
     # I3: o único espelho tolerado — config.yaml.standard_version == pin.
-    cfg_path = REPO / "tests" / "qa" / "config.yaml"
-    if cfg_path.exists() and pin is not None:
-        cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+    if rel_exists("tests/qa/config.yaml") and pin is not None:
+        cfg = hl.read_yaml("tests/qa/config.yaml") or {}
         mirror = str(cfg.get("standard_version", ""))
         if mirror != pin:
             err(f"[I3] tests/qa/config.yaml standard_version ({mirror!r}) != pin ({pin!r})")
-
-
-def rel_exists(p: str) -> bool:
-    return (REPO / p).exists()
 
 
 def check_capabilities(doc: dict | None) -> dict[str, dict]:
@@ -262,19 +242,15 @@ def check_business_rules(caps: dict[str, dict]) -> dict[str, str]:
     rules_dir = REPO / BUSINESS_RULES_DIR
     if not rules_dir.exists():
         return rule_caps
-    schema = json.loads((SCHEMAS / "business-rules.schema.json").read_text(encoding="utf-8"))
-    validator = Draft202012Validator(schema)
     for path in sorted(rules_dir.glob("*.yaml")):
-        rel = path.relative_to(REPO).as_posix()
+        rel = hl.rel(path)
         try:
-            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except yaml.YAMLError as exc:  # pragma: no cover - defensivo
-            err(f"[yaml] {rel}: {exc}")
+            doc = hl.read_yaml(rel)
+        except HarnessError as exc:  # pragma: no cover - defensivo
+            err(str(exc))
             continue
         check_header_invariants(rel, doc)
-        for e in sorted(validator.iter_errors(doc), key=lambda e: e.path):
-            loc = "/".join(str(p) for p in e.path) or "(raiz)"
-            err(f"[estrutural] {rel} em '{loc}': {e.message}")
+        validate_structural(rel, "business-rules.schema.json", doc)
         cap_ref = (doc or {}).get("capability")
         if cap_ref not in caps:
             err(f"[regra] {rel}: capability {cap_ref} não existe em capabilities.yaml")
@@ -362,24 +338,56 @@ def check_adr_index(doc: dict | None, caps: dict[str, dict], comp_ids: set[str],
                 err(f"[ADR] {aid}: related_risks {rref} não existe no registro")
 
 
+def check_adr_assertion_refs(doc: dict | None, risk_ids: set[str]) -> None:
+    """Toda asserção cita um risco do registro — é o elo que faz divergência virar risco.
+
+    A EXECUÇÃO da asserção é de ci/audit_governance.py; aqui só se resolve o ID, que é o
+    trabalho deste fiscal.
+    """
+    if not doc:
+        return
+    for adr in doc.get("adrs", []):
+        for a in adr.get("assertions", []):
+            rref = a.get("risk")
+            if rref and rref not in risk_ids:
+                err(f"[ADR] {a.get('id', '?')}: risco citado {rref} não existe no registro")
+
+
+def check_data_inventory(doc: dict | None, comp_ids: set[str]) -> None:
+    """Todo campo de dado pessoal pertence a um componente real — sem dono, não há responsável."""
+    if not doc:
+        return
+    for f in doc.get("fields", []):
+        cmp_ref = f.get("owning_component")
+        if cmp_ref not in comp_ids:
+            err(f"[LGPD] {f.get('id', '?')}: owning_component {cmp_ref} não existe "
+                f"em components.yaml")
+
+
+def check_privacy_review(doc: dict | None, risk_ids: set[str]) -> None:
+    """Issue P0/P1 do julgamento aponta para um risco do registro (o schema já exige o campo)."""
+    if not doc:
+        return
+    for issue in doc.get("review", {}).get("issues", []):
+        rref = issue.get("risk")
+        if rref and rref not in risk_ids:
+            err(f"[LGPD] {issue.get('id', '?')}: risco citado {rref} não existe no registro")
+
+
 def check_change_proposals(caps: dict[str, dict], comp_ids: set[str], risk_ids: set[str]) -> None:
     """Cada proposta afeta apenas IDs reais e cita apenas riscos do registro."""
     proposals_dir = REPO / CHANGE_PROPOSALS_DIR
     if not proposals_dir.exists():
         return
-    schema = json.loads((SCHEMAS / "change-proposal.schema.json").read_text(encoding="utf-8"))
-    validator = Draft202012Validator(schema)
     for path in sorted(proposals_dir.glob("*.yaml")):
-        rel = path.relative_to(REPO).as_posix()
+        rel = hl.rel(path)
         try:
-            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except yaml.YAMLError as exc:  # pragma: no cover - defensivo
-            err(f"[yaml] {rel}: {exc}")
+            doc = hl.read_yaml(rel)
+        except HarnessError as exc:  # pragma: no cover - defensivo
+            err(str(exc))
             continue
         check_header_invariants(rel, doc)
-        for e in sorted(validator.iter_errors(doc), key=lambda e: e.path):
-            loc = "/".join(str(p) for p in e.path) or "(raiz)"
-            err(f"[estrutural] {rel} em '{loc}': {e.message}")
+        validate_structural(rel, "change-proposal.schema.json", doc)
         proposal = (doc or {}).get("proposal", {})
         pid = proposal.get("id", rel)
         for cid in proposal.get("capabilities_affected", []):
@@ -393,7 +401,9 @@ def check_change_proposals(caps: dict[str, dict], comp_ids: set[str], risk_ids: 
                 err(f"[CP] {pid}: risco citado {rref} não existe no risk-register")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    # Zerado na entrada: validate_all.py chama este main in-process, junto dos demais fiscais.
+    errors.clear()
     validate_all_schemas_are_valid()
 
     loaded: dict[str, dict] = {}
@@ -419,6 +429,9 @@ def main() -> int:
     metrics = metric_ids(loaded.get("business/vision.yaml"))
     check_backlog(loaded.get("business/requirements/backlog.yaml"), caps, risk_ids, metrics, rule_caps)
     check_adr_index(loaded.get("architecture/adr/index.yaml"), caps, comp_ids, risk_ids)
+    check_adr_assertion_refs(loaded.get("architecture/adr/index.yaml"), risk_ids)
+    check_data_inventory(loaded.get("governance/data-inventory.yaml"), comp_ids)
+    check_privacy_review(loaded.get("governance/privacy-review.yaml"), risk_ids)
     check_change_proposals(caps, comp_ids, risk_ids)
 
     if errors:
@@ -431,4 +444,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
