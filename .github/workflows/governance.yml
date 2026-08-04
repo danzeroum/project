@@ -166,6 +166,20 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) validate_all sem dependências não pode sair 0
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-semdeps"; rm -rf "$mut"; cp -a . "$mut"
+          mkdir -p "$mut/stub"
+          printf "raise ImportError('ausente por teste')\n" > "$mut/stub/yaml.py"
+          printf "raise ImportError('ausente por teste')\n" > "$mut/stub/jsonschema.py"
+          code=0
+          PYTHONPATH="$mut/stub" HARNESS_REPO_ROOT="$mut" python "$mut/ci/validate_all.py" || code=$?
+          if [ "$code" != "2" ]; then
+            echo "::error::validate_all saiu $code sem dependências; esperado 2. Um validador que passa por não ter conseguido rodar desliga todos os fiscais de uma vez."
+            exit 1
+          fi
+
       # if: always() é essencial. O laudo é gitignored, e com gate fail-closed ele só interessa
       # quando há achado — que é exatamente quando o job está vermelho.
       - name: Arquivar laudos

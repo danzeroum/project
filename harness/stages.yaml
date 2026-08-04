@@ -119,7 +119,11 @@ stages:
   - id: STAGE-CODE
     order: 8
     name: "Código de negócio"
-    artifacts: ["src"]
+    # No molde, "src". No derivado, o código do alvo materializado em workspace/target/ — que
+    # harness_lib exclui da varredura dos fiscais pelo mesmo motivo da evidência: é material
+    # efêmero de terceiro, e exigir que cada arquivo do alvo pertença a uma etapa DESTE
+    # repositório faria a partição do derivado depender do tamanho do projeto que ele governa.
+    artifacts: ["src", "workspace"]
     enforced_by:
       - kind: workflow_step
         ref: .github/workflows/qa.yml

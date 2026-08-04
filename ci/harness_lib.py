@@ -36,7 +36,11 @@ EXCLUDED_DIRS = {
     ".git", "__pycache__", ".venv", "venv", "env", "node_modules",
     ".pytest_cache", ".ruff_cache", ".mypy_cache", "build", "dist", ".eggs",
 }
-EXCLUDED_PREFIXES = ("harness/runs/", "harness/reports/", "harness/state/")
+# workspace/ é o código do ALVO materializado por ci/bootstrap.py — material efêmero de terceiro,
+# pela mesma razão que a evidência da harness já está aqui. Sem esta linha, check_repo_partition
+# exigiria que cada arquivo do alvo pertencesse a uma etapa DESTE repositório, e a partição do
+# derivado passaria a depender do tamanho do projeto que ele governa.
+EXCLUDED_PREFIXES = ("harness/runs/", "harness/reports/", "harness/state/", "workspace/")
 
 
 class HarnessError(Exception):

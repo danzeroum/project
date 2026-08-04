@@ -146,6 +146,8 @@ risks:
       - kind: local_path
         ref: ci/validate_metadata.py
       - kind: local_path
+        ref: ci/bootstrap.py
+      - kind: local_path
         ref: harness/policies/adocao.md
       - kind: local_path
         ref: architecture/adr/ADR-008-derivado-declara-o-alvo.md
