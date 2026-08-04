@@ -1,0 +1,45 @@
+name: conformidade-continua
+
+# Semanal e sob demanda. É BEST-EFFORT, de propósito: um agendamento que falha em silêncio não
+# pode ser a única linha de defesa, e não é — o gate continua sendo governance.yml a cada push.
+# Este workflow existe para pegar o que só o tempo revela: drift do alvo e julgamento envelhecido.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  conformidade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar ferramentas de validação
+        run: pip install "jsonschema>=4" "pyyaml>=6"
+
+      - name: Validação total do projeto
+        run: python ci/validate_all.py
+
+      - name: Frescor da validação semântica
+        run: python ci/audit_conformance.py
+
+      - name: Drift do alvo (silencioso no molde, que não governa alvo algum)
+        run: python ci/bootstrap.py --check-drift --skip-deps
+
+      - name: Arquivar laudos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-reports
+          path: harness/reports/
+          if-no-files-found: ignore
+          # Mesma retenção declarada de governance.yml: sem este campo a retenção real viria de
+          # uma setting do GitHub, editável fora do repositório e invisível a qualquer fiscal.
+          retention-days: 90

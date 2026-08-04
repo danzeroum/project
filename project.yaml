@@ -9,6 +9,10 @@ generated_from: null
 project:
   id: "danzeroum-project"
   name: "Project"
+  # mold = a casca genérica; derived = o gêmeo de governança de um alvo. O schema exige o bloco
+  # target quando derived e o PROÍBE quando mold: um molde ancorado num alvo específico deixou de
+  # ser genérico, e a genericidade é justamente o produto deste repositório.
+  kind: "mold"
   type: "business-software-template"
   lifecycle: "template"
   status: "active"

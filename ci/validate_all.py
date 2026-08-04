@@ -22,17 +22,47 @@ from __future__ import annotations
 import argparse
 import sys
 
-import audit_governance
-import audit_lgpd
-import generate_graph
-import validate_metadata
 
-STEPS = [
-    ("metadados", validate_metadata.main, []),
-    ("grafo", generate_graph.main, ["--check"]),
-    ("conformidade", audit_governance.main, []),
-    ("lgpd", audit_lgpd.main, []),
-]
+def _steps() -> list[tuple[str, object, list[str]]]:
+    """Importa os fiscais tarde, de propósito.
+
+    Um clone fresco não tem pyyaml nem jsonschema (extra [dev] do pyproject.toml). Com os imports
+    no topo, este módulo morria de ModuleNotFoundError antes de conseguir dizer o que fazer — e
+    quem mais precisa da mensagem é exatamente quem acabou de clonar.
+    """
+    import alignment_report
+    import audit_conformance
+    import audit_governance
+    import audit_lgpd
+    import generate_graph
+    import validate_metadata
+
+    return [
+        ("metadados", validate_metadata.main, []),
+        ("grafo", generate_graph.main, ["--check"]),
+        ("conformidade", audit_governance.main, []),
+        ("alinhamento", alignment_report.main, ["--check"]),
+        ("conformidade-continua", audit_conformance.main, []),
+        ("lgpd", audit_lgpd.main, []),
+    ]
+
+
+def _sem_dependencias(summary: bool) -> int:
+    """Assimetria deliberada, e é o ponto delicado deste arquivo.
+
+    Com --summary (SessionStart, que nunca bloqueia), a falta de dependência é estado a reportar:
+    exit 0. Em qualquer outro modo é exit 2 — "o fiscal não conseguiu fiscalizar", o mesmo código
+    de um YAML ilegível. O que NUNCA acontece é exit 0 fora do --summary: um validador que passa
+    por não ter conseguido rodar é a trava que o vigiado desliga sem precisar tocar em nada.
+    """
+    msg = ("• Dependências dos fiscais ausentes (pyyaml/jsonschema).\n"
+           "  Próximo passo:  python ci/bootstrap.py   (ou: pip install -e \".[dev]\")")
+    if summary:
+        print(msg)
+        return 0
+    print(msg, file=sys.stderr)
+    print("✗ validação total: o fiscal não conseguiu fiscalizar.", file=sys.stderr)
+    return 2
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -44,12 +74,18 @@ def main(argv: list[str] | None = None) -> int:
                         help="mapeia qualquer falha para exit 2 (bloqueante no Claude Code)")
     args = parser.parse_args(argv)
 
+    try:
+        steps = _steps()
+    except ImportError:
+        return _sem_dependencias(args.summary)
+
     codes: dict[str, int] = {}
-    for name, fn, extra in STEPS:
+    for name, fn, extra in steps:
         step_argv = list(extra)
         if args.quiet or args.summary:
-            # generate_graph não conhece --quiet; os demais sim.
-            if fn is not generate_graph.main:
+            # generate_graph não conhece --quiet; os demais sim. Comparado por NOME da etapa
+            # porque o módulo agora é importado tarde e não existe neste escopo.
+            if name != "grafo":
                 step_argv.append("--quiet")
         try:
             codes[name] = fn(step_argv)

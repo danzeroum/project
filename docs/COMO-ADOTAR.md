@@ -1,5 +1,15 @@
 # Playbook do agente — adotar um repositório sob a harness padrão
 
+> **O caminho executável agora é `/adotar` → `/bootstrap`.** Este documento explica o *porquê* de
+> cada passo e o que o agente decide; o *como* mora em `.claude/commands/adotar.md`,
+> `.claude/commands/bootstrap.md` e `ci/bootstrap.py`. Por ADR-002, a página não reimplementa o
+> procedimento — uma regra escrita aqui e executada ali vira duas fontes que derivam em silêncio.
+>
+> Mudou também **onde** os metadados moram. Não é mais no repositório recebido: o `/adotar` cria um
+> **derivado** (`project-<alvo>`) que **declara** o alvo em `project.yaml:target`, ancora o commit
+> exato em `target.lock` e materializa o código em `workspace/target/` (efêmero). O alvo é lido,
+> nunca escrito. Ver ADR-008 e `harness/policies/adocao.md`.
+
 Guia **genérico** para um agente de desenvolvimento que recebe um repositório do GitHub e precisa
 colocá-lo sob esta harness. O agente **começa copiando a casca deste molde** (`danzeroum/project`),
 **declara a régua** (`danzeroum/qa-suite`) na versão mais atual, e adapta ao domínio de negócio.
@@ -135,10 +145,15 @@ alvos:
     verificacao: { tipo: "dns_txt", valor: "webqa-ownership=<hash>" }
 ```
 
-## 7. (Opcional) Popular a camada de metadados a partir do código real
+## 7. Popular a camada de metadados a partir do código real
 
-Se o `REPO_ALVO` for evoluir por agentes, vale mapear o negócio. O agente declara, cruzando com o
-repositório real (o fiscal recusa se não bater):
+**Deixou de ser opcional.** Depois do ADR-009, todo arquivo sob `target.code_roots` pertence a
+`source_paths` de exatamente um `CMP-*` ou a uma isenção justificada — e
+`python ci/inventory_code.py` mostra, em qualquer linguagem, o que ainda não tem dono. Um derivado
+recém-criado nasce **vermelho** por construção: ele carrega os metadados de exemplo do molde, que
+não descrevem o alvo, e o código do alvo ainda não foi reivindicado. Ficar verde é o trabalho.
+
+O agente declara, cruzando com o repositório real (o fiscal recusa se não bater):
 
 - `business/capabilities.yaml` — capacidades (`CAP-*`) apontando para os módulos e testes que existem.
 - `architecture/components.yaml` — componentes (`CMP-*`) → código, `implements` os requisitos.

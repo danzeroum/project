@@ -16,6 +16,28 @@ E o corolário que justifica tudo:
 Por isso o código de verificação **não mora aqui**. Ele é declarado como dependência versionada
 (`requirements-qa.txt`) e consumido pela harness — nunca copiado para dentro deste repositório.
 
+> **Acabou de clonar? Comece por [`BOOTSTRAP.md`](BOOTSTRAP.md).**
+
+## Molde e derivado
+
+Este repositório tem dois papéis possíveis, declarados em `project.yaml:project.kind`:
+
+| `kind` | Governa | Bloco `target` |
+|---|---|---|
+| `mold` | nada — é a casca genérica, reaproveitável por qualquer alvo | **proibido** pelo schema |
+| `derived` | exatamente um alvo | **exigido** pelo schema |
+
+`danzeroum/project` é o molde. Colar o link de um repositório de negócio numa sessão e rodar
+`/adotar` deriva dele um **gêmeo de governança** — um repositório novo que declara o alvo em
+`project.yaml:target`, ancora o commit exato em `target.lock` e materializa o código em
+`workspace/target/` (efêmero, fora do versionamento).
+
+O derivado **declara o alvo, nunca o copia** (ADR-008). É a mesma decisão do ADR-001 aplicada a
+outro objeto: uma cópia deriva do original em silêncio, e o metadado passa a descrever com toda a
+confiança um sistema que não existe mais. E **nenhum alvo é especial** — um nome, stack ou caminho
+de alvo em `ci/` ou `harness/` reprova o CI, porque um molde com caminho especial funciona para
+aquele alvo e falha calado nos outros.
+
 ## As três fronteiras de confiança
 
 Três camadas, três donos da verdade diferentes. Confundi-las é o erro de governança desta

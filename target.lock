@@ -1,0 +1,16 @@
+# Fonte ÚNICA do SHA do alvo. Nenhum outro arquivo restata este valor — nem project.yaml, nem
+# um metadado, nem um laudo. É a mesma regra de requirements-qa.txt aplicada ao alvo: duas cópias
+# de um número derivam, e a comparação entre "o que o metadado descreve" e "o que o alvo é hoje"
+# passa a mentir sem erro nem aviso.
+#
+# Neste repositório o valor é null porque ele é o MOLDE: não governa alvo algum, e é isso que o
+# torna reaproveitável para qualquer um. O /adotar escreve kind:derived e o SHA no derivado.
+#
+# Schema: harness/schemas/target-lock.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+kind: mold
+target_sha: null

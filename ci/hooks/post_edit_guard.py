@@ -23,6 +23,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 
 GENERATED = {
     "docs/metadata-graph.md": "python ci/generate_graph.py",
+    "docs/alignment.md": "python ci/alignment_report.py",
 }
 
 # A change-proposal é o REMÉDIO prescrito para tocar um caminho protegido (ADR-004). Bloqueá-la

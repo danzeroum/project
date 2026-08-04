@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/bootstrap-report.schema.json",
+  "title": "harness/state/bootstrap.json — laudo do cold start",
+  "description": "Evidência de execução, não fonte de verdade: vive em harness/state/ (gitignored) e é reescrito a cada bootstrap. Tem schema pela mesma razão que audit-report.schema.json tem — um laudo que ninguém valida é markdown que não morde, e ci/bootstrap.py valida o próprio laudo ANTES de gravá-lo. O campo resultado distingue as três saídas que o repositório inteiro usa: ok, divergencias (exit 1) e fiscal-nao-fiscalizou (exit 2); um bootstrap que não conseguiu levantar o ambiente nunca se declara ok.",
+  "type": "object",
+  "required": ["schema_version", "etapas"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "kind": { "enum": ["mold", "derived"] },
+    "resultado": { "enum": ["ok", "divergencias", "fiscal-nao-fiscalizou", "erro"] },
+    "erro": { "type": "string", "minLength": 1 },
+    "proximo_passo": { "type": "string", "minLength": 1 },
+    "etapas": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ambiente": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "python": { "type": "string" },
+            "git": { "type": "string" }
+          }
+        },
+        "dependencias": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "instalado_agora": { "type": "boolean" } }
+        },
+        "drift": {
+          "type": "object",
+          "description": "Distância entre target.lock e o remoto. Reportada, nunca corrigida aqui: avançar o lock é decisão declarada, e movê-lo sem revisar o metadado troca um drift visível por um metadado errado.",
+          "required": ["estado"],
+          "additionalProperties": false,
+          "properties": {
+            "estado": { "enum": ["em-dia", "atrasado", "indisponivel"] },
+            "sha": { "type": "string" },
+            "lock": { "type": "string" },
+            "remoto": { "type": "string" },
+            "ref": { "type": "string" },
+            "motivo": { "type": "string" }
+          }
+        },
+        "workspace": {
+          "type": "object",
+          "required": ["acao"],
+          "additionalProperties": false,
+          "properties": {
+            "acao": { "enum": ["materializado", "avancado", "ja-no-sha", "nao-aplicavel"] },
+            "sha": { "type": "string" },
+            "de": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

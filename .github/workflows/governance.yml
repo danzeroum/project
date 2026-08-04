@@ -130,6 +130,249 @@ jobs:
             exit 1
           fi
 
+      - name: (negativo) SHA do alvo fora de target.lock deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-sha"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\n# ingerido em 0123456789abcdef0123456789abcdef01234567\n' >> "$mut/project.yaml"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::ADR-008-A4 não detectou a segunda cópia do SHA do alvo — a fonte única do alvo parou de morder."
+            exit 1
+          fi
+
+      - name: (negativo) alvo cravado no fiscal deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-generico"; rm -rf "$mut"; cp -a . "$mut"
+          printf '\n# caso especial: https://github.com/exemplo-owner/exemplo-repo\n' >> "$mut/ci/validate_metadata.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::ADR-008-A5 não detectou alvo cravado em ci/ — o molde deixou de ser genérico sem que nada reprovasse."
+            exit 1
+          fi
+
+      - name: (negativo) derivado sem bloco target deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-derivado"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "project.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["project"]["kind"] = "derived"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::o schema deixou passar um derivado que não declara o que governa — 'derivado quase pronto' virou estado permanente."
+            exit 1
+          fi
+
+      - name: (negativo) codigo orfao deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-orfao"; rm -rf "$mut"; cp -a . "$mut"
+          printf 'VALOR = 1\n' > "$mut/src/project/novo_modulo.py"
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::código órfão não foi detectado — implementação nova voltou a entrar sem que metadado algum a reivindique."
+            exit 1
+          fi
+
+      - name: (negativo) isenção de código que não casa nada deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-isencao"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "architecture/components.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc.setdefault("exemptions", []).append({
+              "path": "src/nao/existe.py",
+              "justification": "isenção deliberadamente morta, injetada pelo passo negativo do CI para provar a mordida",
+          })
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::isenção morta não foi detectada — a cobertura voltou a poder ser fingida com uma linha."
+            exit 1
+          fi
+
+      - name: (negativo) raiz de código inexistente não pode sair 0
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-raiz"; rm -rf "$mut"; cp -a . "$mut"
+          rm -rf "$mut/src"
+          code=0
+          HARNESS_REPO_ROOT="$mut" python ci/inventory_code.py --check --quiet || code=$?
+          if [ "$code" != "2" ]; then
+            echo "::error::inventário saiu $code com a raiz ausente; esperado 2. Fiscal que percorre conjunto vazio reporta verde, e verde por vacuidade é indistinguível de cobertura."
+            exit 1
+          fi
+
+      - name: (negativo) proveniência com SHA atrasado deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-proveniencia"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          raiz = pathlib.Path(sys.argv[1])
+          p = raiz / "project.yaml"; doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["project"]["kind"] = "derived"
+          doc["target"] = {"repo": "sintetico/alvo", "ref": "principal", "lock_source": "target.lock",
+                           "code_roots": ["src"], "test_roots": ["tests/unit"], "languages": ["python"]}
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          lp = raiz / "target.lock"; lk = yaml.safe_load(lp.read_text(encoding="utf-8"))
+          lk.update(kind="derived", target_sha="1" * 40)
+          lp.write_text(yaml.safe_dump(lk, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          cp = raiz / "architecture/components.yaml"; cd = yaml.safe_load(cp.read_text(encoding="utf-8"))
+          cd["components"][0]["derived_from"] = {"repo": "sintetico/alvo", "sha": "2" * 40,
+                                                 "path": "app/servico.py"}
+          cp.write_text(yaml.safe_dump(cd, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::proveniência com SHA divergente do lock não foi detectada — o metadado voltou a poder descrever um alvo que já mudou."
+            exit 1
+          fi
+
+      - name: (negativo) pending_judgment em documento promovido deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-julgamento"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "business/capabilities.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["capabilities"][0]["risk_level"] = "pending_judgment"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::pending_judgment sobreviveu num documento source_of_truth:true — o sentinela virou o 'to-be-assessed' que o ADR-002 proíbe."
+            exit 1
+          fi
+
+      - name: (negativo) fase de ingestão escrevendo no alvo deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-escrita-alvo"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "harness/pipeline/ingest.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["phases"][0]["outputs"].append("workspace/target/METADATA.md")
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_governance.py --quiet; then
+            echo "::error::fase declarando escrita no alvo não foi detectada — a ingestão voltou a poder escrever no repositório que ela audita."
+            exit 1
+          fi
+
+      - name: (negativo) capacidade de alto risco sem risco associado deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-r1"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "business/capabilities.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["capabilities"][0]["risk_level"] = "critical"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/alignment_report.py --check --quiet; then
+            echo "::error::R1 não detectou capacidade critical sem RISK-* associado — a cobertura de risco voltou a ser afirmada e nunca verificada."
+            exit 1
+          fi
+
+      - name: (negativo) risco aberto sem prazo deve ser detectado
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-r2"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "governance/risk-register.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["risks"][0]["status"] = "open"      # sem 'due'
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::risco 'open' sem due passou no schema — risco aberto sem prazo é aceite silencioso que dura para sempre."
+            exit 1
+          fi
+
+      - name: (negativo) superfície de UI órfã deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-r3"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "design/ui-surfaces.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["ui_surfaces"][0].pop("satisfies", None)
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/alignment_report.py --check --quiet; then
+            echo "::error::R3 não detectou superfície órfã — uma tela que não serve requisito algum voltou a passar em silêncio."
+            exit 1
+          fi
+
+      - name: (negativo) avançar o lock deve vencer a validação semântica
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-lock"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          raiz = pathlib.Path(sys.argv[1])
+          p = raiz / "project.yaml"; doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["project"]["kind"] = "derived"
+          doc["target"] = {"repo": "sintetico/alvo", "ref": "principal", "lock_source": "target.lock",
+                           "code_roots": ["src"], "test_roots": ["tests/unit"], "languages": ["python"]}
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          lp = raiz / "target.lock"; lk = yaml.safe_load(lp.read_text(encoding="utf-8"))
+          lk.update(kind="derived", target_sha="a" * 40)
+          lp.write_text(yaml.safe_dump(lk, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/audit_conformance.py --quiet; then
+            echo "::error::o lock avançou e a validação semântica continuou fresca — o derivado voltou a poder envelhecer em silêncio sobre um alvo reescrito."
+            exit 1
+          fi
+
+      - name: (negativo) dependência fora do inventário deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-sbom"; rm -rf "$mut"; cp -a . "$mut"
+          sed -i 's/    "pyyaml>=6",/    "pyyaml>=6",\n    "requests>=2",/' "$mut/pyproject.toml"
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::dependência declarada e não inventariada não foi detectada — biblioteca nova voltou a entrar sem que ninguém registrasse dono e razão."
+            exit 1
+          fi
+
+      - name: (negativo) ameaça sem residual rastreável deve ser detectada
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-threat"; rm -rf "$mut"; cp -a . "$mut"
+          python - "$mut" <<'PY'
+          import sys, yaml, pathlib
+          p = pathlib.Path(sys.argv[1]) / "security/threat-model.yaml"
+          doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+          doc["threats"][0]["residual_risk"] = "RISK-QUE-NAO-EXISTE"
+          p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          PY
+          if HARNESS_REPO_ROOT="$mut" python ci/validate_metadata.py; then
+            echo "::error::ameaça com residual inexistente não foi detectada — o modelo de ameaças voltou a ser lista de preocupações que não obriga a nada."
+            exit 1
+          fi
+
+      - name: (negativo) validate_all sem dependências não pode sair 0
+        run: |
+          set -euo pipefail
+          mut="$RUNNER_TEMP/mut-semdeps"; rm -rf "$mut"; cp -a . "$mut"
+          mkdir -p "$mut/stub"
+          printf "raise ImportError('ausente por teste')\n" > "$mut/stub/yaml.py"
+          printf "raise ImportError('ausente por teste')\n" > "$mut/stub/jsonschema.py"
+          code=0
+          PYTHONPATH="$mut/stub" HARNESS_REPO_ROOT="$mut" python "$mut/ci/validate_all.py" || code=$?
+          if [ "$code" != "2" ]; then
+            echo "::error::validate_all saiu $code sem dependências; esperado 2. Um validador que passa por não ter conseguido rodar desliga todos os fiscais de uma vez."
+            exit 1
+          fi
+
       # if: always() é essencial. O laudo é gitignored, e com gate fail-closed ele só interessa
       # quando há achado — que é exatamente quando o job está vermelho.
       - name: Arquivar laudos

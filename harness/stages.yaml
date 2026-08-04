@@ -119,7 +119,11 @@ stages:
   - id: STAGE-CODE
     order: 8
     name: "Código de negócio"
-    artifacts: ["src"]
+    # No molde, "src". No derivado, o código do alvo materializado em workspace/target/ — que
+    # harness_lib exclui da varredura dos fiscais pelo mesmo motivo da evidência: é material
+    # efêmero de terceiro, e exigir que cada arquivo do alvo pertença a uma etapa DESTE
+    # repositório faria a partição do derivado depender do tamanho do projeto que ele governa.
+    artifacts: ["src", "workspace"]
     enforced_by:
       - kind: workflow_step
         ref: .github/workflows/qa.yml
@@ -167,6 +171,8 @@ stages:
     name: "Governança: identidade, riscos, propostas e privacidade"
     artifacts:
       - "project.yaml"
+      - "target.lock"
+      - "harness/pipeline"
       - "governance"
       - "harness/harness.yaml"
       - "harness/stages.yaml"
@@ -187,12 +193,44 @@ stages:
       - kind: ci_script
         ref: ci/audit_lgpd.py
         symbol: check_judgment_currency
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_target_lock
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_derived_from
+      - kind: ci_script
+        ref: ci/audit_governance.py
+        symbol: check_ingest_pipeline
+      - kind: ci_script
+        ref: ci/alignment_report.py
+        symbol: r1_capacidade_de_alto_risco_sem_risco
+      - kind: ci_script
+        ref: ci/audit_conformance.py
+        symbol: check_review_currency
     privacy_lens:
       scan: true
       question: "O papel do sistema (controlador/operador) declarado bate com o que ele de fato trata?"
 
-  - id: STAGE-CI-HARNESS
+  - id: STAGE-SECURITY
     order: 12
+    name: "Segurança: ameaças e dependências"
+    artifacts: ["security"]
+    enforced_by:
+      - kind: schema
+        ref: harness/schemas/threat-model.schema.json
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_threat_model
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_dependency_inventory
+    privacy_lens:
+      scan: true
+      question: "Alguma ameaça expõe dado pessoal? A mitigação declarada cobre o vazamento, ou só o acesso?"
+
+  - id: STAGE-CI-HARNESS
+    order: 13
     name: "Fiscais, schemas e entrega"
     artifacts:
       - "ci"
@@ -216,9 +254,9 @@ stages:
       question: "Segredo ou dado pessoal em log de CI, artifact ou variável de ambiente?"
 
   - id: STAGE-DOCS
-    order: 13
+    order: 14
     name: "Documentação"
-    artifacts: ["docs", "README.md", "WEBQA_CONSUMER_CONTRACT.md"]
+    artifacts: ["docs", "README.md", "BOOTSTRAP.md", "WEBQA_CONSUMER_CONTRACT.md"]
     enforced_by:
       - kind: ci_script
         ref: ci/generate_graph.py

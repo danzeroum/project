@@ -63,6 +63,38 @@ def run_auditor(monkeypatch):
     importlib.reload(harness_lib)
 
 
+@pytest.fixture
+def run_metadata(monkeypatch):
+    """Roda o fiscal de metadados contra uma cópia e devolve (exit_code, erros).
+
+    Fixture própria porque validate_metadata não emite laudo: ele acumula strings em err() e as
+    imprime. Reaproveitar run_auditor exigiria inventar um laudo que não existe — e um laudo
+    inventado para o teste passar é exatamente o que este repositório recusa em toda parte.
+    """
+
+    def _run(root: Path, argv: list[str] | None = None) -> tuple[int, list[str]]:
+        monkeypatch.setenv("HARNESS_REPO_ROOT", str(root))
+        # Recarrega o GRAFO INTEIRO de módulos do fiscal, não só a folha. Recarregar pela metade
+        # produz duas classes HarnessError vivas ao mesmo tempo — a que inventory_code levanta e a
+        # que validate_metadata tenta capturar — e o except deixa de casar. Um processo de CI
+        # importa tudo uma vez só; a fixture precisa imitar isso, não improvisar um meio-termo.
+        import harness_lib
+        importlib.reload(harness_lib)
+        import adapters
+        importlib.reload(adapters)
+        import inventory_code
+        importlib.reload(inventory_code)
+        import validate_metadata
+        importlib.reload(validate_metadata)
+        code = validate_metadata.main(list(argv or []))
+        return code, list(validate_metadata.errors)
+
+    yield _run
+    os.environ.pop("HARNESS_REPO_ROOT", None)
+    import harness_lib
+    importlib.reload(harness_lib)
+
+
 def ids_of(findings: list[dict]) -> set[str]:
     return {f["id"] for f in findings}
 

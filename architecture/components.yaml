@@ -37,3 +37,13 @@ components:
     tested_by:
       - tests/unit/test_ports.py
     owner: engineering
+
+# Arquivos sob as raízes de código que deliberadamente não pertencem a componente algum.
+# Isenção que não casa arquivo nenhum vira achado — a mesma propriedade de stages.yaml:ungoverned,
+# e é o que impede a lista de virar um lugar onde pendências dormem.
+exemptions:
+  - path: src/project/__init__.py
+    justification: >
+      Marcador de pacote: sete linhas sem lógica de negócio, cuja única função é tornar
+      'project' importável. Atribuí-lo a CMP-PRICING ou a CMP-CATALOG seria escolher um dono
+      arbitrário e afirmar uma relação que não existe — pior que declarar a ausência dela.

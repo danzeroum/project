@@ -331,3 +331,297 @@ adrs:
           sinalizado pela heurística é ainda assim dado pessoal. Fica com a skill /revisao-lgpd,
           e o resultado é registrado em governance/privacy-review.yaml, cujo frescor o fiscal
           determinístico cobra a cada push.
+
+  - id: ADR-008
+    title: "O derivado declara o alvo, nunca o copia; e nenhum alvo é especial"
+    status: accepted
+    file: architecture/adr/ADR-008-derivado-declara-o-alvo.md
+    related_risks: [RISK-DERIV-001, RISK-DERIV-002]
+    assertions:
+      - id: ADR-008-A1
+        kind: path_present
+        severity: high
+        risk: RISK-DERIV-001
+        description: "O caminho de entrada e a âncora do alvo existem: sem eles, 'colar um link' volta a ser prosa."
+        paths:
+          - BOOTSTRAP.md
+          - target.lock
+          - .claude/commands/adotar.md
+          - harness/schemas/target-lock.schema.json
+          - ci/adoption_status.py
+      - id: ADR-008-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-DERIV-001
+        description: "Derivado sem bloco target continua sendo recusado pelo schema, não pelo bom senso."
+        file: harness/schemas/project.schema.json
+        pointer: /allOf/0/then/required
+        contains: target
+      - id: ADR-008-A3
+        kind: schema_lock
+        severity: critical
+        risk: RISK-DERIV-001
+        description: "A âncora do SHA segue apontando para target.lock — fonte única, como a versão da régua."
+        file: harness/schemas/project.schema.json
+        pointer: /properties/target/properties/lock_source/const
+        expected: target.lock
+      - id: ADR-008-A4
+        kind: file_lacks
+        severity: high
+        risk: RISK-DERIV-001
+        description: "SHA de commit do alvo fora de target.lock: segunda cópia de uma versão deriva e a comparação passa a mentir."
+        files: ["project.yaml"]
+        pattern: "\\b[0-9a-f]{40}\\b"
+      - id: ADR-008-A5
+        kind: file_lacks
+        severity: high
+        risk: RISK-DERIV-002
+        description: "Alvo cravado no molde: URL de repositório em ci/ ou harness/ faz o molde servir a um alvo e falhar calado nos outros."
+        files: ["ci/**/*.py", "harness/**/*.yaml", "harness/**/*.json", "harness/**/*.md"]
+        pattern: "github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
+
+  - id: ADR-009
+    title: "Código sem metadado não existe, e ignorância de linguagem é declarada"
+    status: accepted
+    file: architecture/adr/ADR-009-codigo-sem-metadado-nao-existe.md
+    related_components: [CMP-PRICING, CMP-CATALOG]
+    related_risks: [RISK-INGEST-001, RISK-DERIV-002]
+    assertions:
+      - id: ADR-009-A1
+        kind: path_present
+        severity: high
+        risk: RISK-INGEST-001
+        description: "O inventário e o registro de adapters existem: sem eles a invariante do código órfão é prosa."
+        paths:
+          - ci/inventory_code.py
+          - ci/adapters/__init__.py
+          - ci/adapters/generico.py
+          - harness/policies/code-metadata.md
+      - id: ADR-009-A2
+        kind: schema_lock
+        severity: high
+        risk: RISK-INGEST-001
+        description: "Isenção de código segue exigindo justificativa — isenção muda é onde pendência dorme."
+        file: harness/schemas/components.schema.json
+        pointer: /properties/exemptions/items/required
+        contains: justification
+      - id: ADR-009-A3
+        kind: file_matches
+        severity: high
+        risk: RISK-DERIV-002
+        description: "O adapter genérico casa qualquer extensão: linguagem sem leitor semântico não pode sair verde por vacuidade."
+        files: ["ci/adapters/generico.py"]
+        pattern: 'extensions=\("\*",\)'
+      - id: ADR-009-A4
+        kind: file_lacks
+        severity: high
+        risk: RISK-DERIV-002
+        description: "O prefixo src/ não volta a ser literal no fiscal: convenção cravada torna o molde específico de um alvo."
+        files: ["ci/validate_metadata.py"]
+        pattern: 'startswith\("src/"\)'
+      - id: ADR-009-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-INGEST-001
+        description: "A invariante do código órfão roda no CI a cada push, junto dos demais fiscais."
+        files: [".github/workflows/governance.yml"]
+        pattern: "codigo orfao|código órfão"
+
+  - id: ADR-010
+    title: "A ingestão declara de onde tirou cada coisa, e não julga o que tirou"
+    status: accepted
+    file: architecture/adr/ADR-010-ingestao-com-proveniencia.md
+    related_risks: [RISK-INGEST-001, RISK-INGEST-002]
+    assertions:
+      - id: ADR-010-A1
+        kind: path_present
+        severity: high
+        risk: RISK-INGEST-002
+        description: "O pipeline, seu schema e o contrato do cartographer existem — sem eles a ingestão volta a ser improviso."
+        paths:
+          - harness/pipeline/ingest.yaml
+          - harness/schemas/ingest-pipeline.schema.json
+          - harness/agents/cartographer/AGENT.md
+          - harness/policies/ingestao.md
+      - id: ADR-010-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-INGEST-002
+        description: "Proveniência segue exigindo o SHA: sem ele o metadado descreve um alvo que já mudou."
+        file: harness/schemas/capabilities.schema.json
+        pointer: /properties/capabilities/items/properties/derived_from/required
+        contains: sha
+      - id: ADR-010-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-INGEST-002
+        description: "Toda fase da ingestão segue obrigada a declarar fiscal e gate."
+        file: harness/schemas/ingest-pipeline.schema.json
+        pointer: /properties/phases/items/required
+        contains: fiscal
+      - id: ADR-010-A4
+        kind: file_matches
+        severity: high
+        risk: RISK-INGEST-002
+        description: "O cartographer continua proibido de preencher julgamento — é o que separa cartografar de decidir."
+        files: ["harness/agents/cartographer/AGENT.md"]
+        pattern: "pending_judgment"
+      - id: ADR-010-A5
+        kind: manual
+        severity: medium
+        risk: RISK-INGEST-001
+        description: "Adequação da fronteira de componente proposta ao domínio real do alvo."
+        justification: >
+          Agrupar arquivos em componentes é julgamento de domínio, não dedução: nenhum fiscal
+          decide se packages/auth e packages/session são um componente ou dois. O fiscal cobra
+          pertencimento, proveniência e ausência de julgamento automático; a adequação da fronteira
+          fica com a revisão humana da change-proposal, onde o erro é visível no diff com a
+          proveniência ao lado.
+
+  - id: ADR-011
+    title: "Cobertura de risco é medida na direção difícil, e risk_level continua sendo a única escala"
+    status: accepted
+    file: architecture/adr/ADR-011-alinhamento-medido.md
+    related_capabilities: [CAP-PRICING, CAP-CATALOG]
+    related_risks: [RISK-ALIGN-001]
+    assertions:
+      - id: ADR-011-A1
+        kind: path_present
+        severity: high
+        risk: RISK-ALIGN-001
+        description: "O fiscal do alinhamento e sua matriz derivada existem — sem eles a cobertura volta a ser afirmada."
+        paths:
+          - ci/alignment_report.py
+          - docs/alignment.md
+          - harness/policies/alinhamento.md
+      - id: ADR-011-A2
+        kind: schema_lock
+        severity: high
+        risk: RISK-ALIGN-001
+        description: "Risco aberto segue exigindo prazo: 'open' sem due é aceite silencioso que dura para sempre."
+        file: harness/schemas/risk-register.schema.json
+        pointer: /properties/risks/items/allOf/0/then/required
+        contains: due
+      - id: ADR-011-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-ALIGN-001
+        description: "Isenção de risco segue exigindo justificativa — sem ela a cobertura é fingida com uma linha."
+        file: harness/schemas/risk-register.schema.json
+        pointer: /properties/risk_exemptions/items/required
+        contains: justification
+      - id: ADR-011-A4
+        kind: file_lacks
+        severity: medium
+        risk: RISK-ALIGN-001
+        description: "Nenhuma segunda escala de criticidade de capacidade: duas escalas divergem sem que nada reprove."
+        files: ["harness/schemas/capabilities.schema.json"]
+        pattern: '"criticality"'
+      - id: ADR-011-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-ALIGN-001
+        description: "O alinhamento roda no CI a cada push, junto dos demais fiscais."
+        files: [".github/workflows/governance.yml"]
+        pattern: "alignment_report\\.py"
+
+  - id: ADR-012
+    title: "Verificação e validação são coisas distintas, e o agente que valida nunca corrige"
+    status: accepted
+    file: architecture/adr/ADR-012-conformidade-continua.md
+    related_risks: [RISK-CONF-002, RISK-DERIV-001]
+    assertions:
+      - id: ADR-012-A1
+        kind: path_present
+        severity: high
+        risk: RISK-CONF-002
+        description: "O fiscal de frescor, o registro da validação e o contrato do agente existem."
+        paths:
+          - ci/audit_conformance.py
+          - governance/conformance-review.yaml
+          - harness/agents/conformance/AGENT.md
+          - harness/policies/conformidade-continua.md
+      - id: ADR-012-A2
+        kind: schema_lock
+        severity: high
+        risk: RISK-CONF-002
+        description: "Aceitar um achado segue exigindo razão registrada — aceitar em silêncio é como um achado morre."
+        file: harness/schemas/conformance-review.schema.json
+        pointer: /properties/review/properties/findings/items/allOf/0/then/required
+        contains: rationale
+      - id: ADR-012-A3
+        kind: file_matches
+        severity: critical
+        risk: RISK-DERIV-001
+        description: "O fingerprint de conformidade continua incluindo o SHA do alvo — sem ele a revisão se declara fresca sobre um sistema que mudou."
+        files: ["ci/harness_lib.py"]
+        pattern: '"target\.lock",'
+      - id: ADR-012-A4
+        kind: file_matches
+        severity: high
+        risk: RISK-CONF-002
+        description: "O canal de retorno ao alvo continua nascendo desligado."
+        files: ["harness/harness.yaml"]
+        pattern: "open_issues_on_target: false"
+      - id: ADR-012-A5
+        kind: manual
+        severity: medium
+        risk: RISK-CONF-002
+        description: "Qualidade do julgamento semântico do agente de conformidade."
+        justification: >
+          Se a descrição de um componente ainda condiz com o código, e se um ADR aceito continua
+          verdadeiro em espírito, são leituras — não checagens. Nenhum fiscal determinístico as
+          faz, e fingir que faria seria a versão executável de markdown que não morde. O que a
+          máquina cobra é o frescor e a forma: que a revisão exista, cubra este estado (incluindo
+          o SHA do alvo), encaminhe cada achado e declare o que não avaliou.
+
+  - id: ADR-013
+    title: "Segurança é departamento com artefato e fiscal, não um campo security_owner"
+    status: accepted
+    file: architecture/adr/ADR-013-seguranca-como-departamento.md
+    related_components: [CMP-PRICING, CMP-CATALOG]
+    related_risks: [RISK-SEC-001, RISK-DEP-001]
+    assertions:
+      - id: ADR-013-A1
+        kind: path_present
+        severity: high
+        risk: RISK-SEC-001
+        description: "O departamento existe como artefato, não como intenção."
+        paths:
+          - security/threat-model.yaml
+          - security/dependencies.yaml
+          - harness/policies/seguranca.md
+      - id: ADR-013-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-SEC-001
+        description: "Ameaça segue exigindo mitigação e residual rastreável — sem eles o modelo é lista de preocupações."
+        file: harness/schemas/threat-model.schema.json
+        pointer: /properties/threats/items/required
+        contains: residual_risk
+      - id: ADR-013-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-SEC-001
+        description: "Ameaça sem nenhuma mitigação continua estruturalmente impossível."
+        file: harness/schemas/threat-model.schema.json
+        pointer: /properties/threats/items/properties/mitigations/minItems
+        expected: 1
+      - id: ADR-013-A4
+        kind: schema_lock
+        severity: high
+        risk: RISK-DEP-001
+        description: "Dependência inventariada segue exigindo dono e razão: sem eles o inventário é uma lista de nomes."
+        file: harness/schemas/dependencies.schema.json
+        pointer: /properties/dependencies/items/required
+        contains: owner
+      - id: ADR-013-A5
+        kind: manual
+        severity: medium
+        risk: RISK-SEC-001
+        description: "Completude do modelo de ameaças em relação ao sistema real."
+        justification: >
+          Nenhum fiscal descobre a ameaça que ninguém pensou. O modelo é escrito por gente, e o
+          que a máquina garante é que a ameaça PENSADA não fica sem mitigação, sem residual e sem
+          dono. Um scanner que "gerasse" o modelo produziria julgamento de máquina com aparência
+          de análise humana — a pior combinação possível neste repositório.

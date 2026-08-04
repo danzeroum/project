@@ -6,6 +6,12 @@ harness/state/*
 !harness/reports/.gitkeep
 !harness/state/.gitkeep
 
+# Código do ALVO materializado por ci/bootstrap.py no SHA de target.lock. Não é versionado
+# porque o derivado DECLARA o alvo e nunca o copia (ADR-008): uma cópia versionada derivaria do
+# original em silêncio, e o metadado passaria a descrever um sistema que não existe mais.
+workspace/*
+!workspace/.gitkeep
+
 # Python
 __pycache__/
 *.py[cod]

@@ -128,6 +128,163 @@ risks:
       - kind: local_path
         ref: .github/workflows/governance.yml
 
+  - id: RISK-DERIV-001
+    area: governance
+    description: "Derivado que não declara seu alvo, ou que o declara em dois lugares: o metadado descreve um alvo que já mudou e o drift fica invisível."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: target.lock
+      - kind: local_path
+        ref: harness/schemas/target-lock.schema.json
+      - kind: local_path
+        ref: harness/schemas/project.schema.json
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: ci/bootstrap.py
+      - kind: local_path
+        ref: harness/policies/adocao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-008-derivado-declara-o-alvo.md
+
+  - id: RISK-DERIV-002
+    area: governance
+    description: "Alvo específico cravado no molde: um nome, stack ou caminho em ci/ ou harness/ faz o molde funcionar para um repositório e falhar em silêncio nos outros."
+    likelihood: medium
+    impact: medium
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: architecture/adr/index.yaml
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: harness/policies/adocao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-008-derivado-declara-o-alvo.md
+
+  - id: RISK-INGEST-001
+    area: governance
+    description: "Código sem metadado: implementação entra no repositório e nenhuma capacidade, componente ou decisão a reivindica — a governança afirma uma cobertura que nunca teve."
+    likelihood: high
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/inventory_code.py
+      - kind: local_path
+        ref: ci/adapters/__init__.py
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: architecture/components.yaml
+      - kind: local_path
+        ref: harness/policies/code-metadata.md
+      - kind: local_path
+        ref: architecture/adr/ADR-009-codigo-sem-metadado-nao-existe.md
+
+  - id: RISK-INGEST-002
+    area: governance
+    description: "Metadado escrito por máquina passando por declarado: item sem proveniência conferível, ou julgamento que a ingestão preencheu sozinha, entra como se um humano tivesse decidido."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: harness/pipeline/ingest.yaml
+      - kind: local_path
+        ref: harness/schemas/ingest-pipeline.schema.json
+      - kind: local_path
+        ref: harness/agents/cartographer/AGENT.md
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: harness/policies/ingestao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-010-ingestao-com-proveniencia.md
+
+  - id: RISK-ALIGN-001
+    area: governance
+    description: "Cobertura de risco afirmada e nunca verificada na direção que importa: sabe-se que todo controle aponta para algo real, nunca que todo ativo é vigiado por alguém. Ativo de alto risco, superfície órfã e risco aberto sem prazo passam em silêncio."
+    likelihood: high
+    impact: high
+    treatment: prevent
+    owner: security_owner
+    status: mitigated
+    # Sem 'related': este é risco DA HARNESS, não das capacidades de negócio. Listá-las aqui
+    # faria a cobertura fechar por uma aresta falsa — exatamente o que R1 existe para impedir.
+    controls:
+      - kind: local_path
+        ref: ci/alignment_report.py
+      - kind: local_path
+        ref: docs/alignment.md
+      - kind: local_path
+        ref: harness/schemas/risk-register.schema.json
+      - kind: local_path
+        ref: harness/policies/alinhamento.md
+      - kind: local_path
+        ref: architecture/adr/ADR-011-alinhamento-medido.md
+
+  - id: RISK-CONF-002
+    area: governance
+    description: "Conformidade verificada e nunca validada: os fiscais confirmam que o repositório bate com o declarado, e ninguém pergunta se o declarado ainda é verdade. Descrição, ADR e risco mitigado envelhecem sem que nada reprove."
+    likelihood: high
+    impact: medium
+    treatment: mitigate
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/audit_conformance.py
+      - kind: local_path
+        ref: governance/conformance-review.yaml
+      - kind: local_path
+        ref: harness/agents/conformance/AGENT.md
+      - kind: local_path
+        ref: harness/schemas/conformance-review.schema.json
+      - kind: local_path
+        ref: .github/workflows/conformance.yml
+      - kind: local_path
+        ref: architecture/adr/ADR-012-conformidade-continua.md
+
+  - id: RISK-SEC-001
+    area: access
+    description: "Ameaça catalogada sem tratamento rastreável: o modelo de ameaças vira lista de preocupações que não obriga a nada, e a segurança volta a ser difusa — declarada num owner e em nenhum artefato."
+    likelihood: medium
+    impact: high
+    treatment: mitigate
+    owner: security_owner
+    related:
+      - CMP-PRICING
+      - CMP-CATALOG
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: security/threat-model.yaml
+      - kind: local_path
+        ref: security/dependencies.yaml
+      - kind: local_path
+        ref: harness/schemas/threat-model.schema.json
+      - kind: local_path
+        ref: ci/validate_metadata.py
+      - kind: local_path
+        ref: harness/policies/seguranca.md
+      - kind: local_path
+        ref: architecture/adr/ADR-013-seguranca-como-departamento.md
+
   - id: RISK-META-002
     area: access
     description: "Fiscal editável pelo fiscalizado: alterar ci/ ou os léxicos desliga a trava em silêncio."
@@ -185,3 +342,7 @@ risks:
         ref: harness/prompts/lgpd-task.md
       - kind: local_path
         ref: ci/audit_lgpd.py
+
+# Ativos que deliberadamente não precisam de risco associado. Isenção que não casa ativo algum é
+# ela própria um achado — sem isso a lista viraria o lugar onde a cobertura é fingida com uma linha.
+risk_exemptions: []

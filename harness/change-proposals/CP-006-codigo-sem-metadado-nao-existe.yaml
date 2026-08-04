@@ -1,0 +1,54 @@
+# Mudança proposta: a invariante do código órfão — implementação sem metadado reprova.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-006
+  title: "Fase C — inventário de código multi-linguagem e a invariante do código órfão"
+  author_kind: agent
+  created_at: "2026-08-04T21:00:00Z"
+  capabilities_affected:
+    - CAP-PRICING
+    - CAP-CATALOG
+  components_affected:
+    - CMP-PRICING
+    - CMP-CATALOG
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-INGEST-001
+      - RISK-META-001
+      - RISK-DERIV-002
+    rationale: >
+      Risco alto porque MUDA O SIGNIFICADO DE VERDE. Até aqui um arquivo de código novo entrava no
+      repositório sem que nada reprovasse: os fiscais verificavam que todo metadado aponta para
+      código real, nunca que todo código real é apontado por algum metadado. Depois desta proposta,
+      arquivo sob code_roots sem CMP- reprova o CI. É a direção que faltava, e ela reprova coisas
+      que ontem passavam — inclusive src/project/__init__.py deste próprio repositório, que passa a
+      exigir isenção declarada com justificativa em vez de silêncio.
+      Duas escolhas merecem escrutínio. Primeira: o adapter genérico. Uma linguagem sem leitor
+      semântico não pode simplesmente sair verde — seria cobertura afirmada e nunca verificada, o
+      modo de falha que o ADR-006 descreve. Ela cai no fallback, que resolve pertencimento (a
+      invariante) e DECLARA no laudo que as arestas de dependência ficaram por fazer. O silêncio é
+      que está proibido, não a ignorância. Segunda: o prefixo src/ deixa de ser literal em
+      check_capabilities. Isso parece afrouxamento e não é — o prefixo passa a vir das raízes
+      DECLARADAS em project.yaml, e sem essa mudança o modelo do ADR-008 sequer valida no próprio
+      CI, porque metadado de derivado aponta para workspace/target/.
+      O adapter de TypeScript é parser próprio de imports, não dependency-cruiser: adotá-lo faria
+      este molde, que é Python puro, passar a exigir toolchain de Node para fiscalizar qualquer
+      alvo. O parser próprio é declarado como semântico-parcial no laudo.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+    - inventory
+
+  tests_required:
+    - tests/governance/test_inventario_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

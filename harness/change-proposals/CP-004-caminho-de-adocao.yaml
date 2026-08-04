@@ -1,0 +1,41 @@
+# Mudança proposta: o molde ganha caminho de entrada e passa a distinguir molde de derivado.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-004
+  title: "Fase A — derivação: BOOTSTRAP.md, /adotar, kind mold|derived e target.lock"
+  author_kind: agent
+  created_at: "2026-08-04T20:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-DERIV-001
+      - RISK-META-001
+    rationale: >
+      Acrescenta um papel novo ao repositório — molde x derivado — e o torna estrutural em vez de
+      convencional: project.schema.json passa a exigir o bloco target quando kind é derived, e a
+      proibi-lo quando kind é mold. Nenhum fiscal existente é afrouxado e nenhuma asserção é
+      removida; o molde continua kind:mold com target ausente, exatamente como hoje. O risco é de
+      superfície nova, não de trava enfraquecida: um schema fechado que ganha campo obrigatório
+      reprova todo project.yaml que não migrar, e é isso que se quer — a alternativa seria um campo
+      opcional que ninguém preenche e nenhum fiscal cobra. Toca harness/, ci/, .claude/ e a raiz,
+      todos protected_paths, e por isso é declarado e vai por PR. O SHA do alvo mora só em
+      target.lock, pela mesma razão que a versão da régua mora só em requirements-qa.txt: duas
+      cópias derivam e a comparação passa a mentir.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_derivacao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

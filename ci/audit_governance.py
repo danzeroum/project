@@ -311,6 +311,68 @@ def check_stage_coverage(stages_doc: dict, findings: Findings, errors: Errors) -
             )
 
 
+INGEST = "harness/pipeline/ingest.yaml"
+
+
+def check_ingest_pipeline(findings: Findings, errors: Errors) -> None:
+    """As fases da ingestão têm fiscal resolvível, ordem sã, e não escrevem no alvo.
+
+    Reusa _enforcer_resolves de propósito: um pipeline que escreve metadado precisa da MESMA
+    régua de "fiscal resolve" que as etapas do projeto, e duas implementações da mesma pergunta
+    divergem com o tempo. A checagem de outputs é a que carrega a decisão do ADR-008: a ingestão
+    lê o alvo e escreve no derivado, então output apontando para workspace/ seria escrita no
+    material de terceiro disfarçada de metadado local.
+    """
+    if not hl.rel_exists(INGEST):
+        return
+    try:
+        doc = hl.read_yaml(INGEST) or {}
+    except HarnessError as exc:
+        errors.err(str(exc))
+        return
+
+    vistos: set[int] = set()
+    for phase in doc.get("phases", []):
+        pid = phase.get("id", "?")
+
+        ordem = phase.get("order")
+        if ordem in vistos:
+            findings.add(
+                key=f"INGEST-ORDER-{pid}", origin="ingest_pipeline", severity="medium",
+                risk="RISK-INGEST-002", location=INGEST,
+                summary=f"{pid}: ordem {ordem} duplicada — duas fases no mesmo passo tornam "
+                        f"'a fase anterior já rodou' uma afirmação sem sentido.",
+            )
+        vistos.add(ordem)
+
+        agente = f"harness/agents/{phase.get('agent', '')}/AGENT.md"
+        if not hl.rel_exists(agente):
+            findings.add(
+                key=f"INGEST-AGENT-{pid}", origin="ingest_pipeline", severity="high",
+                risk="RISK-INGEST-002", location=agente,
+                summary=f"{pid} cita o agente '{phase.get('agent')}', que não tem contrato em "
+                        f"harness/agents/ — fase sem dono declarado.",
+            )
+
+        ok, why = _enforcer_resolves({**phase["fiscal"], "kind": phase["fiscal"]["kind"]}, errors)
+        if not ok:
+            findings.add(
+                key=f"INGEST-FISCAL-{pid}", origin="ingest_pipeline", severity="high",
+                risk="RISK-INGEST-002", location=phase["fiscal"].get("ref"),
+                summary=f"{pid}: fiscal não resolve — {why}. Fase de ingestão sem fiscal é "
+                        f"metadado escrito por máquina que ninguém confere.",
+            )
+
+        for out in phase.get("outputs", []):
+            if out.startswith("workspace/"):
+                findings.add(
+                    key=f"INGEST-WRITE-{pid}", origin="ingest_pipeline", severity="critical",
+                    risk="RISK-INGEST-002", location=out,
+                    summary=f"{pid} declara escrita em '{out}': a ingestão lê o alvo e escreve no "
+                            f"derivado. Escrever no alvo faria o vigia hospedar-se no vigiado.",
+                )
+
+
 def check_repo_partition(stages_doc: dict, findings: Findings) -> None:
     """Todo arquivo pertence a exatamente uma etapa ou a uma isenção declarada.
 
@@ -534,6 +596,7 @@ def main(argv: list[str] | None = None) -> int:
     check_adr_conformance(adr_index, findings, errors)
     check_stage_coverage(stages_doc, findings, errors)
     check_repo_partition(stages_doc, findings)
+    check_ingest_pipeline(findings, errors)
     check_policy_pointers(findings)
     check_risk_control_coverage(risk_doc, findings)
     check_protected_paths(harness_doc, findings)

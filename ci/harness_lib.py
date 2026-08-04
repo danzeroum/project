@@ -36,7 +36,11 @@ EXCLUDED_DIRS = {
     ".git", "__pycache__", ".venv", "venv", "env", "node_modules",
     ".pytest_cache", ".ruff_cache", ".mypy_cache", "build", "dist", ".eggs",
 }
-EXCLUDED_PREFIXES = ("harness/runs/", "harness/reports/", "harness/state/")
+# workspace/ é o código do ALVO materializado por ci/bootstrap.py — material efêmero de terceiro,
+# pela mesma razão que a evidência da harness já está aqui. Sem esta linha, check_repo_partition
+# exigiria que cada arquivo do alvo pertencesse a uma etapa DESTE repositório, e a partição do
+# derivado passaria a depender do tamanho do projeto que ele governa.
+EXCLUDED_PREFIXES = ("harness/runs/", "harness/reports/", "harness/state/", "workspace/")
 
 
 class HarnessError(Exception):
@@ -128,9 +132,15 @@ def exact_pin(rel: str = "requirements-qa.txt") -> tuple[str | None, list[str]]:
 # --------------------------------------------------------------------------------------
 
 def is_excluded(rel: str) -> bool:
-    """Ruído de ferramenta ou evidência efêmera: nenhum fiscal percorre."""
+    """Ruído de ferramenta ou evidência efêmera: nenhum fiscal percorre.
+
+    `.egg-info` casa por sufixo porque o nome carrega o do pacote (`project.egg-info`) — enumerar
+    nomes possíveis faria a exclusão depender do nome do projeto, e o inventário passaria a contar
+    resíduo de build como código do negócio no primeiro alvo com outro nome.
+    """
     parts = Path(rel).parts
-    return any(p in EXCLUDED_DIRS for p in parts) or rel.startswith(EXCLUDED_PREFIXES)
+    return (any(p in EXCLUDED_DIRS or p.endswith(".egg-info") for p in parts)
+            or rel.startswith(EXCLUDED_PREFIXES))
 
 
 _is_excluded = is_excluded  # compatibilidade interna
@@ -342,6 +352,39 @@ def fingerprint(parts: Iterable[tuple[str, str]]) -> str:
     """sha256 estável sobre pares (rótulo, hash). Sem data, sem git: reprodutível em clone raso."""
     joined = "\n".join(f"{k}={v}" for k, v in sorted(parts))
     return "sha256:" + sha256_bytes(joined.encode("utf-8"))
+
+
+# Metadados cujo conteúdo pode mudar o veredito de uma revisão de conformidade. Deliberadamente
+# NÃO inclui docs/ nem laudos: o fingerprint responde "a revisão cobre o estado atual do sistema?",
+# e um documento derivado mudar não reabre julgamento nenhum — ele só reflete o que já mudou.
+CONFORMANCE_SCOPE = (
+    "project.yaml",
+    "target.lock",
+    "business/capabilities.yaml",
+    "architecture/components.yaml",
+    "architecture/interfaces.yaml",
+    "architecture/adr/index.yaml",
+    "design/ui-surfaces.yaml",
+    "business/requirements/backlog.yaml",
+    "governance/risk-register.yaml",
+    "harness/stages.yaml",
+)
+
+
+def conformance_fingerprint() -> str:
+    """Estado do metadado governável MAIS o SHA do alvo.
+
+    O SHA é o que faz "esta revisão cobre este estado" significar alguma coisa num derivado. Sem
+    ele, o alvo inteiro pode ser reescrito enquanto o metadado fica idêntico — e a revisão
+    continuaria se declarando fresca, descrevendo com toda a confiança um sistema que já mudou.
+    O efeito colateral é intencional: avançar target.lock invalida a revisão, e é esse o gatilho
+    que /sincronizar existe para tornar visível em vez de deixar passar.
+    """
+    parts: list[tuple[str, str]] = []
+    for rel in CONFORMANCE_SCOPE:
+        if rel_exists(rel):
+            parts.append((rel, sha256_file(REPO / rel)))
+    return fingerprint(parts)
 
 
 # --------------------------------------------------------------------------------------

@@ -1,0 +1,51 @@
+# Mudança proposta: segurança deixa de ser difusa e vira departamento com artefatos e fiscal.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-010
+  title: "Fase G — security/: modelo de ameaças por componente e inventário de dependências"
+  author_kind: agent
+  created_at: "2026-08-04T23:30:00Z"
+  capabilities_affected:
+    - CAP-PRICING
+    - CAP-CATALOG
+  components_affected:
+    - CMP-PRICING
+    - CMP-CATALOG
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-SEC-001
+      - RISK-DEP-001
+      - RISK-ALIGN-001
+    rationale: >
+      Dos departamentos que este repositório governa, arquitetura, negócio, design e governança
+      existem como camada com schema, fiscal e etapa. SEGURANÇA não existia: estava difusa num
+      security_owner em project.yaml e num punhado de riscos. Era a maior lacuna estrutural
+      restante, e o tipo de lacuna que não aparece em CI verde nenhum — porque nada a procurava.
+      Duas escolhas merecem escrutínio.
+      A primeira: o inventário de dependências cruza com pyproject.toml e requirements-qa.txt e
+      trata dependência declarada e NÃO inventariada como achado. É a mesma direção reversa da
+      Fase E aplicada a supply chain, e vai reprovar quem acrescentar biblioteca sem passar por
+      aqui — que é o efeito pretendido, não um efeito colateral.
+      A segunda: threat-model.yaml não aceita ameaça sem mitigação nem sem risco residual. Uma
+      ameaça catalogada e não tratada é exatamente o 'to-be-assessed' do ADR-002 vestido de
+      diligência — parece trabalho de segurança e não obriga a nada. O residual_risk aponta para
+      RISK-*, então a ameaça herda prazo, dono e a cobertura reversa de R2.
+      Ambos os arquivos nascem sem julgamento automático: nenhuma ferramenta escreve severidade
+      de ameaça, e o campo aceita pending_judgment pela mesma trava da Fase D.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_seguranca_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

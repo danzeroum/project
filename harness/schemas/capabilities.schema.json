@@ -3,63 +3,187 @@
   "$id": "https://danzeroum/project/harness/schemas/capabilities.schema.json",
   "title": "capabilities.yaml — capacidades de negócio com rastreabilidade física",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "capabilities"],
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "capabilities"
+  ],
   "additionalProperties": false,
   "oneOf": [
     {
       "properties": {
-        "source_of_truth": { "const": true },
-        "generated_from": { "const": null }
+        "source_of_truth": {
+          "const": true
+        },
+        "generated_from": {
+          "const": null
+        }
       }
     },
     {
       "properties": {
-        "source_of_truth": { "const": false },
-        "generated_from": { "type": "string", "minLength": 1 }
+        "source_of_truth": {
+          "const": false
+        },
+        "generated_from": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["generated_from"]
+      "required": [
+        "generated_from"
+      ]
     }
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "source_of_truth": { "type": "boolean" },
-    "generated_from": { "type": ["string", "null"] },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "metadata_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "source_of_truth": {
+      "type": "boolean"
+    },
+    "generated_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "capabilities": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name", "status", "owners", "risk_level", "source_paths", "test_paths"],
+        "required": [
+          "id",
+          "name",
+          "status",
+          "owners",
+          "risk_level",
+          "source_paths",
+          "test_paths"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$" },
-          "name": { "type": "string" },
+          "id": {
+            "type": "string",
+            "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$"
+          },
+          "name": {
+            "type": "string"
+          },
           "status": {
-            "enum": ["proposed", "planned", "implemented", "verified", "deprecated"],
+            "enum": [
+              "proposed",
+              "planned",
+              "implemented",
+              "verified",
+              "deprecated"
+            ],
             "description": "Maturidade. O fiscal semântico só exige código+teste existentes para implemented/verified."
           },
           "owners": {
             "type": "object",
-            "required": ["business_owner", "technical_owner"],
+            "required": [
+              "business_owner",
+              "technical_owner"
+            ],
             "additionalProperties": false,
             "properties": {
-              "business_owner": { "type": "string" },
-              "technical_owner": { "type": "string" }
+              "business_owner": {
+                "type": "string"
+              },
+              "technical_owner": {
+                "type": "string"
+              }
             }
           },
-          "risk_level": { "enum": ["low", "medium", "high", "critical"] },
-          "source_paths": { "type": "array", "items": { "type": "string" } },
-          "test_paths": { "type": "array", "items": { "type": "string" } },
-          "business_rules": { "type": "array", "items": { "type": "string" } },
+          "risk_level": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical",
+              "pending_judgment"
+            ],
+            "description": "Nível de risco da capacidade. pending_judgment é o valor que a INGESTÃO escreve por não poder decidir: reprovado por check_pending_judgment em qualquer documento com source_of_truth:true, logo só sobrevive enquanto o documento se declara derivado. Promover é substituí-lo."
+          },
+          "source_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "test_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "business_rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "evidence": {
             "type": "object",
             "description": "Referências LÓGICAS a evidência. quality_reports pode apontar para dir gitignored — é referência, não garantia de arquivo versionado.",
             "additionalProperties": false,
             "properties": {
-              "tests": { "type": "array", "items": { "type": "string" } },
-              "architecture": { "type": "array", "items": { "type": "string" } },
-              "quality_reports": { "type": "array", "items": { "type": "string" } }
+              "tests": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "architecture": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "quality_reports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "derived_from": {
+            "type": "object",
+            "description": "Proveniência da ingestão: de ONDE no alvo este item foi derivado, e em QUE commit. Sem o sha, 'este metadado descreve o alvo' vira afirmação sobre um alvo que já mudou — o mesmo modo de falha que target.lock resolve, uma camada acima. ci/validate_metadata.py::check_derived_from cobra que repo casa target.repo, que sha casa target.lock exatamente e que path existe no alvo materializado.",
+            "required": [
+              "repo",
+              "sha",
+              "path"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "repo": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Relativo à raiz do alvo, sem o prefixo workspace/target/."
+              },
+              "section": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Âncora dentro do arquivo (título de seção, símbolo). Opcional: nem toda origem tem subdivisão."
+              }
             }
           }
         }

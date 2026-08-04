@@ -1,0 +1,44 @@
+# Mudança proposta: cold start idempotente — o repositório sabe se levantar sozinho.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-005
+  title: "Fase B — bootstrap: materializar o alvo no SHA do lock e tolerar o clone cru"
+  author_kind: agent
+  created_at: "2026-08-04T20:30:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-DERIV-001
+      - RISK-META-001
+    rationale: >
+      Acrescenta ci/bootstrap.py e torna o hook SessionStart tolerante à ausência das
+      dependências dos fiscais. Verificado na prática neste repositório: um clone fresco não tem
+      pyyaml nem jsonschema (eles vivem no extra [dev] do pyproject.toml), e hoje o hook morre com
+      ModuleNotFoundError — orientação que quebra justamente quando o repositório está mais cru é
+      inútil na única hora em que seria necessária.
+      A tolerância é deliberadamente assimétrica e é o ponto delicado desta proposta: com --summary
+      (SessionStart, que nunca bloqueia) a falta de dependência vira mensagem e exit 0; em qualquer
+      outro modo vira exit 2, "o fiscal não conseguiu fiscalizar". Nunca exit 0 fora do --summary —
+      um validador que passa por não ter conseguido rodar é a trava que o vigiado desliga sem
+      precisar tocar em nada.
+      workspace/ entra em EXCLUDED_PREFIXES de harness_lib pela mesma razão que harness/runs|
+      reports|state já estão: é material efêmero de terceiro. Sem isso, check_repo_partition
+      exigiria que cada arquivo do ALVO pertencesse a uma etapa deste repositório.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_bootstrap_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
