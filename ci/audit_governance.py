@@ -24,7 +24,7 @@ from pathlib import Path
 import harness_lib as hl
 from harness_lib import Errors, Findings, HarnessError, PointerMissing
 
-AUDITOR_VERSION = "1.0"
+AUDITOR_VERSION = "1.0"  # teste de CODEOWNERS — comentário sem efeito funcional
 REPORT_PATH = "harness/reports/governance-audit.json"
 
 ADR_INDEX = "architecture/adr/index.yaml"
