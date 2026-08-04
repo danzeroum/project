@@ -1,0 +1,46 @@
+# Mudança proposta: travar o papel deste repositório específico — molde, e só molde.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-013
+  title: "Este repositório é o molde: adotar dentro dele, em vez de derivar dele, passa a reprovar"
+  author_kind: agent
+  created_at: "2026-08-05T02:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-DERIV-002
+      - RISK-META-001
+    rationale: >
+      O ADR-008 tornou molde e derivado papéis estruturalmente distintos, mas deixou uma porta
+      aberta que só aparece na prática: nada impede alguém de rodar /adotar DENTRO do molde e
+      transformá-lo no gêmeo de um alvo. O schema aceita — kind:derived com bloco target é
+      perfeitamente válido — e nesse instante o repositório genérico deixa de existir. Não há
+      alarme, porque cada trava individual continua satisfeita.
+      Esta é a diferença entre uma regra e uma regra deste repositório. Todas as travas até aqui
+      valem para qualquer cópia do molde; esta vale para ESTA cópia, a que é a origem. É por isso
+      que ela vive numa asserção file_matches sobre o project.yaml daqui, e não num schema: um
+      schema que exigisse kind:mold quebraria todo derivado, que é justamente quem deve ser
+      derived.
+      O derivado, ao nascer, herda a asserção apontando para o próprio project.yaml — e ela vai
+      reprovar lá, corretamente, porque lá o kind é derived. Removê-la é parte do CP-000, junto
+      com o superseded do ADR-005: o derivado não é este repositório e não carrega as travas que
+      dizem respeito só a ele. Isso está declarado no ADR e no comando, não deixado como
+      surpresa.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_derivacao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

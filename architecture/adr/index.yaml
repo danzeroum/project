@@ -372,6 +372,13 @@ adrs:
         description: "SHA de commit do alvo fora de target.lock: segunda cópia de uma versão deriva e a comparação passa a mentir."
         files: ["project.yaml"]
         pattern: "\\b[0-9a-f]{40}\\b"
+      - id: ADR-008-A6
+        kind: file_matches
+        severity: critical
+        risk: RISK-DERIV-002
+        description: "ESTE repositório é o molde: adotar dentro dele, em vez de derivar dele, apaga o genérico sem que trava alguma perceba."
+        files: ["project.yaml"]
+        pattern: '^\s*kind:\s*"mold"\s*$'
       - id: ADR-008-A5
         kind: file_lacks
         severity: high

@@ -155,3 +155,19 @@ def test_alvo_cravado_no_fiscal_reprova(repo_copy, run_auditor):
     code, findings = run_auditor("audit_governance", repo_copy)
     assert code == 1
     assert "FIND-ADR-008-A5" in ids_of(findings)
+
+
+def test_molde_virando_derivado_reprova(repo_copy, run_auditor):
+    """ADR-008-A6: a trava que vale para ESTE repositório, não para qualquer cópia dele.
+
+    Todas as demais travas valem para qualquer molde; esta vale para a origem. Sem ela, rodar
+    /adotar dentro do molde em vez de derivar dele produz um kind:derived perfeitamente válido —
+    cada trava individual continua satisfeita, e o repositório genérico simplesmente deixa de
+    existir, sem alarme. O derivado herda a asserção e a remove no CP-000, junto com o superseded
+    do ADR-005: ele não é este repositório e não carrega as travas que dizem respeito só a ele.
+    """
+    _edit_yaml(repo_copy, "project.yaml", _vira_derivado)
+    _edit_yaml(repo_copy, "target.lock", lambda d: d.update(kind="derived", target_sha=SHA_FICTICIO))
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1
+    assert "FIND-ADR-008-A6" in ids_of(findings), ids_of(findings)
