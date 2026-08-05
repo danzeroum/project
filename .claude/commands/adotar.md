@@ -55,8 +55,13 @@ empurre a casca do molde no primeiro commit — este ambiente não tem `gh` CLI 
 partir de template; criar vazio e empurrar dá o mesmo histórico limpo. Se a criação for negada,
 **pare** e instrua a criação manual em vez de improvisar um destino.
 
-Não copie para o derivado: `.git/` do molde, `harness/runs|reports|state/` (evidência efêmera) e
-`workspace/`.
+Não copie para o derivado: `.git/` do molde, `harness/runs|reports|state/` (evidência efêmera),
+`workspace/` e `harness/change-proposals/*.yaml` — exceto `README.md` e `EXAMPLE-CP-001.yaml`.
+
+As propostas do molde registram decisões tomadas **no molde**. Num derivado elas são história de
+outro repositório: descrevem um caminho que aquele percorreu e este não, e citam IDs de um negócio
+de exemplo que o **CP-000** remove logo em seguida. O derivado é dono da própria numeração a partir
+do CP-000 que você cria no passo 5.
 
 ### 4. Ancorar
 
