@@ -19,6 +19,8 @@ rodou no pai.
 **Como uma release nasce.** Só pelo job `publicar` de `.github/workflows/release.yml`, por
 `workflow_dispatch` com a versão como entrada. A ordem é a decisão inteira (ADR-025):
 
+0. **recusa a entrada malformada** — trim e regex `^v[0-9]+\.[0-9]+\.[0-9]+$`, antes até do
+   checkout. Só forma; nada aqui sabe do repositório, e é por isso que roda antes de tê-lo;
 1. fixa o commit a validar e recusa tag que já exista no remoto;
 2. `validate_all.py`, `pytest tests/governance` e `audit_mutations.py` — *as travas ainda mordem*;
 3. `preflight_publicacao`: tag inédita, `HEAD` imóvel desde a validação, manifesto ausente da árvore;

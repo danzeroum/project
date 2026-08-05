@@ -252,6 +252,117 @@ def test_o_job_de_auditoria_tambem_prova_mutacao(wf):
 
 
 # --------------------------------------------------------------------------------------
+# INTEGRAÇÃO + SISTEMA — a recusa rápida da entrada (CP-032)
+# --------------------------------------------------------------------------------------
+
+PASSO_RECUSA = "Recusar entrada malformada"
+
+
+def _script_da_recusa(wf: dict) -> str:
+    """O `run:` real do passo, extraído do workflow. Testar uma CÓPIA do script seria testar a
+    cópia: ela e o original divergem no primeiro dia em que alguém edita um só dos dois."""
+    for p in wf["jobs"]["publicar"]["steps"]:
+        if p.get("name") == PASSO_RECUSA:
+            return p["run"]
+    raise AssertionError(f"passo {PASSO_RECUSA!r} não existe")
+
+
+def test_a_recusa_e_o_primeiro_passo_do_job(wf):
+    """Antes até do checkout. A posição É a decisão: a v1.0.0 morreu três minutos depois de um
+    erro de digitação porque a checagem mais barata do caminho estava entre as últimas."""
+    passos = wf["jobs"]["publicar"]["steps"]
+    assert passos[0].get("name") == PASSO_RECUSA
+    assert "checkout" not in json.dumps(passos[0])
+
+
+def test_a_recusa_usa_o_regex_EXATO_do_preflight(wf):
+    """Duas checagens da mesma coisa que discordam num caso de borda são um gerador de bugs: a
+    rápida libera, a lenta recusa, e o operador descobre a discordância no pior momento."""
+    achados = re.findall(r"grep -qE '([^']+)'", _script_da_recusa(wf))
+    assert achados == [mr.TAG_RE.pattern]
+
+
+def test_a_recusa_nao_sabe_nada_do_repositorio(wf):
+    """A fronteira dura da CP-032: nenhuma verificação semântica saiu do preflight. É o que
+    permite rodar antes do checkout — e é o que impede este passo de virar um segundo preflight
+    pior, que decide sobre um repositório que ainda não baixou."""
+    script = _script_da_recusa(wf)
+    for proibido in ("python", "git ", "curl", "ls-remote", "harness/"):
+        assert proibido not in script, proibido
+
+
+def test_a_entrada_nunca_e_interpolada_no_shell(wf_texto):
+    """`${{ inputs.tag }}` só aparece sob `env:`. Interpolar entrada de dispatch dentro de um
+    `run:` é injeção de comando com outro nome — e o passo que existe para desconfiar da entrada
+    seria o pior lugar para confiar nela."""
+    for linha in wf_texto.splitlines():
+        if "inputs.tag" in linha:
+            assert re.match(r"\s*ENTRADA:\s*\$\{\{\s*inputs\.tag\s*\}\}\s*$", linha), linha
+
+
+def _rodar_recusa(script: str, entrada: str, tmp_path: Path) -> tuple[int, str]:
+    """Roda o script REAL em bash, como o runner roda."""
+    genv = tmp_path / "github_env"
+    genv.write_text("", encoding="utf-8")
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env={"PATH": "/usr/bin:/bin", "ENTRADA": entrada,
+                            "GITHUB_ENV": str(genv), "LC_ALL": "C.UTF-8"})
+    return r.returncode, genv.read_text(encoding="utf-8").strip()
+
+
+@pytest.mark.parametrize("entrada", [
+    "tag = v1.0.0",   # o erro real que matou o run 31012472062
+    "V1.0.0",
+    "v1.0",
+    "v1.0.0-rc1",
+    "v 1.0.0",        # espaço NO MEIO muda o número: normalizar seria reescrever a versão
+    "",
+    "v1.0.0; rm -rf /",
+])
+def test_entrada_malformada_e_recusada(wf, entrada, tmp_path):
+    codigo, _ = _rodar_recusa(_script_da_recusa(wf), entrada, tmp_path)
+    assert codigo == 1
+    assert not mr.TAG_RE.match(entrada), "o preflight também recusaria — as duas concordam"
+
+
+@pytest.mark.parametrize("entrada,esperado", [
+    ("v1.0.1", "v1.0.1"),
+    ("v10.2.33", "v10.2.33"),
+    ("  v1.0.0  ", "v1.0.0"),   # espaço EM VOLTA é engano de cópia: normaliza
+])
+def test_entrada_valida_passa_e_chega_normalizada(wf, entrada, esperado, tmp_path):
+    """O trim é a única diferença deliberada entre a checagem rápida e o TAG_RE — e ele
+    NORMALIZA antes de seguir, então o preflight recebe a forma exata."""
+    codigo, github_env = _rodar_recusa(_script_da_recusa(wf), entrada, tmp_path)
+    assert codigo == 0
+    assert github_env == f"TAG={esperado}"
+    assert mr.TAG_RE.match(esperado)
+
+
+def test_a_mensagem_diz_o_formato_esperado(wf, tmp_path):
+    script = _script_da_recusa(wf)
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env={"PATH": "/usr/bin:/bin", "ENTRADA": "tag = v1.0.0",
+                            "GITHUB_ENV": str(tmp_path / "e"), "LC_ALL": "C.UTF-8"})
+    assert "vX.Y.Z" in r.stdout
+
+
+def test_o_valor_normalizado_chega_pelo_ambiente_e_nao_por_env_de_job(wf):
+    """`env` de job vence o arquivo de ambiente — se TAG continuasse declarado no nível do job, a
+    normalização não teria efeito nenhum nos passos seguintes e o teste acima passaria mentindo."""
+    assert "TAG" not in (wf["jobs"]["publicar"].get("env") or {})
+    assert 'echo "TAG=$tag" >> "$GITHUB_ENV"' in _script_da_recusa(wf)
+
+
+def test_o_caminho_feliz_nao_mudou(wf):
+    """A validação, no sentido do §: o que publicou a v1.0.0 continua igual. Os passos seguintes
+    seguem referenciando ${TAG} — nenhum `run:` posterior foi tocado pela CP-032."""
+    corridas = [p.get("run", "") for p in wf["jobs"]["publicar"]["steps"][1:]]
+    assert 'python ci/mold_release.py --verify-tag "${TAG}"' in corridas
+    assert 'git push origin "refs/tags/${TAG}"' in corridas
+
+
+# --------------------------------------------------------------------------------------
 # SISTEMA — a cadeia sobre um repositório git de verdade
 # --------------------------------------------------------------------------------------
 

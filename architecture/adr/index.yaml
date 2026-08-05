@@ -1351,3 +1351,17 @@ adrs:
         description: "O eixo de tags exige as regras que impedem MOVER e APAGAR, e não `creation`: exigir creation trancaria o único caminho legítimo de publicação."
         files: ["ci/verify_protection.py"]
         pattern: "non_fast_forward"
+      - id: ADR-025-A12
+        kind: file_matches
+        severity: high
+        risk: RISK-MOLD-001
+        description: "A recusa rápida usa o MESMO regex de ci/mold_release.py::TAG_RE. Duas checagens da mesma coisa que discordam num caso de borda são um gerador de bugs: a rápida libera, a lenta recusa, e o operador descobre a discordância no pior momento."
+        files: [".github/workflows/release.yml"]
+        pattern: '\^v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\$'
+      - id: ADR-025-A13
+        kind: file_matches
+        severity: high
+        risk: RISK-MOLD-001
+        description: "A recusa rápida vem ANTES do checkout — a posição é a decisão. Um caminho que faz três minutos de trabalho antes de olhar para o que o operador digitou ensina o operador a esperar."
+        files: [".github/workflows/release.yml"]
+        pattern: 'Recusar entrada malformada[\s\S]*?uses: actions/checkout'

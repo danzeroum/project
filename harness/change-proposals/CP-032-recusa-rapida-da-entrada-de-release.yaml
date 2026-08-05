@@ -1,0 +1,84 @@
+# Mudança proposta: a forma da tag é conferida no PRIMEIRO passo, antes de qualquer passo caro.
+# Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-032
+  title: "Recusa rápida da entrada de release: forma da tag antes de qualquer passo caro"
+  author_kind: agent
+  created_at: "2026-08-05T15:10:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - .github/workflows/release.yml
+    - architecture/adr/index.yaml
+    - harness/releases/README.md
+    - tests/governance/test_release_publicacao.py
+    # Derivados: grafo regerado e fingerprint da revisão semântica recalculado, porque o escopo
+    # governável mudou.
+    - docs/metadata-graph.md
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-MOLD-001
+    rationale: >
+      O QUE ESTA CP CORRIGE, e como se soube. A v1.0.0 foi publicada na segunda tentativa. A
+      primeira (run 31012472062) morreu porque o campo do dispatch recebeu `tag = v1.0.0` — o nome
+      do parâmetro entrou junto com o valor. O `preflight_publicacao` recusou, corretamente, e
+      nenhuma ref nasceu. Mas recusou **depois de 3 minutos**: a validação total, 350 testes e a
+      prova de mutação inteira rodaram para então descobrir que a entrada não tinha a forma de uma
+      versão.
+
+      A ORDEM ESTAVA ERRADA, e o erro é de uma classe conhecida. A checagem mais barata do caminho
+      estava entre as últimas. Não é questão de eficiência: um caminho que faz três minutos de
+      trabalho antes de olhar para o que o operador digitou ensina o operador a esperar. Quem
+      espera três minutos por um erro de digitação começa a disparar sem reler.
+
+      O QUE MUDA. Um passo novo, o PRIMEIRO do job — antes do checkout, antes do Python, antes de
+      qualquer coisa que leia o repositório. Ele faz uma coisa só: trim, e depois regex. Custa o
+      tempo de subir o runner.
+
+      APENAS FORMA, e a fronteira é dura. Nenhuma verificação semântica sai do preflight: se a tag
+      já existe no remoto, se o HEAD andou desde a validação, se o manifesto já está na árvore —
+      tudo isso continua onde estava, e continua sendo a segunda tranca. A recusa rápida não sabe
+      nada sobre o repositório, e é por isso que pode rodar antes de tê-lo.
+
+      O MESMO REGEX, LITERALMENTE. `^v[0-9]+\.[0-9]+\.[0-9]+$` é a string exata de
+      `ci/mold_release.py::TAG_RE`, e há teste comparando as duas. Duas checagens da mesma coisa
+      que discordam em algum caso de borda são um gerador de bugs: a rápida libera, a lenta recusa,
+      e o operador descobre a discordância no pior momento. Só há uma diferença deliberada, e ela
+      é o trim: `  v1.0.0  ` passa e é NORMALIZADO para `v1.0.0` antes de seguir, então o preflight
+      recebe a forma exata. Espaço em volta é engano de cópia, não intenção — e normalizar isso é
+      diferente de normalizar `v 1.0.0`, que continua reprovando porque ali o espaço muda o número.
+
+      O CAMINHO FELIZ NÃO MUDA. Nenhum `run:` posterior é tocado; a única alteração fora do passo
+      novo é o `env: TAG` sair do nível do job para vir do `GITHUB_ENV` do primeiro passo — sem
+      isso a normalização não teria efeito, porque `env` de job vence o arquivo de ambiente. Para
+      uma entrada já limpa, cada passo seguinte recebe exatamente o valor que recebeu ao publicar
+      a v1.0.0.
+
+      A ENTRADA NÃO ENTRA NO SHELL. `${{ inputs.tag }}` chega por `env:` e nunca é interpolado
+      dentro de um `run:`. Interpolar entrada de dispatch em script é injeção de comando com outro
+      nome, e um passo que existe para desconfiar da entrada seria o pior lugar para confiar nela.
+
+      CUSTO (princípio (e)). Nenhum fiscal novo, nenhum passo em `validate_all.py`. Duas asserções
+      entram no ADR-025 — uma prova que o regex existe, outra que ele vem antes do checkout — e as
+      duas mordem. As asserções de ordem já existentes (prova de mutação e verificação da cadeia
+      antes do push) seguem intactas.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_release_publicacao.py
+
+  human_approval_required: true
+  change_mode: pull_request
