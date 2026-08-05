@@ -1,0 +1,102 @@
+# Mudança proposta: o que "validado" significa numa árvore que legitimamente carrega o manifesto.
+# Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-034
+  title: "Semântica da árvore taggeada: valida-se pela cadeia, não por validate_all"
+  author_kind: agent
+  created_at: "2026-08-05T17:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - .github/workflows/release.yml
+    - ci/mold_release.py
+    - ci/audit_governance.py
+    - ci/audit_mutations.py
+    - harness/schemas/adr-index.schema.json
+    - architecture/adr/index.yaml
+    - architecture/adr/ADR-026-a-arvore-taggeada-valida-se-pela-cadeia.md
+    - harness/policies/prova-de-mutacao.md
+    - harness/policies/ancoragem-do-molde.md
+    - harness/releases/README.md
+    - tests/governance/test_release_publicacao.py
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-MOLD-001
+      - RISK-DERIV-002
+      - RISK-CONF-001
+    rationale: >
+      O FATO QUE ORIGINOU ESTA CP. `python ci/validate_all.py` reprova no commit taggeado da
+      v1.0.0, hoje, sob o ADR-008-A5: o manifesto carrega `run_url`, que é uma URL de repositório
+      dentro de `harness/`. Duas consequências que ninguém tinha visto. A primeira: o job `auditar`
+      roda `validate_all.py` na árvore da tag, então ele não tem como ficar verde para NENHUMA tag
+      que chegue por outro caminho — e é justamente aí que auditar importa. A segunda, mais séria:
+      a frase "release nasce só de commit validado" era verdadeira sobre o PAI e falsa sobre a
+      árvore publicada, e ninguém tinha percebido a diferença.
+
+      A DECISÃO, EM UMA FRASE. A árvore taggeada não se valida por `validate_all.py` — ela se valida
+      pela CADEIA: pai verde, diff só-manifesto, `--verify-tag`. Não é afrouxamento, é dizer o que
+      já era verdade: o manifesto descreve a validação do PAI, e o elo que exige "nada além do
+      manifesto" é o que transporta essa validação para a árvore publicada. Rodar `validate_all` na
+      tag sempre foi perguntar a pergunta errada para aquela árvore.
+
+      O JOB `auditar` PASSA A REFLETIR ISSO. Ele resolve a tag, recusa tag movida, verifica a cadeia
+      com o manifesto na árvore — e SÓ ENTÃO volta ao pai e roda lá a validação total, os testes e a
+      prova de mutação. A ordem importa: `--verify-tag` lê o manifesto do disco, então precisa
+      acontecer enquanto a tag está montada.
+
+      OPÇÃO A — O MANIFESTO PARA DE CARREGAR URL. `run_url` sai de `build_manifest` e do CLI. Não é
+      "proibido escrever": é que não existe mais caminho que o produza — a mesma formulação da
+      CP-026, e pela mesma razão, porque proibição depende de alguém lembrar. O dado não se perde:
+      `repository` + `run_id` reconstroem a URL. O schema CONTINUA aceitando o campo, de propósito:
+      o manifesto da v1.0.0 é registro histórico e precisa seguir válido sob o schema que o
+      governa. Registro que se invalida quando a regra muda deixa de ser registro.
+
+      A v1.0.0 NÃO É RE-EMITIDA, e não ganha mecanismo de exceção. Ela permanece vermelha sob
+      `validate_all` na própria árvore — o que, depois desta CP, deixa de ser uma contradição e
+      passa a ser uma pergunta que não se faz àquela árvore. A cadeia dela continua íntegra:
+      `--verify-tag` verde, pai verde, diff só-manifesto. A nota fica no ADR-026, não num arquivo
+      de exceções: exceção declarada em lista vira lista que cresce.
+
+      CLÁUSULA B' — ALLOWLIST DE DIRETÓRIO, E POR QUE NÃO UM GLOB. A regra "o manifesto não entra na
+      árvore validada" precisa de asserção própria, para reprovar pelo MOTIVO e não por efeito
+      colateral do A5. A forma óbvia seria `path_absent` com glob, e ela é uma armadilha:
+      `assert_path_absent` usa `rel_exists`, que é LITERAL, então `harness/releases/*.manifest.json`
+      nunca "existiria" e a asserção passaria sempre. Pior — e é isto que a torna perigosa: a
+      mutação canônica `criar_caminho` criaria um arquivo chamado literalmente `v*.manifest.json`,
+      `rel_exists` o encontraria, a asserção ficaria vermelha, e a PROVA DE MUTAÇÃO CERTIFICARIA UMA
+      TRAVA DECORATIVA. Um fiscal de fiscais enganado é pior que fiscal nenhum, porque produz um
+      selo. O achado fica registrado em `harness/policies/prova-de-mutacao.md`.
+
+      A forma correta é um tipo novo, `dir_allowlist`: o diretório contém APENAS o que a asserção
+      lista. Ele enumera o que está lá em vez de perguntar por um nome que precisaria adivinhar, e
+      seu inverso canônico — pôr qualquer outra coisa no diretório — é honesto.
+
+      O ADR-008-A5 NÃO É TOCADO. Nem alargado, nem afrouxado, nem excluído. Uma asserção nova prova
+      isso: se alguém acrescentar `exclude:` ao bloco do A5 para acomodar manifestos, ela reprova.
+      As duas travas passam a existir por motivos distintos, com mensagens distintas — decisão
+      dupla, não redundância cega.
+
+      CUSTO (princípio (e)). Um tipo de asserção novo em `ci/audit_governance.py`, seu inverso em
+      `ci/audit_mutations.py` e a forma no schema. Nenhum fiscal novo em `validate_all.py`. O job
+      `auditar` passa a ter um checkout a mais — segundos. E ganha a capacidade de ficar verde, que
+      é o ponto.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_release_publicacao.py
+
+  human_approval_required: true
+  change_mode: pull_request

@@ -504,6 +504,149 @@ def test_no_molde_a_ancora_independente_nao_existe_e_isso_e_deliberado(repo_publ
     assert "lock = {\"mold_release\": lock_block(" in fonte
 
 
+# --------------------------------------------------------------------------------------
+# A semântica da árvore taggeada (CP-034 / ADR-026)
+# --------------------------------------------------------------------------------------
+
+def test_o_auditar_verifica_a_cadeia_na_tag_e_valida_no_pai(wf):
+    """A ordem do ADR-026: `--verify-tag` lê o manifesto do DISCO, então precisa da tag montada;
+    `validate_all` é a pergunta certa para o PAI, e roda depois do switch."""
+    passos = _passos(wf, "auditar")
+    assert _indice(passos, "--verify-tag") < _indice(passos, "git switch --detach")
+    assert _indice(passos, "git switch --detach") < _indice(passos, "python ci/validate_all.py")
+    assert _indice(passos, "Recusar tag movida") < _indice(passos, "--verify-tag")
+
+
+def test_o_auditar_recusa_commit_de_release_sem_pai(wf):
+    """Sem pai não há árvore validada para auditar — e concluir 'verde' de uma árvore que não se
+    olhou é a forma mais barata de mentir."""
+    passo = next(p for p in wf["jobs"]["auditar"]["steps"]
+                 if p.get("name", "").startswith("Voltar ao commit validado"))
+    assert 'if [ -z "$pai" ]' in passo["run"]
+
+
+def test_o_manifesto_nasce_sem_url_de_repositorio():
+    """Cláusula A: não é 'proibido escrever', é que não existe caminho que produza o campo."""
+    m = mr.build_manifest(repository="o/r", tag="v9.9.9", commit_sha="a" * 40, run_id="7",
+                          artifact_digest="sha256:" + "c" * 64)
+    assert "run_url" not in m["release"]["validation"]
+    assert "run_url" not in (REPO / "ci/mold_release.py").read_text(encoding="utf-8")
+    with pytest.raises(TypeError):
+        mr.build_manifest(repository="o/r", tag="v9.9.9", commit_sha="a" * 40, run_id="7",
+                          artifact_digest="sha256:" + "c" * 64, run_url="https://x")
+
+
+def test_o_schema_ainda_aceita_run_url():
+    """E é deliberado: o manifesto da v1.0.0 carrega o campo e é registro histórico. Registro que
+    se invalida quando a regra muda deixa de ser registro."""
+    schema = json.loads((REPO / "harness/schemas/release-manifest.schema.json")
+                        .read_text(encoding="utf-8"))
+    validation = schema["properties"]["release"]["properties"]["validation"]
+    assert "run_url" in validation["properties"]
+    assert "run_url" not in validation["required"]
+
+
+def test_dir_allowlist_acusa_intruso_e_absolve_o_permitido(tmp_path, monkeypatch):
+    """A cláusula B, e o tipo que existe porque `path_absent` com glob era uma armadilha."""
+    import audit_governance as ag
+    import harness_lib as hl2
+
+    (tmp_path / "harness/releases").mkdir(parents=True)
+    (tmp_path / "harness/releases/README.md").write_text("x\n", encoding="utf-8")
+    monkeypatch.setattr(hl2, "REPO", tmp_path)
+    monkeypatch.setattr(ag.hl, "REPO", tmp_path)
+
+    asser = {"id": "T-A1", "kind": "dir_allowlist", "severity": "critical",
+             "description": "d", "dir": "harness/releases", "allow": ["README.md"]}
+
+    f, e = hl2.Findings(), hl2.Errors()
+    ag.assert_dir_allowlist("ADR-T", asser, f, e)
+    assert not f.blocking()
+
+    (tmp_path / "harness/releases/v1.0.0.manifest.json").write_text("{}\n", encoding="utf-8")
+    f2, e2 = hl2.Findings(), hl2.Errors()
+    ag.assert_dir_allowlist("ADR-T", asser, f2, e2)
+    assert f2.blocking()
+    assert "v1.0.0.manifest.json" in json.dumps(f2.items, ensure_ascii=False)
+
+
+def test_dir_allowlist_sem_diretorio_e_indeterminacao_nao_aprovacao(tmp_path, monkeypatch):
+    """'Uma trava que não encontra o que vigiar está quebrada, não satisfeita.'"""
+    import audit_governance as ag
+    import harness_lib as hl2
+
+    monkeypatch.setattr(hl2, "REPO", tmp_path)
+    monkeypatch.setattr(ag.hl, "REPO", tmp_path)
+    f, e = hl2.Findings(), hl2.Errors()
+    ag.assert_dir_allowlist("ADR-T", {"id": "T-A2", "kind": "dir_allowlist", "severity": "high",
+                                      "description": "d", "dir": "nao/existe",
+                                      "allow": []}, f, e)
+    assert f.blocking()
+
+
+def test_a_mutacao_de_dir_allowlist_poe_algo_no_diretorio():
+    """O inverso canônico honesto — e o contraste com o que NÃO se fez.
+
+    Com `path_absent` + glob, a mutação criaria um arquivo chamado literalmente
+    `v*.manifest.json`, `rel_exists` o encontraria, e a prova de mutação certificaria uma trava
+    que nunca mordeu um manifesto de verdade. Um fiscal de fiscais enganado produz um selo.
+    """
+    import audit_mutations as am
+
+    m = am.derivar_mutacao({"kind": "dir_allowlist", "dir": "harness/releases",
+                            "allow": ["README.md"]})
+    assert m["op"] == "criar_caminho"
+    assert m["alvo"].startswith("harness/releases/")
+    assert not m["alvo"].endswith("README.md")
+
+
+def test_manifesto_plantado_reprova_por_DOIS_motivos_distintos(repo_copy: Path):
+    """A borda que separa decisão dupla de redundância cega.
+
+    Plantado um manifesto com URL de repositório na árvore validada, DUAS travas acusam — e o que
+    importa é que elas dizem coisas diferentes: a allowlist reprova por ele ESTAR ALI; o
+    ADR-008-A5, por ele CARREGAR a URL. Cada uma pelo seu motivo, com sua mensagem.
+    """
+    import importlib
+
+    import audit_governance as ag
+    import harness_lib as hl2
+
+    alvo = repo_copy / "harness/releases/v9.9.9.manifest.json"
+    alvo.write_bytes(mr.canonical_bytes(mr.build_manifest(
+        repository="o/r", tag="v9.9.9", commit_sha="a" * 40, run_id="1",
+        artifact_digest="sha256:" + "c" * 64)))
+    # A URL entra à mão: o caminho que a produzia deixou de existir (cláusula A).
+    alvo.write_text(alvo.read_text(encoding="utf-8").replace(
+        '"run_id": "1"', '"run_id": "1", "run_url": "https://github.com/o/r/actions/runs/1"'),
+        encoding="utf-8")
+
+    hl2.REPO = repo_copy
+    ag = importlib.reload(ag)
+    ag.hl.REPO = repo_copy
+
+    findings, errors = ag.hl.Findings(), ag.hl.Errors()
+    ag.check_adr_conformance(ag.hl.read_yaml("architecture/adr/index.yaml"), findings, errors)
+
+    por_assercao = {f.get("assertion"): f["summary"] for f in findings.items}
+    assert "ADR-026-A5" in por_assercao, sorted(k for k in por_assercao if k)
+    assert "ADR-008-A5" in por_assercao
+
+    assert "allowlist" in por_assercao["ADR-026-A5"]
+    assert "proíbe" in por_assercao["ADR-008-A5"]
+    assert por_assercao["ADR-026-A5"] != por_assercao["ADR-008-A5"]
+
+
+def test_o_adr_registra_a_nota_da_v1_0_0():
+    """A v1.0.0 não é re-emitida e não ganha mecanismo de exceção — a nota mora no ADR, porque
+    exceção declarada em lista vira lista que cresce."""
+    texto = (REPO / "architecture/adr/ADR-026-a-arvore-taggeada-valida-se-pela-cadeia.md"
+             ).read_text(encoding="utf-8")
+    assert "não é re-emitida" in texto
+    assert "5631106937d7" in texto           # a cadeia dela, citada
+    assert "exceção" in texto
+
+
 def test_a_evidencia_nasce_do_validado_e_mergeia_limpa(tmp_path, monkeypatch):
     """A simulação do fluxo inteiro (CP-033), sobre um repositório git de verdade.
 

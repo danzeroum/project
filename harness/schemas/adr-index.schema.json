@@ -57,6 +57,7 @@
           "enum": [
             "path_absent",
             "path_present",
+            "dir_allowlist",
             "import_required",
             "import_forbidden",
             "file_matches",
@@ -189,6 +190,20 @@
               }
             }
           }
+        },
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Diretório cuja lotação é fechada. Usado por dir_allowlist."
+        },
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "description": "Os ÚNICOS nomes admitidos dentro de `dir`. Enumerar o que pode estar lá, em vez de proibir por padrão de nome, existe porque path_absent com glob é uma armadilha: rel_exists é literal, o glob nunca casa, e a mutação canônica cria um arquivo com o nome literal do glob — a asserção fica vermelha depois de mutada e a prova de mutação certifica uma trava decorativa."
         }
       },
       "allOf": [
@@ -299,6 +314,25 @@
           "then": {
             "required": [
               "justification"
+            ]
+          }
+        },
+        {
+          "comment": "dir_allowlist enumera a lotação fechada de um diretório.",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "dir_allowlist"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "dir",
+              "allow"
             ]
           }
         }

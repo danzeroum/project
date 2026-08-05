@@ -12,7 +12,7 @@ testável isoladamente, sem mock de rede e sem repositório de mentira.
 
 Uso:
   python ci/mold_release.py --emit --repository O/R --tag vX.Y.Z --commit SHA \\
-      --run-id N [--run-url U] [--artifact-digest sha256:...]   # escreve o manifesto
+      --run-id N [--artifact-digest sha256:...]                 # escreve o manifesto
   python ci/mold_release.py --verify-tag vX.Y.Z                 # cadeia completa, via git local
   python ci/mold_release.py --preflight vX.Y.Z --validado SHA   # pode publicar AGORA?
   python ci/mold_release.py --update-lock --manifest CAMINHO --repository O/R
@@ -63,8 +63,19 @@ def manifest_sha(data: bytes) -> str:
 
 
 def build_manifest(*, repository: str, tag: str, commit_sha: str, run_id: str,
-                   run_url: str | None = None, artifact_digest: str,
-                   released_at: str | None = None) -> dict:
+                   artifact_digest: str, released_at: str | None = None) -> dict:
+    """O manifesto NÃO carrega URL de repositório (CP-034).
+
+    Não é 'proibido escrever': é que não existe mais caminho que produza o campo — mesma
+    formulação da CP-026, e pela mesma razão, porque proibição depende de alguém lembrar. O
+    ADR-008-A5 reprova URL de repositório em `harness/`, e um manifesto que a carregasse
+    tornaria a própria árvore publicada indefensável sob a régua da casa.
+
+    O dado não se perde: `repository` + `run_id` reconstroem a URL. O SCHEMA continua
+    aceitando o campo, de propósito — o manifesto da v1.0.0 é registro histórico e precisa
+    seguir válido sob o schema que o governa. Registro que se invalida quando a regra muda
+    deixa de ser registro.
+    """
     release = {
         "repository": repository,
         "tag": tag,
@@ -73,8 +84,6 @@ def build_manifest(*, repository: str, tag: str, commit_sha: str, run_id: str,
         "validation": {"command": VALIDATION_COMMAND, "result": "pass", "run_id": str(run_id)},
         "artifact_digest": artifact_digest,
     }
-    if run_url:
-        release["validation"]["run_url"] = run_url
     return {
         "schema_version": "1.0",
         "metadata_version": "1.0",
@@ -271,7 +280,7 @@ def _git(*args: str) -> str:
 def _cmd_emit(args) -> int:
     manifest = build_manifest(
         repository=args.repository, tag=args.tag, commit_sha=args.commit,
-        run_id=args.run_id, run_url=args.run_url, artifact_digest=args.artifact_digest,
+        run_id=args.run_id, artifact_digest=args.artifact_digest,
         released_at=args.released_at,
     )
     problemas = hl.schema_errors(manifest_path_for(args.tag), "release-manifest.schema.json", manifest)
@@ -387,7 +396,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tag")
     p.add_argument("--commit")
     p.add_argument("--run-id", dest="run_id", default="local")
-    p.add_argument("--run-url", dest="run_url")
     p.add_argument("--artifact-digest", dest="artifact_digest",
                    default="sha256:" + "0" * 64)
     p.add_argument("--released-at", dest="released_at")

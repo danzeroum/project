@@ -48,6 +48,21 @@ intervalo é o mapa da migração, não defeito.
 não toca `derived_from` nem `workspace/`. A âncora do molde e a do alvo são perguntas diferentes;
 avançar as duas juntas tornaria impossível saber qual causou o vermelho seguinte.
 
+## Qual pergunta se faz a qual árvore
+
+| Árvore | Pergunta certa |
+|---|---|
+| um commit qualquer, a `main` | `python ci/validate_all.py` |
+| a árvore **taggeada** | pai verde · `diff pai..tag` só o manifesto · `--verify-tag` |
+
+A árvore taggeada **não** se valida por `validate_all.py` (ADR-026). Não é afrouxamento: o manifesto
+descreve a validação do **pai**, e o elo *"nada além do manifesto"* é o que transporta essa validação
+para a árvore publicada. Rodar a validação total na tag sempre foi perguntar a pergunta errada
+àquela árvore — e enquanto isso não estava dito, o job de auditoria era incapaz de ficar verde.
+
+`validate_all.py` permanece **puro e cego a refs**. A semântica da tag mora no ADR e no job, nunca
+no fiscal: um fiscal que soubesse em qual ref está teria duas respostas para a mesma árvore.
+
 ## Onde a verificação é indeterminada
 
 Os elos que dependem de resolver a tag no repositório do molde não rodam dentro de

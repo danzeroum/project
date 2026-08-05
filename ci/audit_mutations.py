@@ -86,6 +86,11 @@ def derivar_mutacao(a: dict) -> dict | None:
         return {"op": "remover_caminho", "alvo": a["paths"][0]}
     if kind == "path_absent":
         return {"op": "criar_caminho", "alvo": a["paths"][0]}
+    if kind == "dir_allowlist":
+        # O inverso de "só isto pode estar aqui" é pôr QUALQUER OUTRA COISA. Um nome que não está
+        # na allowlist, escolhido para não se confundir com nada real do diretório.
+        return {"op": "criar_caminho",
+                "alvo": f"{a['dir'].rstrip('/')}/{_MARCA}-intruso"}
     if kind == "file_matches":
         return {"op": "apagar_padrao", "alvo": a["files"][0], "pattern": a["pattern"],
                 "exclude": a.get("exclude") or []}

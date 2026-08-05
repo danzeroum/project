@@ -48,6 +48,16 @@ caminho. Ele **não** roda para a tag que o dispatch cria: ref criada com `GITHU
 workflows. Por isso o dispatch verifica a cadeia por conta própria — contar com o push-audit seria
 contar com um passo que não executa.
 
+**O que o auditar valida, e onde** (ADR-026). Recusa tag movida, verifica a cadeia **enquanto a tag
+está montada** — `--verify-tag` lê o manifesto do disco — e só então volta ao **pai** para rodar
+`validate_all.py`, os testes e a prova de mutação. A árvore taggeada não se valida por
+`validate_all`: ela se valida pela cadeia, porque o manifesto descreve a validação do pai e o elo
+*"nada além do manifesto"* é o que a transporta.
+
+**O manifesto não carrega URL de repositório.** `run_url` saiu de `build_manifest` e do CLI: não é
+proibido, é inexpressável. `repository` + `run_id` reconstroem a URL. O schema segue aceitando o
+campo para que o manifesto da v1.0.0 — que o carrega — continue válido como registro histórico.
+
 **Como um derivado consome.** `/atualizar-carcaca` resolve a tag, verifica a cadeia e escreve
 `target.lock:mold_release`. Ele nunca toca metadado do alvo: a única coisa que ele altera é a
 âncora do molde.

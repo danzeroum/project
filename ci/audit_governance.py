@@ -72,6 +72,33 @@ def assert_path_absent(adr, a, findings, errors) -> None:
                   location=p)
 
 
+def assert_dir_allowlist(adr, a, findings, errors) -> None:
+    """O diretório contém APENAS o que a asserção lista. Enumera em vez de adivinhar.
+
+    Existe porque a forma óbvia — `path_absent` com glob — é uma armadilha, e vale registrar qual:
+    `assert_path_absent` usa `rel_exists`, que é LITERAL. Um glob como
+    `harness/releases/*.manifest.json` nunca "existiria", a asserção passaria sempre, e a mutação
+    canônica `criar_caminho` criaria um arquivo chamado literalmente `v*.manifest.json` — que
+    `rel_exists` ENCONTRARIA. A asserção ficaria vermelha depois de mutada e a prova de mutação
+    CERTIFICARIA uma trava decorativa. Um fiscal de fiscais enganado é pior que fiscal nenhum,
+    porque produz um selo.
+
+    Enumerar o diretório não tem esse buraco: o que estiver lá aparece, e o inverso canônico —
+    pôr qualquer outra coisa dentro — é honesto.
+    """
+    raiz = hl.REPO / a["dir"].rstrip("/")
+    if not raiz.is_dir():
+        _unresolvable(findings, adr, a, f"'{a['dir']}' não é um diretório — uma allowlist que não "
+                                        f"encontra o que vigiar está quebrada, não satisfeita")
+        return
+    permitidos = set(a["allow"])
+    for p in sorted(raiz.iterdir()):
+        if p.name not in permitidos:
+            _fail(findings, adr, a,
+                  f"'{hl.rel(p)}' está em {a['dir']} e a allowlist só admite "
+                  f"{sorted(permitidos)}.", location=hl.rel(p))
+
+
 def assert_path_present(adr, a, findings, errors) -> None:
     for p in a["paths"]:
         if not hl.rel_exists(p):
@@ -188,6 +215,7 @@ def assert_manual(adr, a, findings, errors) -> None:
 KINDS = {
     "path_absent": assert_path_absent,
     "path_present": assert_path_present,
+    "dir_allowlist": assert_dir_allowlist,
     "import_required": assert_import_required,
     "import_forbidden": assert_import_forbidden,
     "file_matches": assert_file_matches,

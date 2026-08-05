@@ -1372,3 +1372,60 @@ adrs:
         description: "O registro NASCE do commit validado e REFERENCIA o taggeado. Ancorada no NOME do passo de propósito: o mesmo detach aparece antes, ao montar o commit de release, e uma asserção que só procurasse o comando casaria com aquele e continuaria verde depois de removido este — decorativa no sentido exato do ADR-024."
         files: [".github/workflows/release.yml"]
         pattern: 'Registrar a release no ledger[\s\S]*?git switch --detach "\$\{VALIDADO\}"[\s\S]*?--commit-sha "\$\{RELEASE_COMMIT\}"'
+
+  - id: ADR-026
+    title: "A árvore taggeada valida-se pela cadeia, não por validate_all"
+    status: accepted
+    file: architecture/adr/ADR-026-a-arvore-taggeada-valida-se-pela-cadeia.md
+    related_risks: [RISK-MOLD-001, RISK-DERIV-002, RISK-CONF-001]
+    assertions:
+      - id: ADR-026-A1
+        kind: path_present
+        severity: high
+        risk: RISK-MOLD-001
+        description: "A decisão sobre o que 'validado' significa numa árvore que carrega o manifesto existe como ADR, não como hábito do workflow."
+        paths:
+          - architecture/adr/ADR-026-a-arvore-taggeada-valida-se-pela-cadeia.md
+      - id: ADR-026-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "A ORDEM do job auditar: a cadeia é verificada ENQUANTO a tag está montada (--verify-tag lê o manifesto do disco) e a validação total roda depois, no PAI — a árvore para a qual ela é a pergunta certa."
+        files: [".github/workflows/release.yml"]
+        pattern: 'Verificar a cadeia da release[\s\S]*?git switch --detach "\$pai"[\s\S]*?run: python ci/validate_all\.py'
+      - id: ADR-026-A3
+        kind: file_lacks
+        severity: critical
+        risk: RISK-DERIV-002
+        description: "Não existe mais caminho que produza run_url no manifesto. Não é 'proibido escrever' — é inexpressável, mesma formulação da CP-026, porque proibição depende de alguém lembrar. O schema segue aceitando o campo, para que o registro histórico da v1.0.0 continue válido."
+        files: ["ci/mold_release.py"]
+        pattern: "run_url"
+      - id: ADR-026-A4
+        kind: file_lacks
+        severity: high
+        risk: RISK-DERIV-002
+        description: "O workflow não passa --run-url: a URL do run é derivável de repository + run_id, e carregá-la no manifesto tornaria a árvore publicada indefensável sob o ADR-008-A5."
+        files: [".github/workflows/release.yml"]
+        pattern: "--run-url"
+      - id: ADR-026-A5
+        kind: dir_allowlist
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "O manifesto não entra na árvore validada — cláusula própria, para reprovar pelo MOTIVO e não por efeito colateral do ADR-008-A5. É dir_allowlist e não path_absent com glob porque rel_exists é literal: o glob nunca casaria, e a mutação canônica criaria um arquivo com o nome literal do glob, fazendo a prova de mutação certificar uma trava decorativa."
+        dir: harness/releases
+        allow: ["README.md"]
+      - id: ADR-026-A6
+        kind: file_lacks
+        severity: critical
+        risk: RISK-DERIV-002
+        description: "O ADR-008-A5 não foi afrouxado para acomodar manifestos: nenhum `exclude:` dentro do bloco dele. Afrouxar um fiscal para o CI passar é a terceira opção, e é a errada."
+        files: ["architecture/adr/index.yaml"]
+        # Ancorado em INÍCIO DE LINHA, e não é detalhe: a primeira versão deste padrão casou com a
+        # PRÓPRIA declaração — o texto do padrão contém `id: ADR-008-A5` seguido de `exclude:` na
+        # mesma linha, e o temperamento por `\n      - id: ` não protege dentro de uma linha só.
+        pattern: '^      - id: ADR-008-A5$(?:(?!\n      - id: )[\s\S])*?exclude:'
+        mutation:
+          op: injetar_apos
+          alvo: architecture/adr/index.yaml
+          marcador: "id: ADR-008-A5"
+          texto: '        exclude: ["harness/releases/*.manifest.json"]'
