@@ -171,3 +171,50 @@ def test_molde_virando_derivado_reprova(repo_copy, run_auditor):
     code, findings = run_auditor("audit_governance", repo_copy)
     assert code == 1
     assert "FIND-ADR-008-A6" in ids_of(findings), ids_of(findings)
+
+
+# --------------------------------------------------------------------------------------
+# CP-018: a proposta é registro histórico; o metadado vivo continua cobrado
+# --------------------------------------------------------------------------------------
+
+ID_FANTASMA = "CAP-FANTASMA"
+CMP_FANTASMA = "CMP-FANTASMA"
+
+
+def _gravar_cp(root, nome: str, **campos) -> None:
+    doc = yaml.safe_load((root / "harness/change-proposals/EXAMPLE-CP-001.yaml")
+                         .read_text(encoding="utf-8"))
+    doc["proposal"].update(id="CP-900", title="proposta sintética do teste", **campos)
+    (root / f"harness/change-proposals/{nome}").write_text(
+        yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
+def test_proposta_citando_id_removido_nao_reprova(repo_copy, run_metadata):
+    """O achado que originou o CP-018, na forma mínima.
+
+    Uma proposta fala do dia em que foi escrita. Executá-la é justamente o que apaga os IDs que
+    ela cita — então resolver esses IDs contra o presente faz a proposta reprovar por ter
+    funcionado. Medido num derivado real: dezoito achados desta espécie, incluindo o da proposta
+    que se invalidava ao ser cumprida.
+    """
+    _gravar_cp(repo_copy, "CP-900-sintetica.yaml",
+               capabilities_affected=[ID_FANTASMA], components_affected=[CMP_FANTASMA])
+    code, errors = run_metadata(repo_copy)
+    assert not [e for e in errors if "[CP]" in e], errors
+    assert code == 0, errors
+
+
+def test_a_isencao_nao_vaza_para_o_adr(repo_copy, run_metadata):
+    """O limite do CP-018, e a razão de este teste existir junto com o de cima.
+
+    O risco da proposta não é a checagem que ela remove — é uma isenção escrita larga demais, que
+    apagasse a resolução de ID de todo o metadado. ADR descreve o que É, não o que foi decidido:
+    referência pendurada nele segue sendo achado.
+    """
+    p = repo_copy / "architecture/adr/index.yaml"
+    doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+    doc["adrs"][0].setdefault("related_capabilities", []).append(ID_FANTASMA)
+    p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    code, errors = run_metadata(repo_copy)
+    assert code == 1
+    assert any("[ADR]" in e and ID_FANTASMA in e for e in errors), errors

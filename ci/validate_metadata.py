@@ -776,8 +776,28 @@ def check_privacy_review(doc: dict | None, risk_ids: set[str]) -> None:
             err(f"[LGPD] {issue.get('id', '?')}: risco citado {rref} não existe no registro")
 
 
-def check_change_proposals(caps: dict[str, dict], comp_ids: set[str], risk_ids: set[str]) -> None:
-    """Cada proposta afeta apenas IDs reais e cita apenas riscos do registro."""
+def check_change_proposals() -> None:
+    """A proposta é conferida na FORMA, nunca contra o metadado de hoje (CP-018).
+
+    Uma change-proposal fala do dia em que foi escrita; o metadado fala de agora. Resolver os IDs
+    dela contra o presente faz as duas divergirem por construção — e divergirem exatamente quando
+    a proposta FUNCIONA. Medido: executar a proposta que remove um negócio de exemplo invalida
+    todas as propostas que o citavam, inclusive ela mesma. Uma proposta que reprova por ter sido
+    cumprida não é um registro com defeito; é o fiscal fazendo a pergunta errada.
+
+    O que continua cobrado é o que não envelhece: schema, invariantes de cabeçalho e a forma dos
+    IDs, que o próprio schema trava por pattern.
+
+    TROCA DE GUARDA, e ela é deliberada. O que este fiscal pegava era um ID de capacidade,
+    componente ou risco DIGITADO ERRADO no momento da escrita. Isso passa a ser pego pela revisão
+    humana do pull request — a única camada que consegue distinguir "ID errado" de "ID que existia
+    quando isto foi escrito". A checagem não sumiu por descuido: ela mudou de lugar, e este
+    parágrafo existe para que a ausência não seja lida como esquecimento e reintroduzida.
+
+    A isenção acaba aqui. Metadado VIVO — capabilities, components, ADRs, threat-model, backlog,
+    ui-surfaces — segue com resolução de ID cobrada, porque descreve o que É, não o que foi
+    decidido.
+    """
     proposals_dir = REPO / CHANGE_PROPOSALS_DIR
     if not proposals_dir.exists():
         return
@@ -790,17 +810,6 @@ def check_change_proposals(caps: dict[str, dict], comp_ids: set[str], risk_ids: 
             continue
         check_header_invariants(rel, doc)
         validate_structural(rel, "change-proposal.schema.json", doc)
-        proposal = (doc or {}).get("proposal", {})
-        pid = proposal.get("id", rel)
-        for cid in proposal.get("capabilities_affected", []):
-            if cid not in caps:
-                err(f"[CP] {pid}: capabilities_affected {cid} não existe em capabilities.yaml")
-        for cmid in proposal.get("components_affected", []):
-            if cmid not in comp_ids:
-                err(f"[CP] {pid}: components_affected {cmid} não existe em components.yaml")
-        for rref in proposal.get("risk_assessment", {}).get("risks", []):
-            if rref not in risk_ids:
-                err(f"[CP] {pid}: risco citado {rref} não existe no risk-register")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -860,7 +869,7 @@ def main(argv: list[str] | None = None) -> int:
     ui_ids = {u.get("id") for u in (loaded.get("design/ui-surfaces.yaml") or {}).get("ui_surfaces", [])}
     check_threat_model(loaded.get("security/threat-model.yaml"), comp_ids, ifc_ids, ui_ids, risk_ids)
     check_dependency_inventory(loaded.get("security/dependencies.yaml"))
-    check_change_proposals(caps, comp_ids, risk_ids)
+    check_change_proposals()
 
     if errors:
         print(f"✗ validação de metadados falhou ({len(errors)} inconsistência(s)):\n")
