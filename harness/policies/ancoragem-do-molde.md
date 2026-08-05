@@ -22,9 +22,23 @@ transforma isso de evento invisível em falha de CI.
 publicado, sem rastro no histórico. Só o que está na árvore do commit é endereçado por hash junto
 com o resto.
 
-**Release nasce só de commit validado.** `.github/workflows/release.yml` roda `ci/validate_all.py`
-e a suíte de fiscais *antes* de aceitar a tag, e o schema do manifesto trava o comando de validação
-como `const`: afrouxar o significado de "validado" na hora de publicar não passa despercebido.
+**Release nasce só de commit validado, e a ref nasce do workflow.** O job `publicar` de
+`.github/workflows/release.yml` roda `ci/validate_all.py`, a suíte de fiscais e a prova de mutação
+*antes* de a tag existir — o schema do manifesto trava o comando de validação como `const`, para
+que afrouxar o significado de "validado" na hora de publicar não passe despercebido. Qualquer passo
+vermelho e **nenhuma ref nasce**: não existe release parcial.
+
+**O workflow cria a ref e não a move** (ADR-025). `git push` sem `--force` recusa atualizar uma tag
+existente, então o que o workflow assina é *"esta versão nasceu de um commit validado"*. A
+afirmação seguinte — *"e continua sendo isto"* — exige ruleset administrado fora daqui, e é o que o
+eixo de tags de `ci/verify_protection.py` reporta a cada publicação enquanto não existir
+(`RISK-EXT-001`, `due: 2026-11-03`).
+
+**A janela entre validar e publicar é vazia, não vigiada.** Manifesto emitido, commit de release
+montado, tag criada e cadeia verificada — tudo em objetos locais. O `git push` da ref é a única
+operação remota, e é a última: o que se publica é byte a byte o que se verificou, porque é o mesmo
+objeto Git. `preflight_publicacao` é a segunda tranca, e recusa tag preexistente, `HEAD` movido e
+manifesto já na árvore.
 
 **Ancorar não migra.** Apontar para uma versão nova do molde não traz os fiscais dela. Adotar o que
 a versão nova acrescenta é trabalho declarado em change-proposal de risco `high` — e o vermelho no
@@ -41,4 +55,4 @@ Os elos que dependem de resolver a tag no repositório do molde não rodam dentr
 dois faria "estou offline" e "a tag foi movida" produzirem a mesma cor, e a cor mais barata venceria
 por hábito. Por isso `verify_chain` é função pura, alimentada por quem tem a rede.
 
-Fiscalizado por: `ci/validate_metadata.py::check_mold_release`, `ci/validate_metadata.py::check_release_manifests`, `ci/mold_release.py::verify_chain`, `.github/workflows/release.yml`
+Fiscalizado por: `ci/validate_metadata.py::check_mold_release`, `ci/validate_metadata.py::check_release_manifests`, `ci/mold_release.py::verify_chain`, `ci/mold_release.py::preflight_publicacao`, `.github/workflows/release.yml`

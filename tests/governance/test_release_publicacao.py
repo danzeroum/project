@@ -1,0 +1,412 @@
+"""Mordidas do caminho de release executável (CP-031 / ADR-025).
+
+Três níveis, e a divisão não é decorativa — cada um só consegue provar o que o anterior não
+alcança:
+
+  UNIDADE     as funções puras (`preflight_publicacao`, `verify_tag_protection`) decidem certo
+              sobre entradas construídas à mão. É onde os modos de falha raros são baratos.
+  INTEGRAÇÃO  o workflow DECLARA a ordem que a decisão exige. Uma função pura correta dentro de um
+              workflow que a chama depois do push não protege nada.
+  SISTEMA     a cadeia inteira sobre um repositório git de verdade, com commits e tag reais.
+
+O limite de maior risco é a janela entre validar e criar a ref, e ele aparece nos três: como `!=`
+na unidade, como ordem dos passos na integração, e como "o objeto publicado é o objeto verificado"
+no sistema.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+
+from conftest import REPO
+
+sys.path.insert(0, str(REPO / "ci"))
+
+import harness_lib as hl  # noqa: E402
+import mold_release as mr  # noqa: E402
+import verify_protection as vp  # noqa: E402
+
+WORKFLOW = REPO / ".github/workflows/release.yml"
+SHA_A = "a" * 40
+SHA_B = "b" * 40
+
+
+# --------------------------------------------------------------------------------------
+# UNIDADE — preflight: a janela, num `!=`
+# --------------------------------------------------------------------------------------
+
+def _preflight(**kw) -> list[str]:
+    base = dict(tag="v1.0.0", tags_remotas=[], head_sha=SHA_A, validado_sha=SHA_A,
+                manifesto_na_arvore=False)
+    base.update(kw)
+    return mr.preflight_publicacao(**base)
+
+
+def test_publicacao_legitima_passa():
+    """O par obrigatório da mordida: um fiscal que só reprova é desligado por quem trabalha."""
+    assert _preflight() == []
+
+
+def test_head_movido_entre_validar_e_publicar_reprova():
+    """A JANELA. Se o HEAD andou, a tag certificaria uma árvore que nenhuma validação olhou —
+    com o carimbo de uma que olhou outra. É o modo de falha que esta CP existe para fechar."""
+    v = _preflight(head_sha=SHA_B)
+    assert v and "mudou entre a validação" in v[0]
+
+
+def test_tag_preexistente_reprova():
+    """Publicar por cima é mover a âncora. O `git push` sem --force também recusa; esta é a
+    recusa que chega em segundos, antes de um minuto e meio de prova de mutação."""
+    assert any("já existe no remoto" in m for m in _preflight(tags_remotas=["v1.0.0"]))
+
+
+def test_manifesto_ja_na_arvore_reprova():
+    """Sem isto, o elo 'o commit de release não muda nada além do manifesto' passaria por
+    VACUIDADE — não haveria mudança alguma para inspecionar."""
+    assert any("já está na árvore" in m for m in _preflight(manifesto_na_arvore=True))
+
+
+@pytest.mark.parametrize("tag", ["1.0.0", "v1.0", "release-1", "v1.0.0-rc1", ""])
+def test_tag_de_forma_livre_reprova(tag):
+    """O caminho do manifesto é DERIVADO da tag: forma livre produz caminho que nenhum fiscal
+    prevê."""
+    assert any("forma vX.Y.Z" in m for m in _preflight(tag=tag))
+
+
+def test_preflight_acumula_em_vez_de_parar_no_primeiro():
+    """Quem está consertando precisa ver os quatro problemas de uma vez."""
+    assert len(_preflight(tag="1.0", tags_remotas=["1.0"], head_sha=SHA_B,
+                          manifesto_na_arvore=True)) == 4
+
+
+def test_preflight_e_puro():
+    """Se ele tocasse git ou rede, 'não pode publicar' e 'não consegui olhar' virariam a mesma
+    cor — e a mais barata venceria por hábito (princípio (h))."""
+    fonte = (REPO / "ci/mold_release.py").read_text(encoding="utf-8")
+    corpo = fonte.split("def preflight_publicacao(")[1].split("\ndef ")[0]
+    for proibido in ("subprocess.", "urlopen", "requests.", "open("):
+        assert proibido not in corpo, proibido
+
+
+# --------------------------------------------------------------------------------------
+# UNIDADE — eixo de tags da trava externa
+# --------------------------------------------------------------------------------------
+
+def _ruleset(**kw) -> dict:
+    base = {
+        "id": 1, "name": "tags imóveis", "target": "tag", "enforcement": "active",
+        "conditions": {"ref_name": {"include": ["refs/tags/v*"]}},
+        "rules": [{"type": t} for t in ("deletion", "non_fast_forward", "update")],
+        "bypass_actors": [],
+    }
+    base.update(kw)
+    return base
+
+
+def test_ruleset_completo_protege():
+    assert vp.verify_tag_protection(rulesets=[_ruleset()]) == []
+
+
+def test_creation_nao_e_exigida():
+    """Deliberado: exigir `creation` trancaria o único caminho legítimo de publicação, e uma
+    trava que impede o trabalho legítimo é desligada por quem tem trabalho a fazer."""
+    sem_creation = [r["type"] for r in _ruleset()["rules"]]
+    assert "creation" not in sem_creation
+    assert vp.verify_tag_protection(rulesets=[_ruleset()]) == []
+
+
+def test_sem_ruleset_de_tag_acusa():
+    """O `git push` sem --force é recusa do CLIENTE. Quem tem token e vontade empurra com
+    --force; o que transforma a recusa em trava é o ruleset."""
+    v = vp.verify_tag_protection(rulesets=[])
+    assert v and "nenhum ruleset de tag ATIVO" in v[0]
+
+
+@pytest.mark.parametrize("faltando", ["deletion", "non_fast_forward", "update"])
+def test_regra_ausente_acusa(faltando):
+    regras = [{"type": t} for t in ("deletion", "non_fast_forward", "update") if t != faltando]
+    v = vp.verify_tag_protection(rulesets=[_ruleset(rules=regras)])
+    assert v and faltando in v[0]
+
+
+def test_bypass_list_nao_vazia_acusa():
+    """Quem pode bypassar pode mover a tag — e a trava passa a valer só para quem não precisaria
+    dela."""
+    v = vp.verify_tag_protection(rulesets=[_ruleset(bypass_actors=[{"actor_id": 5}])])
+    assert any("bypass list" in m for m in v)
+
+
+def test_ruleset_desativado_nao_conta_como_protecao():
+    assert vp.verify_tag_protection(rulesets=[_ruleset(enforcement="disabled")])
+
+
+def test_ruleset_que_nao_cobre_a_familia_de_tags_nao_conta():
+    inclui = {"ref_name": {"include": ["refs/tags/beta-*"]}}
+    assert vp.verify_tag_protection(rulesets=[_ruleset(conditions=inclui)])
+
+
+def test_indeterminacao_nao_vira_violacao():
+    """A API responde 403/404 tanto para 'não há ruleset' quanto para 'você não pode ver'.
+    Escolher a conclusão mais grave produziria alarme de fraude toda vez que o token não tivesse
+    escopo — quem trata a indeterminação é o chamador."""
+    assert vp.verify_tag_protection(rulesets=None) == []
+
+
+# --------------------------------------------------------------------------------------
+# INTEGRAÇÃO — o workflow declara a ordem que a decisão exige
+# --------------------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def wf_texto() -> str:
+    return WORKFLOW.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def wf() -> dict:
+    return yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+
+
+def test_dispatch_recebe_a_versao_como_entrada(wf):
+    # `on` vira True no YAML 1.1 (a chave `on` é booleana); por isso o lookup tolera as duas formas.
+    gatilhos = wf.get("on") or wf.get(True)
+    assert gatilhos["workflow_dispatch"]["inputs"]["tag"]["required"] is True
+
+
+def test_so_o_job_de_publicar_escreve_conteudo(wf):
+    """Permissão de escrita é o que separa 'audita' de 'publica'. O default do arquivo continua
+    read: um job novo não nasce podendo criar refs."""
+    assert wf["permissions"]["contents"] == "read"
+    assert wf["jobs"]["publicar"]["permissions"]["contents"] == "write"
+    assert "permissions" not in wf["jobs"]["auditar"]
+
+
+def test_os_dois_caminhos_sao_mutuamente_exclusivos(wf):
+    assert wf["jobs"]["publicar"]["if"] == "github.event_name == 'workflow_dispatch'"
+    assert wf["jobs"]["auditar"]["if"] == "github.event_name == 'push'"
+
+
+def _passos(wf: dict, job: str) -> list[str]:
+    return [json.dumps(p, ensure_ascii=False) for p in wf["jobs"][job]["steps"]]
+
+
+def _indice(passos: list[str], agulha: str) -> int:
+    for i, p in enumerate(passos):
+        if agulha in p:
+            return i
+    raise AssertionError(f"passo com {agulha!r} não existe no job")
+
+
+@pytest.mark.parametrize("antes,depois", [
+    ("ci/validate_all.py", "git push origin"),
+    ("pytest tests/governance", "git push origin"),
+    ("ci/audit_mutations.py", "git push origin"),
+    ("--preflight", "git push origin"),
+    ("--verify-tag", "git push origin"),
+    ("git push origin", "audit_ledger.py --append release"),
+])
+def test_ordem_dos_passos_do_job_de_publicar(wf, antes, depois):
+    """A ORDEM é a decisão inteira. Uma função pura correta chamada depois do push não protege
+    coisa alguma — e o registro no ledger vem DEPOIS porque ele referencia o commit taggeado."""
+    passos = _passos(wf, "publicar")
+    assert _indice(passos, antes) < _indice(passos, depois)
+
+
+def test_nenhum_push_com_force(wf_texto):
+    """Criar e mover são operações distintas, e a assimetria entre elas é toda a resposta à
+    objeção do auto-atestado do CP-021."""
+    assert not re.search(r"^[^#\n]*git push[^\n]*--force", wf_texto, re.MULTILINE)
+
+
+def test_a_ref_publicada_e_a_tag_de_entrada_e_nada_mais(wf_texto):
+    """Um push de branch junto com o da tag seria o workflow escrevendo onde o ruleset da main
+    recusa — por fora do portão que esta casa exige."""
+    empurrados = re.findall(r"git push origin \"([^\"]+)\"", wf_texto)
+    assert empurrados == ['refs/tags/${TAG}', 'HEAD:refs/heads/release/ledger-${TAG}']
+
+
+def test_a_release_e_registrada_referenciando_o_commit_taggeado(wf_texto):
+    assert "--commit-sha \"${RELEASE_COMMIT}\"" in wf_texto
+    assert "--artifact-ref \"harness/releases/${TAG}.manifest.json\"" in wf_texto
+
+
+def test_o_commit_validado_e_fixado_antes_de_validar(wf, wf_texto):
+    """Sem o SHA fixado, 'o que foi validado' seria 'o que o git tiver quando cada passo
+    perguntar' — que é exatamente a ambiguidade que a janela explora."""
+    passos = _passos(wf, "publicar")
+    assert _indice(passos, "VALIDADO=") < _indice(passos, "ci/validate_all.py")
+    assert 'git switch --detach "${VALIDADO}"' in wf_texto
+
+
+def test_o_job_de_auditoria_tambem_prova_mutacao(wf):
+    """Uma tag que chegue por outro caminho é auditada com a mesma régua, não com uma mais fraca."""
+    passos = _passos(wf, "auditar")
+    for exigido in ("ci/validate_all.py", "ci/audit_mutations.py", "--verify-tag"):
+        _indice(passos, exigido)
+
+
+# --------------------------------------------------------------------------------------
+# SISTEMA — a cadeia sobre um repositório git de verdade
+# --------------------------------------------------------------------------------------
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+        cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+
+
+@pytest.fixture
+def repo_publicado(tmp_path: Path, monkeypatch):
+    """Monta P → R(manifesto) → tag, como o workflow monta: tudo local, tag por último."""
+    repo = tmp_path / "molde"
+    (repo / "harness/releases").mkdir(parents=True)
+    _git(repo.parent, "init", "--quiet", str(repo))
+
+    (repo / "conteudo.txt").write_text("o que foi validado\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "--quiet", "-m", "P")
+    parent = _git(repo, "rev-parse", "HEAD")
+
+    manifest = mr.build_manifest(repository="danzeroum/project", tag="v1.0.0", commit_sha=parent,
+                                 run_id="42", artifact_digest="sha256:" + "c" * 64,
+                                 released_at="2026-08-05T22:00:00+00:00")
+    dados = mr.canonical_bytes(manifest)
+    (repo / mr.manifest_path_for("v1.0.0")).write_bytes(dados)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "--quiet", "-m", "release(v1.0.0)")
+    _git(repo, "tag", "-a", "v1.0.0", "-m", "release v1.0.0")
+
+    monkeypatch.setattr(hl, "REPO", repo)
+    return repo, parent, manifest, dados
+
+
+def test_cadeia_emendada_verde_de_ponta_a_ponta(repo_publicado, capsys):
+    """O aceite arbitrado: `manifest.commit_sha` == PRIMEIRO PAI do commit da tag, e o diff
+    pai..tag contém só o manifesto. Não há ADR novo para isto porque não há decisão nova — exigir
+    que o manifesto contenha o hash do commit que o contém não é escolha de desenho, é impossível.
+    """
+    repo, parent, manifest, _ = repo_publicado
+    assert mr.main(["--verify-tag", "v1.0.0"]) == 0
+
+    commit = _git(repo, "rev-list", "-n", "1", "v1.0.0")
+    assert manifest["release"]["commit_sha"] == parent
+    assert _git(repo, "rev-list", "--parents", "-n", "1", commit).split()[1] == parent
+    assert _git(repo, "diff", "--name-only", f"{parent}..{commit}").splitlines() == [
+        "harness/releases/v1.0.0.manifest.json"]
+
+
+def test_commit_de_release_com_carona_reprova(tmp_path, monkeypatch, capsys):
+    """O elo que torna a declaração-do-pai honesta: sem ele, código não validado entraria na
+    versão sob a bandeira de uma validação que rodou no pai."""
+    repo = tmp_path / "molde"
+    (repo / "harness/releases").mkdir(parents=True)
+    _git(repo.parent, "init", "--quiet", str(repo))
+    (repo / "conteudo.txt").write_text("validado\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "--quiet", "-m", "P")
+    parent = _git(repo, "rev-parse", "HEAD")
+
+    manifest = mr.build_manifest(repository="o/r", tag="v1.0.0", commit_sha=parent, run_id="1",
+                                 artifact_digest="sha256:" + "c" * 64)
+    (repo / mr.manifest_path_for("v1.0.0")).write_bytes(mr.canonical_bytes(manifest))
+    (repo / "carona.py").write_text("print('nunca validado')\n", encoding="utf-8")  # a carona
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "--quiet", "-m", "release + carona")
+    _git(repo, "tag", "-a", "v1.0.0", "-m", "r")
+
+    monkeypatch.setattr(hl, "REPO", repo)
+    assert mr.main(["--verify-tag", "v1.0.0"]) == 1
+    assert "além do manifesto" in capsys.readouterr().err
+
+
+def test_tag_apontando_para_commit_sem_manifesto_reprova(repo_publicado, capsys):
+    """'Tag que aponta para commit sem manifesto não é release parcial — é ausência de release.'"""
+    repo, parent, _, _ = repo_publicado
+    _git(repo, "tag", "-f", "-a", "v1.0.0", "-m", "movida", parent)
+    _git(repo, "checkout", "--quiet", parent)
+    assert mr.main(["--verify-tag", "v1.0.0"]) == 1
+    assert "manifesto fora da árvore" in capsys.readouterr().err
+
+
+def test_um_byte_alterado_depois_da_tag_quebra_a_cadeia_no_derivado(repo_publicado):
+    """A BORDA do aceite, e ela mora no consumidor — que é onde a decisão (b) a colocou.
+
+    O derivado guarda `manifest_sha` em `target.lock` como âncora INDEPENDENTE. Um byte alterado
+    no manifesto depois de consumido produz outro hash, e o elo 3 acusa.
+    """
+    _, _, manifest, dados = repo_publicado
+    lock = {"mold_release": mr.lock_block(repository="danzeroum/project", tag="v1.0.0",
+                                          commit_sha=manifest["release"]["commit_sha"],
+                                          manifest_bytes=dados)}
+
+    adulterado = dados.replace(b'"run_id": "42"', b'"run_id": "43"')
+    assert adulterado != dados
+
+    v = mr.verify_chain(lock=lock, manifest=json.loads(adulterado), manifest_bytes=adulterado,
+                        tag_commit_sha="f" * 40, parent_sha=None, changed_paths=None)
+    assert any("manifest_sha não confere" in m for m in v)
+
+
+def test_no_molde_a_ancora_independente_nao_existe_e_isso_e_deliberado(repo_publicado):
+    """A honestidade que a decisão (b) exige que fique escrita em teste, não só em prosa.
+
+    `--verify-tag` DERIVA o lock do próprio manifesto — no molde não há onde registrar um
+    `manifest_sha` independente, porque não há a quem se ancorar. Os elos lock×manifesto são
+    portanto tautológicos aqui, e chamá-los de verificação seria inventar rigor que não existe. O
+    que morde no molde é outra coisa: a tag, o pai e o diff.
+    """
+    _, _, manifest, dados = repo_publicado
+    derivado_do_proprio = mr.lock_block(repository=manifest["release"]["repository"],
+                                        tag="v1.0.0",
+                                        commit_sha=manifest["release"]["commit_sha"],
+                                        manifest_bytes=dados)
+    assert derivado_do_proprio["manifest_sha"] == mr.manifest_sha(dados)
+
+    fonte = (REPO / "ci/mold_release.py").read_text(encoding="utf-8")
+    assert "lock = {\"mold_release\": lock_block(" in fonte
+
+
+def test_ledger_registra_a_release_apontando_para_o_commit_taggeado(tmp_path, monkeypatch):
+    """Um commit não pode conter o registro de si mesmo — mesma aritmética que fez o manifesto
+    declarar o pai. Por isso `--commit-sha` existe: o default (`commit_corrente()`) registraria o
+    commit do PRÓPRIO ledger, que não é o que foi publicado."""
+    import audit_ledger as al
+
+    repo = tmp_path / "r"
+    (repo / "harness/state").mkdir(parents=True)
+    (repo / "harness/state/ledger.jsonl").write_text("", encoding="utf-8")
+    monkeypatch.setattr(hl, "REPO", repo)
+    monkeypatch.setattr(al.hl, "REPO", repo)
+
+    taggeado = "d" * 40
+    assert al.main(["--append", "release", "--commit-sha", taggeado,
+                    "--fiscal", "ci/mold_release.py", "--run-id", "42",
+                    "--artifact-ref", "harness/releases/v1.0.0.manifest.json"]) == 0
+
+    linha = json.loads((repo / "harness/state/ledger.jsonl").read_text(encoding="utf-8").strip())
+    assert linha["event"] == "release"
+    assert linha["commit_sha"] == taggeado
+    assert linha["artifact_ref"] == "harness/releases/v1.0.0.manifest.json"
+    assert linha["fiscal"] == "ci/mold_release.py"
+
+
+def test_linha_de_ledger_fora_do_schema_e_recusada(tmp_path, monkeypatch):
+    """A allowlist estrutural continua valendo para o evento novo: `release` não abre porta para
+    campo textual livre."""
+    import audit_ledger as al
+
+    repo = tmp_path / "r"
+    (repo / "harness/state").mkdir(parents=True)
+    monkeypatch.setattr(hl, "REPO", repo)
+    monkeypatch.setattr(al.hl, "REPO", repo)
+
+    # artifact_ref fora do prefixo canônico: caminho arbitrário carrega nome de diretório, e nome
+    # de diretório carrega o que alguém quis chamar de alguma coisa.
+    assert al.main(["--append", "release", "--commit-sha", "d" * 40,
+                    "--artifact-ref", "/tmp/qualquer/coisa.json"]) == 1

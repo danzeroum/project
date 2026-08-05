@@ -1,0 +1,122 @@
+# Mudança proposta: o caminho de release passa a ser executável de ponta a ponta — valida, cria a
+# ref, prova a cadeia e registra. Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-031
+  title: "Caminho de release executável: validar antes de criar a ref, provar mutação, registrar"
+  author_kind: agent
+  created_at: "2026-08-05T22:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - .github/workflows/release.yml
+    - ci/mold_release.py
+    - ci/audit_ledger.py
+    - ci/verify_protection.py
+    - architecture/adr/index.yaml
+    - architecture/adr/ADR-025-o-workflow-cria-a-ref-e-nao-a-move.md
+    - harness/policies/prova-de-mutacao.md
+    - harness/policies/ancoragem-do-molde.md
+    - harness/policies/trava-externa.md
+    - harness/releases/README.md
+    - tests/governance/test_release_publicacao.py
+    # Derivados do que está acima: o grafo é regerado e o fingerprint da revisão semântica é
+    # recalculado porque o escopo governável mudou. Declarados aqui para que a superfície editada
+    # seja a real, e não a que dá menos trabalho de justificar.
+    - docs/metadata-graph.md
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-MOLD-001
+      - RISK-EXT-001
+      - RISK-CONF-001
+    rationale: >
+      O QUE ESTA CP CORRIGE. A prova de fogo 1 pediu para publicar a v1.0.0 e parou em
+      INCOMPLETE_PLAN: o CP-021 entregou a VERIFICAÇÃO da cadeia e não o CAMINHO de publicação.
+      Nenhum workflow podia criar tag — `release.yml` disparava só em push de tag já existente,
+      com `contents: read` — então a única forma de nascer uma tag era `git tag` manual, que é
+      exatamente o que a regra da publicação proíbe. Seis achados foram levantados e arbitrados;
+      os cinco primeiros viram os cinco itens abaixo, e o sexto vira anotação.
+
+      ITEM 1 — A REF NASCE DO WORKFLOW. `workflow_dispatch` com `inputs.tag` e `contents: write`.
+      Reverte a decisão registrada em comentário no `release.yml` ("o que este workflow NÃO faz,
+      deliberadamente: criar a tag"), e a reversão tem ADR próprio (ADR-025) porque decisão
+      registrada não se desfaz por edição. A razão em uma frase: o workflow CRIA a ref e não pode
+      MOVÊ-LA — `git push` sem `--force` recusa atualizar tag existente — então o que ele assina é
+      "esta versão nasceu daqui", nunca "esta versão continua sendo o que eu disse". A segunda
+      afirmação é a que exige autoridade externa, e ela segue sendo do ruleset (item 5).
+
+      ITEM 2 — A PROVA DE MUTAÇÃO ENTRA NO CAMINHO. `audit_mutations.py` é passo do dispatch,
+      antes da ref. Sem ele a v1.0.0 seria publicada sem evidência de que as 124 regras bloqueantes
+      ainda mordiam naquele commit — e para um molde cujo produto É o conjunto de travas, essa era
+      a lacuna mais séria das três.
+
+      ITEM 3 — O LEDGER REGISTRA A RELEASE. Linha `release` com `commit_sha` do commit taggeado e
+      `artifact_ref` do manifesto, num commit FILHO da tag: o commit de release não pode conter o
+      registro de si mesmo, pela mesma aritmética que fez o manifesto declarar o pai. O commit do
+      ledger vai para uma branch própria, nunca para `main` — o ruleset de `main` recusa push
+      direto para todos, e um workflow que pudesse escrever na `main` poderia reescrever a
+      evidência das releases anteriores. Ele entra pelo mesmo portão que todo o resto: um PR.
+
+      ITEM 4 — O CRITÉRIO DA CADEIA FICA COMO O ADR-015 O DECLAROU. `manifest.commit_sha` é o
+      PRIMEIRO PAI do commit da tag, e o `diff pai..tag` contém só o manifesto. Não há ADR novo
+      para isto porque não há decisão nova: exigir que o manifesto contenha o hash do commit que o
+      contém não é escolha de desenho, é impossível. O que fecha o buraco é o elo 5, e ele já
+      existe.
+
+      ITEM 5 — A ÂNCORA INDEPENDENTE É DO DERIVADO. `manifest_sha` como registro independente é
+      cobrado em `target.lock:mold_release`, no consumidor. No molde vale o sha256 dos bytes
+      canônicos — `_cmd_verify_tag` deriva o lock do próprio manifesto, então os elos lock×manifesto
+      são tautológicos na auto-verificação e dizer o contrário seria inventar rigor que não existe.
+
+      O ACHADO 6, ANOTADO E NÃO FECHADO. "Tag protegida contra force-update" não é implementável
+      daqui. Proteção real de tag é ruleset administrado fora do repositório, e é o mesmo problema
+      externo da branch — por isso ganha um EIXO no fiscal que já existe (`verify_tag_protection`
+      em `ci/verify_protection.py`) em vez de um fiscal novo. Enquanto
+      `harness.yaml:external_audit.enabled` for `false`, o eixo REPORTA e não bloqueia, citando
+      `RISK-EXT-001` (`due: 2026-11-03`) — a mesma doutrina que a camada de branch já segue, pela
+      mesma razão: repositório vermelho por condição que ninguém aqui satisfaz é repositório cujo
+      fiscal se aprende a ignorar.
+
+      O LIMITE DE MAIOR RISCO, e o que foi feito com ele. É a janela entre validar e criar a ref.
+      Ela foi fechada por construção, não por vigilância: tudo acontece nos objetos locais do
+      runner — valida em P, emite o manifesto, monta o commit de release R, tagueia LOCALMENTE,
+      verifica a cadeia inteira sobre R e só então empurra a ref. O que é publicado é byte a byte
+      o que foi verificado, porque é o mesmo objeto. `preflight_publicacao` é a segunda tranca, e
+      é função pura: recusa tag preexistente, HEAD movido entre validação e publicação, e
+      manifesto já na árvore (que faria o elo 5 passar por vacuidade em vez de por verificação).
+
+      DUAS CONSEQUÊNCIAS QUE PRECISAM FICAR ESCRITAS. (a) Uma ref criada com `GITHUB_TOKEN` não
+      dispara outros workflows — então o job de auditoria por push de tag NÃO roda para a tag que
+      o dispatch criou, e por isso o próprio dispatch verifica a cadeia antes de publicar. Contar
+      com o push-audit seria contar com um passo que não executa. (b) O manifesto fica na árvore do
+      commit taggeado e não na `main`: `harness/` é caminho protegido, e um workflow que escrevesse
+      lá estaria fazendo por fora o que esta casa exige que se faça por PR.
+
+      A DÍVIDA DA PROVA, paga aqui. O parágrafo dos 19 achados — todos defeitos do próprio fiscal,
+      nenhum trava quebrada — entra em `harness/policies/prova-de-mutacao.md`, junto do teste de
+      mordida involuntário: o hook de higiene de ambiente recusou o `HTTPS_PROXY` que o autor da
+      trava tentou exportar no próprio smoke test.
+
+      CUSTO (princípio (e)). Nenhum fiscal novo entra em `validate_all.py`: o eixo de tags é
+      chamada de rede e mora onde a rede existe; a prova de mutação continua fora, como o ADR-024
+      decidiu. O caminho de dispatch custa a validação total mais a prova (cerca de um minuto e
+      meio) por publicação — e publicação não é o loop de trabalho de ninguém.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_release_publicacao.py
+
+  human_approval_required: true
+  change_mode: pull_request
