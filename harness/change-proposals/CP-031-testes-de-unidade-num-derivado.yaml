@@ -1,0 +1,70 @@
+# Mudança proposta: num derivado, "testes de unidade" são os desta harness — os do alvo são do CI
+# do alvo. Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-031
+  title: "O passo de testes de unidade num derivado roda os testes desta harness, não os do alvo"
+  author_kind: agent
+  created_at: "2026-08-05T13:00:00Z"
+  status: draft
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - .github/workflows/qa.yml
+    - tests/governance/test_bootstrap_bites.py
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-STAGE-001
+      - RISK-DERIV-002
+
+    rationale: >
+      Corrige um defeito que eu mesmo introduzi ao implementar a CP-016 (PR #30), e o defeito é
+      instrutivo: a CP-016 declarava três decisões sobre MATERIALIZAR o alvo, e eu estendi o passo
+      de testes junto, sem que a proposta tivesse analisado o que essa extensão custa.
+
+      O QUE QUEBROU. O passo passou a rodar `pytest workspace/target/<test_roots>`. Medido no
+      primeiro derivado real: o pytest adota o pyproject.toml DO ALVO como inifile — rootdir vira
+      workspace/target — e ali há `addopts = "-q --cov=src --cov-fail-under=72"`. Sem pytest-cov
+      instalado, o pytest recusa o argumento e o job morre antes de coletar um teste sequer.
+
+      E O CONSERTO ÓBVIO É PIOR QUE O DEFEITO. Instalar o requirements.txt do alvo — 55 linhas,
+      FastAPI, Streamlit, ccxt — faria o derivado REPRODUZIR o runtime do alvo e quebrar sempre
+      que as dependências dele mudassem. O gêmeo de governança passaria a duplicar o CI do
+      governado, acoplando-se ao build dele. O trabalho do derivado é DESCREVER o alvo, não
+      construí-lo; a fronteira entre os dois é o que torna a governança barata e estável.
+
+      A CORREÇÃO. Num derivado, o passo roda `tests/governance` — os testes de mordida desta
+      harness, que são os únicos testes que ESTE repositório de fato tem — e diz em voz alta que os
+      testes do alvo pertencem ao CI do alvo. No molde nada muda: continua `tests/unit`, o negócio
+      de exemplo.
+
+      O nome do passo é ajustado junto. "Rodar testes de unidade (alvo do inventário é código
+      real)" descrevia o molde e virava promessa falsa num derivado; um passo cujo nome não
+      descreve o que ele faz é a próxima confusão esperando acontecer.
+
+      O QUE ISTO NÃO DESFAZ. A materialização do alvo, que é o coração da CP-016, permanece: ela
+      roda em governance.yml e validate-metadata.yml, sem depender de dependência alguma do alvo,
+      porque os fiscais leem por AST. A invariante do código órfão continua executando no gate —
+      esse ganho é real e não está em questão aqui.
+
+      Risco 'medium', não 'high': nada aqui remove trava. O passo deixa de falhar por apontar para
+      um ambiente que o derivado não tem, e passa a exercer os testes que ele tem. O que se perde é
+      uma cobertura que nunca existiu — rodar os testes do alvo nunca funcionou num derivado, nem
+      antes nem depois da CP-016.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_bootstrap_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
