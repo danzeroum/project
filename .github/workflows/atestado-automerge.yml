@@ -30,9 +30,15 @@ jobs:
       - name: Trazer o molde na BASE (nunca o head do PR)
         uses: actions/checkout@v4
 
+      # 3.11, como todo workflow desta casa — e a razão mora numa propriedade de
+      # requirements-ci.txt que não estava escrita em lugar nenhum: o lockfile carrega UM hash por
+      # pacote, o do wheel daquela versão de interpretador. Pedir 3.12 baixa o wheel cp312, cujo
+      # hash não é o listado, e o pip aborta com "THESE PACKAGES DO NOT MATCH THE HASHES" antes de
+      # o portão rodar uma linha. Foi assim aqui até 05/08/2026, e quem descobriu foi o primeiro
+      # derivado a copiar o padrão — este workflow ainda não tinha disparado nenhuma vez.
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - run: pip install -r requirements-ci.txt
 

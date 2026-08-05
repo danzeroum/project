@@ -106,6 +106,37 @@ def test_lock_com_manifesto_de_outro_commit_reprova():
     assert any("manifest_sha não confere" in v for v in violacoes), violacoes
 
 
+def test_a_mensagem_MOSTRA_o_digito_que_mudou(monkeypatch):
+    """Achado do primeiro derivado a consumir a v1.0.0 (CP-038).
+
+    O corte fixo em 12 caracteres produzia, quando a alteração estava além da posição 12:
+
+        o lock espera 8d5986b6ad3c e os bytes (...) produzem 8d5986b6ad3c
+
+    Dois prefixos IDÊNTICOS sob a palavra "não confere". Quem lê perde tempo achando que o fiscal
+    está errado — e o caso não é raro: é o de quem adultera com cuidado, e é o que o teste de borda
+    desta casa exercita. A mensagem é o produto do fiscal; uma que se contradiz não fiscaliza.
+    """
+    kwargs = _cadeia()
+    verdadeiro = kwargs["lock"]["mold_release"]["manifest_sha"]
+    # Um dígito trocado DEPOIS da posição 12 — o caso que o corte fixo escondia.
+    adulterado = verdadeiro[:20] + ("0" if verdadeiro[20] != "0" else "1") + verdadeiro[21:]
+    kwargs["lock"]["mold_release"]["manifest_sha"] = adulterado
+
+    msg = next(v for v in mr.verify_chain(**kwargs) if "manifest_sha não confere" in v)
+    esperado = mr._hash_curto(adulterado, verdadeiro)
+    encontrado = mr._hash_curto(verdadeiro, adulterado)
+    assert esperado != encontrado, "os dois lados da mensagem não podem sair iguais"
+    assert esperado in msg and encontrado in msg, msg
+
+
+def test_hashes_iguais_nao_quebram_o_encurtador():
+    """Chamado com dois hashes idênticos (não acontece na cadeia, mas a função é pública), o corte
+    volta ao mínimo em vez de estourar no `next`."""
+    h = "a" * 64
+    assert mr._hash_curto(h, h) == "a" * 12
+
+
 def test_manifesto_que_descreve_outro_pai_reprova():
     """Elo 1/2: o manifesto tem que descrever a árvore que está sendo publicada."""
     violacoes = mr.verify_chain(**_cadeia(parent_sha=SHA_OUTRO))

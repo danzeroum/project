@@ -62,6 +62,28 @@ def manifest_sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _hash_curto(h: str, outro: str, minimo: int = 12) -> str:
+    """Prefixo que INCLUI o primeiro dígito divergente. Nunca dois prefixos iguais sob 'não confere'.
+
+    Achado do primeiro derivado a consumir a v1.0.0 (CP-038). O corte fixo em 12 produzia, quando a
+    alteração estava além da posição 12:
+
+        manifest_sha não confere: o lock espera 8d5986b6ad3c e os bytes (...) produzem 8d5986b6ad3c
+
+    Dois prefixos idênticos sob a palavra "não confere" — quem lê perde tempo achando que o fiscal
+    está errado. E o caso não é raro: é exatamente o de quem adultera com cuidado, e é o que o teste
+    de borda desta casa exercita.
+
+    Truncar continua certo (64 caracteres duas vezes numa linha não se lê). O que muda é ONDE se
+    corta: no ponto que carrega a informação, não num número redondo.
+    """
+    i = next((k for k, (a, b) in enumerate(zip(h, outro)) if a != b), None)
+    if i is None:
+        return h[:minimo]
+    corte = max(minimo, i + 1)
+    return h[:corte] + ("…" if corte < len(h) else "")
+
+
 def build_manifest(*, repository: str, tag: str, commit_sha: str, run_id: str,
                    artifact_digest: str, released_at: str | None = None) -> dict:
     """O manifesto NÃO carrega URL de repositório (CP-034).
@@ -138,8 +160,9 @@ def verify_chain(*, lock: dict, manifest: dict, manifest_bytes: bytes,
     encontrado = manifest_sha(manifest_bytes)
     if mr.get("manifest_sha") != encontrado:
         violations.append(
-            f"manifest_sha não confere: o lock espera {str(mr.get('manifest_sha'))[:12]} e os bytes "
-            f"do manifesto em {mr.get('manifest_path')} produzem {encontrado[:12]} — ou a tag foi "
+            f"manifest_sha não confere: o lock espera {_hash_curto(str(mr.get('manifest_sha')), encontrado)} "
+            f"e os bytes do manifesto em {mr.get('manifest_path')} produzem "
+            f"{_hash_curto(encontrado, str(mr.get('manifest_sha')))} — ou a tag foi "
             f"movida, ou o manifesto foi reescrito depois de consumido")
 
     if tag and mr.get("manifest_path") != manifest_path_for(tag):
