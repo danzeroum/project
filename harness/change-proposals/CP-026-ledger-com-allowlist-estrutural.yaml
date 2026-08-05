@@ -1,0 +1,83 @@
+# Mudança proposta: evidência durável — o ledger versionado, com allowlist estrutural.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-026
+  title: "Ledger append-only versionado, com allowlist estrutural em vez da promessa impossível de 'schema proíbe PII'"
+  author_kind: agent
+  created_at: "2026-08-05T17:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - harness/schemas/ledger.schema.json
+    - ci/audit_ledger.py
+    - governance/ripd.md
+    - .gitignore
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-PRIV-001
+      - RISK-META-001
+    rationale: >
+      O QUE FALTA. Os laudos deste repositório são efêmeros por decisão: `harness/runs`,
+      `harness/reports` e `harness/state` são gitignored, e o item 5 do RIPD declara isso como
+      MEDIDA DE PROTEÇÃO DE DADOS — "a evidência não entra no histórico do Git, de onde não se
+      apaga". A consequência é que nada sobrevive: não há como perguntar "quando este repositório
+      esteve conforme?" nem "quantas vezes esta trava mordeu?".
+
+      A CONDIÇÃO DE ENTRADA, e ela é o ponto mais delicado desta CP. Versionar qualquer coisa sob
+      `harness/state/` CONTRADIZ o item 5 do RIPD. Fazer isso em silêncio seria exatamente o que
+      este repositório recusa em toda parte: mudar uma medida de proteção declarada sem tocar no
+      documento que a declara. Por isso a fase só avança com (i) ADR de exceção que ATUALIZA o
+      próprio `ripd.md`, e (ii) minimização estrutural no schema. Os dois entram aqui.
+
+      A PROMESSA IMPOSSÍVEL, corrigida. A versão anterior deste plano dizia "o schema proíbe campos
+      de identificação pessoal". Isso é tecnicamente infactível e a autocorreção está registrada:
+      JSON Schema valida ESTRUTURA, não detecta PII em texto livre; e pela definição da ANPD até um
+      handle é dado pessoal conforme o contexto. Um schema que "proibisse PII" seria uma trava que
+      não encontra o que vigia — satisfeita por vacuidade, no sentido exato do ADR-006.
+
+      A ALLOWLIST ESTRUTURAL, que é factível. O `ledger.schema.json` não permite NENHUMA
+      propriedade textual livre: `additionalProperties: false`, e cada campo é hash, SHA, ID opaco
+      de run, enum, timestamp, ID de CP ou referência canônica de artefato. Não há onde escrever
+      nome, e-mail, login, URL de perfil, texto de prompt, conteúdo de laudo ou caminho com
+      identificador pessoal — não porque um fiscal os detecte, mas porque não existe campo que os
+      aceite. A diferença entre "proibido" e "inexpressável" é a diferença entre uma regra e uma
+      trava.
+
+      POR QUE O LEDGER É MAIS ESTRITO QUE `business.stakeholders`. Aquele aceita handle; este não
+      aceita nada. A razão está no próprio RIPD: o ledger é append-only e versionado — "de onde não
+      se apaga". Minimização suficiente num arquivo editável vira exposição PERMANENTE num histórico
+      imutável. Atribuição humana, quando indispensável, entra como `actor_ref` PSEUDONIMIZADO, com
+      a tabela de reidentificação fora do repositório, sob controle separado.
+
+      APPEND-ONLY POR DIFF. Um ledger que se pode reescrever não é ledger. O fiscal compara as
+      linhas com as do commit anterior: qualquer linha preexistente alterada ou removida reprova.
+      Reescrever a história é o modo de falha que um registro de conformidade existe para tornar
+      impossível — e é também o mais tentador, porque a linha que incomoda é sempre a que registra
+      um vermelho.
+
+      O QUE FICA PARA O POLIMENTO. A atestação do laudo (`provenance.schema.json` 1.1 → 1.2 com
+      bloco `attestation`) entra aqui como schema pronto e opcional: nenhum laudo existente vira
+      inválido, e um laudo `1.2` passa a exigir o bloco. O reposicionamento é o registrado no R-09 —
+      aceito por custo, não por a atestação ser marginal.
+
+      CUSTO (princípio (e)). Um schema, um fiscal que lê um arquivo de linhas e um diff de git.
+      O ganho é a única forma de responder "quando este repositório esteve conforme?" sem depender
+      de artifact que expira em 90 dias.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_ledger_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/ledger.schema.json",
+  "title": "Uma linha de harness/state/ledger.jsonl — evidência durável, minimizada por construção",
+  "description": "ALLOWLIST ESTRUTURAL, e a formulação importa. A versão anterior deste plano prometia que 'o schema proíbe campos de identificação pessoal' — tecnicamente infactível: JSON Schema valida estrutura, não detecta PII em texto livre, e pela definição da ANPD até um handle é dado pessoal conforme o contexto. Aqui não há proibição a detectar: simplesmente NÃO EXISTE campo textual livre. Cada propriedade é hash, SHA, ID opaco, enum, timestamp, ID de CP ou referência canônica de artefato. A diferença entre 'proibido' e 'inexpressável' é a diferença entre uma regra e uma trava. E o ledger é mais estrito que business.stakeholders (que aceita handle) porque é append-only e versionado — 'de onde não se apaga', nas palavras do próprio RIPD: minimização suficiente num arquivo editável vira exposição permanente num histórico imutável.",
+  "type": "object",
+  "required": ["schema_version", "recorded_at", "event", "commit_sha", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Instante do registro. Timestamp não é texto livre: a forma é fechada e não carrega carona."
+    },
+    "event": {
+      "enum": ["validation", "release", "adoption", "ingestion", "sync", "attestation"],
+      "description": "Enum, nunca string: um campo 'tipo de evento' aberto seria a primeira porta por onde texto livre entraria."
+    },
+    "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "result": { "enum": ["pass", "fail", "unverifiable"] },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "ID OPACO de execução. O padrão exclui '/', ':' e espaço de propósito: sem isso, 'run_id' aceitaria uma URL, e uma URL carrega organização, repositório e às vezes autor."
+    },
+    "cp_id": { "type": "string", "pattern": "^CP-[0-9]{3,}$" },
+    "actor_ref": {
+      "type": "string",
+      "pattern": "^anon:[0-9a-f]{16}$",
+      "description": "Atribuição humana PSEUDONIMIZADA, quando indispensável. O prefixo e o tamanho fixo tornam impossível escrever um login aqui. A tabela de reidentificação vive FORA deste repositório, sob controle separado — versioná-la aqui recriaria exatamente o problema que a pseudonimização resolve."
+    },
+    "findings_count": { "type": "integer", "minimum": 0 },
+    "findings_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Digest do laudo, não o laudo. É o que permite provar 'era este o conjunto de achados' sem trazer o conteúdo — que é onde o dado pessoal do alvo auditado moraria."
+    },
+    "artifact_ref": {
+      "type": "string",
+      "pattern": "^(harness|docs)/[A-Za-z0-9_./-]+$",
+      "description": "Referência canônica a artefato DESTE repositório. Ancorada em prefixo conhecido para que não vire caminho arbitrário — caminho arbitrário carrega nome de diretório, e nome de diretório carrega o que alguém quis chamar de alguma coisa."
+    },
+    "fiscal": {
+      "type": "string",
+      "pattern": "^ci/[a-z_]+\\.py$",
+      "description": "Qual fiscal produziu o registro. Padrão fechado: o conjunto de fiscais é conhecido e pequeno."
+    }
+  }
+}

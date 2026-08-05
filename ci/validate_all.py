@@ -32,6 +32,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
     """
     import alignment_report
     import audit_conformance
+    import audit_ledger
     import audit_governance
     import audit_lgpd
     import generate_graph
@@ -44,6 +45,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
         ("alinhamento", alignment_report.main, ["--check"]),
         ("conformidade-continua", audit_conformance.main, []),
         ("lgpd", audit_lgpd.main, []),
+        ("ledger", audit_ledger.main, []),
     ]
 
 
