@@ -161,7 +161,8 @@
                 "apagar_linha",
                 "injetar_texto",
                 "injetar_apos",
-                "quebrar_ponteiro"
+                "quebrar_ponteiro",
+                "substituir_texto"
               ]
             },
             "alvo": {
@@ -183,13 +184,43 @@
             "marcador": {
               "type": "string"
             },
+            "de": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Texto substituído por `para` (op substituir_texto). Existe porque o inverso de uma decisão binária declarada não é apagar a linha — apagar produz erro de schema, que é outro estado com outra reação. Quem desliga uma trava escreve o valor oposto e continua válido; mutar até esse valor é o que prova que a asserção pega o gesto real."
+            },
+            "para": {
+              "type": "string",
+              "description": "Texto que substitui `de` (op substituir_texto)."
+            },
             "exclude": {
               "type": "array",
               "items": {
                 "type": "string"
               }
             }
-          }
+          },
+          "allOf": [
+            {
+              "comment": "substituir_texto sem `de` seria KeyError no fiscal — exit 2, 'não foi possível provar'. O schema recusa antes: uma mutação que não sabe o que substituir não é mutação insuficiente, é declaração incompleta.",
+              "if": {
+                "properties": {
+                  "op": {
+                    "const": "substituir_texto"
+                  }
+                },
+                "required": [
+                  "op"
+                ]
+              },
+              "then": {
+                "required": [
+                  "de",
+                  "para"
+                ]
+              }
+            }
+          ]
         },
         "dir": {
           "type": "string",

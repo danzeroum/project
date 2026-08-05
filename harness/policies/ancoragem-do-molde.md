@@ -30,9 +30,11 @@ vermelho e **nenhuma ref nasce**: não existe release parcial.
 
 **O workflow cria a ref e não a move** (ADR-025). `git push` sem `--force` recusa atualizar uma tag
 existente, então o que o workflow assina é *"esta versão nasceu de um commit validado"*. A
-afirmação seguinte — *"e continua sendo isto"* — exige ruleset administrado fora daqui, e é o que o
-eixo de tags de `ci/verify_protection.py` reporta a cada publicação enquanto não existir
-(`RISK-EXT-001`, `due: 2026-11-03`).
+afirmação seguinte — *"e continua sendo isto"* — exige ruleset administrado fora daqui. Ele existe
+desde 05/08/2026 (`tags-imoveis`: `deletion` + `non_fast_forward` + `update`, bypass vazio), é
+auditado de fora todo dia pelo `danzeroum/harness-authority`, e o eixo de tags de
+`ci/verify_protection.py` passou a **bloquear** em vez de reportar quando `external_audit.enabled`
+virou `true` (CP-036, ADR-028). `RISK-EXT-001` está `mitigated`.
 
 **A janela entre validar e publicar é vazia, não vigiada.** Manifesto emitido, commit de release
 montado, tag criada e cadeia verificada — tudo em objetos locais. O `git push` da ref é a única

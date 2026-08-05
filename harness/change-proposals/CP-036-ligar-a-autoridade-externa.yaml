@@ -1,0 +1,104 @@
+# Mudança proposta: a camada externa passa de declarada-e-desligada a LIGADA, e o emissor deixa
+# de ser um campo que ninguém confere. Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-036
+  title: "Ligar a autoridade externa, e conferir quem assina"
+  author_kind: agent
+  created_at: "2026-08-05T20:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - harness/harness.yaml
+    - harness/schemas/harness.schema.json
+    - ci/audit_governance.py
+    - ci/audit_mutations.py
+    - harness/schemas/adr-index.schema.json
+    - architecture/adr/index.yaml
+    - architecture/adr/ADR-028-a-autoridade-externa-ligada.md
+    - harness/policies/trava-externa.md
+    - harness/policies/ancoragem-do-molde.md
+    - governance/risk-register.yaml
+    - tests/governance/test_protecao_bites.py
+    - docs/metadata-graph.md
+    - docs/schema-reference.md
+    - docs/alignment.md
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-EXT-001
+      - RISK-META-002
+    rationale: >
+      O QUE MUDA, E POR QUE AS DUAS COISAS ANDAM JUNTAS. `external_audit.enabled` passa a `true`, e
+      no mesmo movimento `authorized_issuer` passa a ser declarado e CONFERIDO. Separá-las produziria
+      um estado pior que o atual: com a camada ligada e o emissor sem verificação, o molde exigiria
+      um atestado e aceitaria qualquer um — quem tem direito de merge escreveria o JSON à mão e
+      passaria. "Alguém atestou" e "quem devia atestou" são frases diferentes, e só a segunda é uma
+      trava. O schema torna isso estrutural: `enabled: true` EXIGE `authorized_issuer`, então a
+      combinação perigosa deixa de ser representável.
+
+      O QUE PASSA A SER IMPOSSÍVEL EM SILÊNCIO. Antes desta CP, alguém podia apagar o ruleset de
+      tags do repositório e o CI seguia verde — a camada local não olha rulesets, e a externa estava
+      desligada. Agora não: o atestado vale 25h, o cron confere a proteção real todo dia de fora, e
+      um atestado ausente, expirado, fora do schema ou de emissor errado BLOQUEIA. Desligar a
+      proteção passa a ter prazo de validade de um dia para ser notado — sem depender de ninguém
+      perceber, que era a promessa e agora é o comportamento.
+
+      TRÊS ACHADOS, NÃO UM (princípio (h)). Ausente, expirado e emissor não autorizado são estados
+      distintos com reações distintas: o primeiro é "o verificador não entregou", o segundo é "ele
+      entregou e envelheceu", o terceiro é "alguém escreveu isso à mão". Colapsá-los num
+      `EXT-AUDIT-INVALIDO` genérico economizaria código e destruiria a informação que faz alguém
+      saber para onde olhar. E eles não se excluem: um atestado expirado E com emissor errado produz
+      os dois achados, porque são dois problemas.
+
+      O EIXO DE TAGS FICA BLOQUEANTE SEM MUDAR UMA LINHA DELE. A CP-031 já escreveu o
+      `verify_tag_protection` de modo que `external_audit.enabled` decide se as lacunas reportam ou
+      bloqueiam. Ligar a flag exerce esse desenho — que é o teste real dele: uma decisão que se
+      aplica sem edição de código era decisão, e não intenção.
+
+      A BORDA VERMELHA-DOCUMENTADA VIRA VERDE-PROVADA. O `harness-authority` carrega um teste
+      chamado `test_EMISSOR_NAO_AUTORIZADO_AINDA_PASSA_e_isto_esta_documentado`, que afirma o
+      comportamento ATUAL de propósito e prometia virar vermelho no dia em que esta emenda entrasse.
+      O dia é hoje; ele é invertido no repositório da autoridade, e a inversão é a confirmação de
+      que a lacuna fechou.
+
+      RISK-EXT-001 PASSA A `mitigated`, com evidência citável em vez de promessa: ruleset de tags
+      ativo com bypass vazio, atestado real na árvore emitido por identidade externa, e a flag
+      ligada. RISK-CHANGE-002 fica `open` e datado — ele é sobre gente, e nada aqui o toca.
+
+      O QUE ESTA CP NÃO FAZ, e é bom que não faça. Ela não torna o check da autoridade obrigatório
+      no ruleset da `main`. Esse passo é administrativo, fora deste repositório, e é o que separa
+      "o CI reprova" de "o merge é impossível". Depender dele para o verde desta CP tornaria o
+      repositório refém de uma configuração que ele não controla — exatamente o erro que o
+      congelamento de hoje ensinou.
+
+      UMA OPERAÇÃO DE MUTAÇÃO NOVA, E ELA É O PONTO. As mutações canônicas existentes negam uma
+      afirmação apagando-a: o caminho some, o padrão some, o ponteiro some. Nenhuma delas exprime o
+      gesto que esta CP precisa provar — `enabled: true` virando `enabled: false`. Apagar a linha
+      produziria erro de schema, que é um TERCEIRO estado com outra reação; quem desliga a
+      autoridade escreve `false` e continua perfeitamente válido perante o schema. `substituir_texto`
+      existe para mutar até o estado que NÃO é erro, porque é o único que prova que a asserção pega
+      o gesto real em vez do desleixo.
+
+      CUSTO (princípio (e)). Nenhum fiscal novo, nenhum passo de CI novo. Uma comparação de dois
+      campos em `check_external_attestation`, uma trava if/then no schema, e o preço real: a partir
+      de agora o repositório depende de um cron externo funcionando. Se ele parar, o molde bloqueia
+      em 25h. É o custo desejado — a alternativa é não saber.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_protecao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

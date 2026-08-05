@@ -418,24 +418,44 @@ risks:
     description: "Sem autoridade externa, a verificação de proteção mora no repositório fiscalizado: um PR privilegiado remove o passo e a asserção que o vigia no mesmo commit."
     likelihood: low
     impact: high
-    treatment: accept
+    treatment: mitigate
     owner: security_owner
-    status: open
-    # Risco aceito TEM DATA (princípio (g) do plano). Em 03/11/2026: ou a identidade emissora foi
-    # viabilizada e external_audit.enabled vira true, ou o risco é RE-ACEITO com data nova. Risco
-    # aceito sem data é risco esquecido, e esta é a linha que impede o esquecimento.
-    due: "2026-11-03"
+    # MITIGADO em 05/08/2026 (CP-036), e antes do prazo de 03/11 que a aceitação tinha marcado.
+    # O que fechou não foi código novo — o código estava escrito desde a CP-024. Foi a autoridade
+    # passar a EXISTIR, e a evidência é citável em vez de prometida:
+    #
+    #   - `danzeroum/harness-authority`: verificador em repositório que este aqui não alcança —
+    #     nenhum workflow, token ou PR deste lado o edita;
+    #   - GitHub App próprio (identidade emissora que não é o GITHUB_TOKEN deste repositório);
+    #   - ruleset de tags `tags-imoveis` ativo, com deletion + non_fast_forward + update e bypass
+    #     VAZIO, mais o ruleset da `main` — a configuração real do servidor, lida de fora;
+    #   - atestado real na árvore (`harness/state/protection-attestation.json`), com validade de
+    #     25h: uma execução perdida do cron o faz EXPIRAR em vez de continuar valendo;
+    #   - `external_audit.enabled: true`, com `authorized_issuer` conferido a cada execução.
+    #
+    # `mitigate`, não `closed`: resta um passo administrativo fora deste repositório — tornar o
+    # check da autoridade OBRIGATÓRIO no ruleset da `main`, que é o que separa "o CI reprova" de
+    # "o merge é impossível". Fechar o risco enquanto esse passo não existe seria carimbar a parte
+    # que falta. Sem `due` porque `mitigate` não é `open`: não há prazo a vencer, há um estado a
+    # melhorar — e o ADR-028 diz qual.
+    status: mitigated
     controls:
       - kind: local_path
         ref: ci/verify_protection.py
       - kind: local_path
         ref: harness/schemas/protection-attestation.schema.json
       - kind: local_path
+        ref: harness/state/protection-attestation.json
+      - kind: local_path
         ref: harness/policies/trava-externa.md
       - kind: local_path
         ref: architecture/adr/ADR-020-camada-local-nao-equivale-a-externa.md
+      - kind: local_path
+        ref: architecture/adr/ADR-028-a-autoridade-externa-ligada.md
       - kind: branch_protection
         ref: "main:require_pull_request_reviews"
+      - kind: branch_protection
+        ref: "refs/tags/v*:tags-imoveis"
 
   - id: RISK-CHANGE-002
     area: governance

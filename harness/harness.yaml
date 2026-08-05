@@ -38,8 +38,17 @@ repository:
 # `enabled: false` faz o estado aparecer a cada execução em vez de sumir. A alternativa — não ter
 # nada — deixaria a lacuna sem lugar onde aparecer.
 external_audit:
-  enabled: false
+  # LIGADA em 05/08/2026 (CP-036). O que a ligou não foi uma decisão de escrever mais código: foi
+  # a autoridade externa passar a existir de fato — `danzeroum/harness-authority`, um repositório
+  # que este aqui não alcança, com App próprio, cron diário e atestado que expira em 25h.
+  enabled: true
   accepted_risk: RISK-EXT-001   # risco aceito COM DATA (princípio (g)); `due` mora no registro
+  # QUEM pode atestar. Ligar sem este bloco produziria um estado pior que desligado: o molde
+  # exigiria atestado e aceitaria qualquer um — quem tem direito de merge escreveria o JSON à mão.
+  # O schema torna a combinação inexpressável: `enabled: true` EXIGE `authorized_issuer`.
+  authorized_issuer:
+    identity: harness-authority
+    kind: github_app
   attestation_path: harness/state/protection-attestation.json
   justification: >
     Não há, hoje, identidade emissora com ruleset administrado fora deste repositório. Ligar a

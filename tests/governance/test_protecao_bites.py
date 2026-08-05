@@ -89,17 +89,71 @@ def test_indeterminacao_nao_vira_violacao():
 # O estado declarado da camada externa
 # --------------------------------------------------------------------------------------
 
+def _desligar(root: Path) -> None:
+    """Monta, numa cópia, o cenário DESLIGADO por inteiro — não só a flag.
+
+    Simétrico a `_ligar`, e pela mesma razão, que já custou duas correções. Os três testes abaixo
+    cobrem o caminho desligado, que continua sendo um estado legítimo do fiscal e continua
+    precisando de teste. Eles herdavam esse estado do repositório; quando a CP-036 ligou a
+    autoridade, caíram todos.
+
+    "Por inteiro" tem conteúdo aqui. Desligada, a camada exige um risco aceito que EXISTA e TENHA
+    DATA — e a CP-036 moveu o `RISK-EXT-001` para `mitigated`, sem `due`, porque risco mitigado não
+    tem prazo a vencer. Uma fixture que virasse só a flag produziria `EXT-AUDIT-RISCO-SEM-DATA` e
+    nunca chegaria ao achado que o teste quer ver. Montar o cenário é construir a premissa, não
+    afrouxar o fiscal: quem desligasse a camada de verdade teria de reabrir o risco com data nova.
+    """
+    caminho = root / "harness/harness.yaml"
+    doc = yaml.safe_load(caminho.read_text(encoding="utf-8"))
+    doc["external_audit"]["enabled"] = False
+    doc["external_audit"].pop("authorized_issuer", None)   # o schema o exige só quando ligada
+    caminho.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    (root / "harness/state/protection-attestation.json").unlink(missing_ok=True)
+
+    registro = root / "governance/risk-register.yaml"
+    riscos = yaml.safe_load(registro.read_text(encoding="utf-8"))
+    for risco in riscos["risks"]:
+        if risco["id"] == doc["external_audit"]["accepted_risk"]:
+            risco["status"] = "open"
+            risco["treatment"] = "accept"
+            risco["due"] = "2026-11-03"
+    registro.write_text(yaml.safe_dump(riscos, allow_unicode=True, sort_keys=False),
+                        encoding="utf-8")
+
+
 def test_auditoria_externa_desligada_aparece_no_laudo(repo_copy: Path, run_auditor):
-    """O desligado é DECLARADO, não omitido: a lacuna aparece a cada execução."""
+    """O desligado é DECLARADO, não omitido: a lacuna aparece a cada execução, com severidade
+    `info` — bloquear inverteria a decisão da CP-024, e vermelho permanente é como um fiscal se
+    aprende a ignorar."""
+    _desligar(repo_copy)
+    _, findings = run_auditor("audit_governance", repo_copy)
+    desligada = _achados(findings, "EXT-AUDIT-DESLIGADA")
+    assert desligada, [f["id"] for f in findings]
+    assert desligada[0]["severity"] == "info", desligada
+
+
+def test_desligar_HOJE_contradiz_um_ADR_ACEITO_e_reprova(repo_copy: Path, run_auditor):
+    """O que mudou com a CP-036, dito como teste.
+
+    Antes desta CP, desligar a camada externa era um estado conforme: a decisão vigente dizia que
+    ela estava desligada, e o achado `info` era todo o barulho que cabia. Agora existe um ADR
+    ACEITO afirmando o contrário, e é ele quem morde — `enabled: false` deixou de ser configuração
+    e passou a ser contradição com uma decisão registrada.
+
+    Os dois achados convivem, e é a mesma doutrina de sempre (princípio (h)): o `info` continua
+    descrevendo o estado, e o bloqueante diz que esse estado precisa de uma decisão nova, não de
+    uma edição de linha.
+    """
+    _desligar(repo_copy)
     code, findings = run_auditor("audit_governance", repo_copy)
-    assert code == 0
-    externos = [f for f in findings if f["origin"] == "external_audit"]
-    assert externos, [f["origin"] for f in findings]
-    assert externos[0]["severity"] == "info", externos
+    assert code == 1
+    assert _achados(findings, "ADR-028-A2"), [f["id"] for f in findings]
+    assert _achados(findings, "EXT-AUDIT-DESLIGADA"), [f["id"] for f in findings]
 
 
 def test_desligada_sem_risco_declarado_reprova(repo_copy: Path, run_auditor):
     """Desligar a camada externa tem que CUSTAR um risco datado a alguém."""
+    _desligar(repo_copy)
     caminho = repo_copy / "harness/harness.yaml"
     doc = yaml.safe_load(caminho.read_text(encoding="utf-8"))
     doc["external_audit"]["accepted_risk"] = "RISK-QUE-NAO-EXISTE"
@@ -111,6 +165,7 @@ def test_desligada_sem_risco_declarado_reprova(repo_copy: Path, run_auditor):
 
 def test_risco_aceito_sem_data_reprova(repo_copy: Path, run_auditor):
     """Princípio (g): risco aceito sem data é risco esquecido."""
+    _desligar(repo_copy)
     caminho = repo_copy / "governance/risk-register.yaml"
     doc = yaml.safe_load(caminho.read_text(encoding="utf-8"))
     for risco in doc["risks"]:
@@ -155,7 +210,8 @@ def _ligar(root: Path) -> None:
     (root / "harness/state/protection-attestation.json").unlink(missing_ok=True)
 
 
-def _atestado(root: Path, *, expires: str) -> None:
+def _atestado(root: Path, *, expires: str, identity: str = "harness-authority",
+              kind: str = "github_app") -> None:
     import json
 
     destino = root / "harness/state"
@@ -167,7 +223,7 @@ def _atestado(root: Path, *, expires: str) -> None:
             "repository": "danzeroum/project", "branch": "main",
             "checked_at": "2026-08-05T00:00:00+00:00", "expires_at": expires,
             "ruleset_ref": "org/rulesets/42",
-            "issuer": {"identity": "harness-attestor", "kind": "github_app"},
+            "issuer": {"identity": identity, "kind": kind},
             "verifier_version": "1.0", "config_digest": "sha256:" + "a" * 64,
         },
     }, indent=2), encoding="utf-8")
@@ -232,3 +288,118 @@ def test_cp_024_esta_deferred():
     if not harness["external_audit"]["enabled"]:
         assert doc["proposal"]["status"] == "deferred", \
             "camada externa desligada e CP não está deferred — ela estaria passando por pronta"
+
+
+# --------------------------------------------------------------------------------------
+# O emissor: a emenda que fecha "alguém atestou" vs "quem devia atestou" (CP-036)
+# --------------------------------------------------------------------------------------
+
+def _achados(findings, sufixo: str) -> list[dict]:
+    return [f for f in findings if f["id"].endswith(sufixo)]
+
+
+def test_emissor_nao_autorizado_reprova_com_achado_PROPRIO(repo_copy: Path, run_auditor):
+    """Atestado de emissor não declarado é indistinguível de atestado escrito à mão por quem tem
+    direito de merge — que é exatamente quem teria motivo para escrevê-lo."""
+    _ligar(repo_copy)
+    amanha = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(timespec="seconds")
+    _atestado(repo_copy, expires=amanha, identity="impostor")
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1
+    assert _achados(findings, "EMISSOR-NAO-AUTORIZADO"), [f["id"] for f in findings]
+    assert not _achados(findings, "ATESTADO-EXPIRADO")
+
+
+def test_kind_divergente_tambem_reprova(repo_copy: Path, run_auditor):
+    """A identidade certa com o tipo errado seria um emissor diferente com o mesmo nome."""
+    _ligar(repo_copy)
+    amanha = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(timespec="seconds")
+    _atestado(repo_copy, expires=amanha, kind="external_service")
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1
+    assert _achados(findings, "EMISSOR-NAO-AUTORIZADO")
+
+
+def test_expirado_E_emissor_errado_produzem_DOIS_achados(repo_copy: Path, run_auditor):
+    """Princípio (h) levado a sério: são dois problemas, com duas reações. Colapsá-los num
+    'EXT-AUDIT-INVALIDO' genérico economizaria código e destruiria a informação que diz para onde
+    olhar — 'o verificador parou' e 'alguém escreveu isto à mão' pedem coisas opostas."""
+    _ligar(repo_copy)
+    ontem = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(timespec="seconds")
+    _atestado(repo_copy, expires=ontem, identity="impostor")
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1
+    assert _achados(findings, "EMISSOR-NAO-AUTORIZADO")
+    assert _achados(findings, "ATESTADO-EXPIRADO")
+
+
+def test_os_tres_estados_tem_mensagens_distintas(repo_copy: Path, run_auditor):
+    """Ausente, expirado e emissor errado nunca dizem a mesma coisa."""
+    _ligar(repo_copy)
+    _, ausente = run_auditor("audit_governance", repo_copy)
+
+    ontem = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(timespec="seconds")
+    _atestado(repo_copy, expires=ontem)
+    _, expirado = run_auditor("audit_governance", repo_copy)
+
+    amanha = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(timespec="seconds")
+    _atestado(repo_copy, expires=amanha, identity="impostor")
+    _, emissor = run_auditor("audit_governance", repo_copy)
+
+    frases = {
+        _achados(ausente, "SEM-ATESTADO")[0]["summary"],
+        _achados(expirado, "ATESTADO-EXPIRADO")[0]["summary"],
+        _achados(emissor, "EMISSOR-NAO-AUTORIZADO")[0]["summary"],
+    }
+    assert len(frases) == 3
+
+
+def test_a_autoridade_esta_LIGADA_e_o_emissor_declarado():
+    """O estado que esta CP produziu, afirmado em teste: se alguém reverter `enabled` para false,
+    isto cai — e cair é o ponto, porque desligar a autoridade é decisão, não ajuste."""
+    doc = yaml.safe_load((REPO / "harness/harness.yaml").read_text(encoding="utf-8"))
+    externo = doc["external_audit"]
+    assert externo["enabled"] is True
+    assert externo["authorized_issuer"] == {"identity": "harness-authority", "kind": "github_app"}
+
+
+def test_o_atestado_real_na_arvore_e_do_emissor_declarado():
+    """A ponta a ponta do dia: o arquivo que a autoridade entregou casa a autoridade declarada."""
+    import json
+
+    doc = yaml.safe_load((REPO / "harness/harness.yaml").read_text(encoding="utf-8"))
+    caminho = REPO / doc["external_audit"]["attestation_path"]
+    atestado = json.loads(caminho.read_text(encoding="utf-8"))["attestation"]
+    assert atestado["issuer"] == doc["external_audit"]["authorized_issuer"]
+
+
+def test_MUTACAO_CANONICA_issuer_trocado_no_atestado_REAL_reprova(repo_copy: Path, run_auditor):
+    """A mutação canônica da CP-036, aplicada ao ARTEFATO REAL — não a uma fixture montada aqui.
+
+    A diferença importa e já custou correção nesta suíte: uma fixture prova que o fiscal reage ao
+    JSON que o teste escreveu. Isto prova que ele reage ao JSON que a autoridade entregou, com um
+    único campo trocado e nada mais — que é exatamente o gesto de quem tem direito de merge e quer
+    o carimbo sem a auditoria.
+
+    Nenhuma identidade é restatada aqui: a autorizada é lida de `harness.yaml`, e a impostora é
+    derivada dela. Um teste que escrevesse "harness-authority" viraria um terceiro lugar onde a
+    identidade mora, e o terceiro lugar é sempre o que fica desatualizado.
+
+    Robusto ao calendário de propósito: quando o atestado real expirar, este teste continua válido
+    porque a checagem de emissor não tem `return` — expirado E emissor errado produzem os dois
+    achados, e é o de emissor que ele afirma.
+    """
+    import json
+
+    harness = yaml.safe_load((repo_copy / "harness/harness.yaml").read_text(encoding="utf-8"))
+    autorizado = harness["external_audit"]["authorized_issuer"]
+    caminho = repo_copy / harness["external_audit"]["attestation_path"]
+
+    doc = json.loads(caminho.read_text(encoding="utf-8"))
+    assert doc["attestation"]["issuer"] == autorizado, "premissa: a cópia parte do estado conforme"
+    doc["attestation"]["issuer"]["identity"] = autorizado["identity"] + "-impostor"
+    caminho.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1
+    assert _achados(findings, "EMISSOR-NAO-AUTORIZADO"), [f["id"] for f in findings]

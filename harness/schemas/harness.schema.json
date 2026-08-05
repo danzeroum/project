@@ -237,8 +237,50 @@
         "justification": {
           "type": "string",
           "minLength": 80
+        },
+        "authorized_issuer": {
+          "type": "object",
+          "required": [
+            "identity",
+            "kind"
+          ],
+          "additionalProperties": false,
+          "description": "QUEM pode atestar. Sem este bloco, `issuer` no atestado seria um campo exigido pelo schema e conferido por ninguém — 'alguém atestou' passando por 'quem devia atestou'. Quem tem direito de merge escreveria o JSON à mão e o molde aceitaria.",
+          "properties": {
+            "identity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "github_app",
+                "oidc_workload",
+                "external_service"
+              ]
+            }
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "comment": "LIGADA EXIGE EMISSOR DECLARADO. A combinação 'exijo atestado mas aceito qualquer um' é pior que a camada desligada, e o schema a torna inexpressável em vez de proibida.",
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            },
+            "required": [
+              "enabled"
+            ]
+          },
+          "then": {
+            "required": [
+              "authorized_issuer"
+            ]
+          }
+        }
+      ]
     }
   },
   "$defs": {
