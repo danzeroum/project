@@ -46,9 +46,43 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # criar refs/tags/<tag> e a branch do registro no ledger. NUNCA a main.
-    env:
-      TAG: ${{ inputs.tag }}
     steps:
+      # PRIMEIRO passo, antes até do checkout — e a posição é a decisão (CP-032).
+      #
+      # A v1.0.0 foi publicada na segunda tentativa: a primeira recebeu `tag = v1.0.0` no campo do
+      # dispatch e morreu no preflight, correta mas TRÊS MINUTOS depois, com a validação total, 350
+      # testes e a prova de mutação inteira já rodados. A checagem mais barata do caminho estava
+      # entre as últimas. Um caminho que faz três minutos de trabalho antes de olhar para o que o
+      # operador digitou ensina o operador a esperar — e quem espera três minutos por um erro de
+      # digitação começa a disparar sem reler.
+      #
+      # Só FORMA. Nada aqui sabe do repositório, e é por isso que pode rodar antes de tê-lo: tag
+      # já existente, HEAD movido e manifesto já na árvore continuam no preflight, que segue sendo
+      # a segunda tranca.
+      #
+      # O regex é a string EXATA de ci/mold_release.py::TAG_RE, e há teste comparando as duas.
+      # Duas checagens da mesma coisa que discordam num caso de borda são um gerador de bugs.
+      #
+      # A entrada chega por `env:` e NUNCA é interpolada dentro do `run:` — interpolar entrada de
+      # dispatch em script é injeção de comando com outro nome, e o passo que existe para
+      # desconfiar da entrada seria o pior lugar para confiar nela.
+      - name: Recusar entrada malformada
+        env:
+          ENTRADA: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # Trim só das pontas. Espaço em volta é engano de cópia e vira normalização; `v 1.0.0`
+          # continua reprovando, porque ali o espaço muda o número.
+          tag="${ENTRADA#"${ENTRADA%%[![:space:]]*}"}"
+          tag="${tag%"${tag##*[![:space:]]}"}"
+          if ! printf '%s' "$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::entrada $(printf '%q' "$ENTRADA") não é uma versão. Esperado exatamente vX.Y.Z — por exemplo v1.0.1. O caminho do manifesto é DERIVADO da tag, e uma entrada de forma livre produz um caminho que nenhum fiscal prevê."
+            exit 1
+          fi
+          # Vai para GITHUB_ENV, e não para um `env:` de job, porque `env` de job vence o arquivo
+          # de ambiente — a normalização não teria efeito nos passos seguintes.
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+
       # fetch-depth 0: verify_chain precisa do PAI do commit de release para conferir que a
       # release não acrescenta nada além do manifesto. Com clone raso não há pai, e o elo viraria
       # indeterminação permanente — indeterminação que nunca resolve é trava desligada.
