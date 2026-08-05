@@ -43,5 +43,40 @@ jobs:
           python-version: "3.11"
       - name: Instalar dependências do fiscal
         run: pip install "jsonschema>=4" "pyyaml>=6"
+      # CP-016 — materializa o alvo ANTES dos fiscais, e só quando há alvo.
+      #
+      # CONDICIONAL AO PAPEL: lê project.yaml:project.kind. No molde, target_sha é null e não há
+      # o que materializar — um passo incondicional falharia aqui ou viraria no-op mudo, e no-op
+      # mudo é onde a próxima regressão se esconde.
+      #
+      # CREDENCIAL DECLARADA: usa o GITHUB_TOKEN do runner, que basta para alvo público na mesma
+      # conta. Alvo privado ou em outra organização exige um segredo com leitura em
+      # secrets.TARGET_READ_TOKEN — declarado aqui, não descoberto no primeiro run vermelho. A
+      # URL é montada de project.yaml:target.repo: nome de alvo não entra em .github/ (ADR-008-A5).
+      #
+      # FALHA DE MATERIALIZAÇÃO ≠ FALHA DE GOVERNANÇA: clone recusado por rede, credencial ausente
+      # ou SHA sumido por force-push são estados do MUNDO, não divergência entre o declarado e o
+      # real. Sai 2 — "o fiscal não conseguiu fiscalizar" —, nunca 1. Colapsar os dois ensina a
+      # ler governança vermelha como "provavelmente foi a rede", e o gate fica desligado por
+      # hábito, sem ninguém ter decidido desligá-lo.
+      - name: Materializar o alvo (só no derivado)
+        env:
+          TARGET_TOKEN: ${{ secrets.TARGET_READ_TOKEN || github.token }}
+        run: |
+          kind=$(python - <<'PY'
+          import re, pathlib
+          t = pathlib.Path("project.yaml").read_text(encoding="utf-8")
+          m = re.search(r'^\s*kind:\s*"?([a-z]+)"?\s*$', t, re.M)
+          print(m.group(1) if m else "")
+          PY
+          )
+          if [ "$kind" != "derived" ]; then
+            echo "papel '$kind': não há alvo a materializar."; exit 0
+          fi
+          python ci/bootstrap.py --only-workspace || {
+            echo "::error::materialização do alvo falhou — estado do mundo, não divergência de metadado."
+            exit 2
+          }
+
       - name: Validação total do projeto
         run: python ci/validate_all.py
