@@ -1053,3 +1053,52 @@ adrs:
         description: "A exceção do .gitignore é de UM arquivo, e continua comentada com o motivo."
         files: [".gitignore"]
         pattern: "^!harness/state/ledger\\.jsonl$"
+
+  - id: ADR-022
+    title: "Agente sem template é fronteira sem leitor"
+    status: accepted
+    file: architecture/adr/ADR-022-agente-sem-template-e-fronteira-sem-leitor.md
+    related_risks: [RISK-META-001, RISK-ORIENT-001]
+    assertions:
+      - id: ADR-022-A1
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "O fiscal bidirecional continua existindo — sem ele, agente sem template e template-fantasma voltam a passar."
+        files: ["ci/audit_governance.py"]
+        pattern: "def check_agent_prompt_pairing\\("
+      - id: ADR-022-A2
+        kind: path_present
+        severity: high
+        risk: RISK-META-001
+        description: "Todo agente declarado tem template de tarefa como arquivo real."
+        paths:
+          - harness/prompts/developer-task.md
+          - harness/prompts/documenter-task.md
+          - harness/prompts/cartographer-task.md
+          - harness/prompts/conformance-task.md
+          - harness/prompts/lgpd-task.md
+          - harness/prompts/review-task.md
+          - harness/prompts/tester-task.md
+      - id: ADR-022-A3
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "A doc de schemas continua com --check dentro da validação total: doc que pode envelhecer sem custo envelhece, e passa a mentir com autoridade de documentação (R-11)."
+        files: ["ci/validate_all.py"]
+        pattern: "generate_schema_docs\\.main, \\[\"--check\"\\]"
+      - id: ADR-022-A4
+        kind: file_matches
+        severity: medium
+        risk: RISK-ORIENT-001
+        description: "Prontidão continua sendo MODO do orientador, e não script separado (R-10)."
+        files: ["ci/orient.py"]
+        pattern: "def pronto\\("
+      - id: ADR-022-A5
+        kind: path_absent
+        severity: medium
+        risk: RISK-ORIENT-001
+        description: "Nenhum script separado de prontidão reapareceu: duplicar o que orient.py sabe foi rejeitado, e a duplicata errava o caminho do lock."
+        paths:
+          - ci/verificar_pronto.py
+          - ci/check_ready.py

@@ -176,7 +176,8 @@
               "decision_chain",
               "change_buffer",
               "external_audit",
-              "ledger"
+              "ledger",
+              "agent_pairing"
             ]
           },
           "severity": {

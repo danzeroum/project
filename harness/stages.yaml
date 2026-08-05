@@ -186,6 +186,9 @@ stages:
       - "harness/releases"
     enforced_by:
       - kind: ci_script
+        ref: ci/audit_governance.py
+        symbol: check_agent_prompt_pairing
+      - kind: ci_script
         ref: ci/audit_ledger.py
         symbol: check_append_only
       - kind: ci_script
@@ -280,6 +283,9 @@ stages:
       - kind: ci_script
         ref: ci/generate_graph.py
         symbol: main
+      - kind: ci_script
+        ref: ci/generate_schema_docs.py
+        symbol: render
     privacy_lens:
       scan: false
       question: "A documentação expõe dado real em exemplo? Exemplo com CPF válido é vazamento."

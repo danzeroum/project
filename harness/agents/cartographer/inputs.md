@@ -10,4 +10,6 @@
 | `architecture/components.yaml` | o que já foi cartografado, para propor o delta e não o todo |
 | `harness/schemas/*.json` | a forma exata do que ele pode escrever |
 
+- `harness/prompts/cartographer-task.md` — o template da tarefa.
+
 Não lê: credenciais, rede, nem nada fora de `workspace/target/` e deste repositório.

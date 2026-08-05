@@ -1,0 +1,70 @@
+# Mudança proposta: todo agente tem template, o schema tem documentação viva, e "pronto" é modo.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-027
+  title: "Correspondência bidirecional prompts↔agentes, documentação viva dos schemas e prontidão como modo"
+  author_kind: agent
+  created_at: "2026-08-05T18:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - harness/prompts
+    - ci/generate_schema_docs.py
+    - ci/orient.py
+    - ci/audit_governance.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-META-001
+      - RISK-ORIENT-001
+    rationale: >
+      TRÊS AGENTES TÊM TEMPLATE; SETE EXISTEM. `harness/agents/` declara contratos para reviewer,
+      tester, cartographer, conformance, developer, documenter e privacy. `harness/prompts/` tem
+      três arquivos. Os quatro agentes sem template não estão menos definidos — estão definidos
+      SÓ no contrato, e quem for invocá-los improvisa a instrução. Improvisar a instrução de um
+      agente que pode editar metadado é onde a fronteira declarada em `AGENT.md` deixa de valer,
+      porque ninguém a repetiu no lugar onde ela seria lida.
+
+      A CORRESPONDÊNCIA É BIDIRECIONAL, e as duas direções pegam coisas diferentes. Agente sem
+      template é o buraco acima. Template sem agente é um **agente-fantasma**: uma instrução viva
+      para um papel que não existe mais, que continua sendo invocável e cujas proibições ninguém
+      mantém. O fiscal lê os DOIS diretórios reais e cruza — nunca uma lista, pelo motivo de
+      sempre: agente novo nasce coberto.
+
+      DOCUMENTAÇÃO VIVA DOS SCHEMAS. Vinte e sete schemas, e a única forma de saber o que um campo
+      significa é abrir o JSON. `generate_schema_docs.py` deriva `docs/schema-reference.md` deles,
+      com `--check` bloqueante — o padrão desta casa, e a razão do R-11 ter rejeitado "docs não
+      bloqueantes": documentação que pode ficar desatualizada sem custo fica desatualizada, e
+      passa a mentir com a autoridade de documentação.
+
+      O arquivo nasce com o cabeçalho canônico do CP-029 e entra automaticamente na cobertura de
+      `check_derived_vs_source` — que é o teste de que aquele fiscal foi construído para derivar,
+      e não para conhecer dois arquivos.
+
+      PRONTIDÃO É MODO, NÃO SCRIPT NOVO (R-10). A proposta original era um `/verificar-pronto`
+      separado, e foi rejeitada por duplicar o que `orient.py` já sabe — inclusive errando o
+      caminho do lock. `orient.py --pronto` responde à mesma pergunta reusando as mesmas funções.
+      E ele continua NÃO REPROVANDO: o ADR-014 decidiu que um orientador que também fiscaliza vira
+      o oitavo fiscal, sem política e sem teste de mordida. `--pronto` responde "o que falta"; quem
+      reprova é `validate_all.py`.
+
+      CUSTO (princípio (e)). Quatro arquivos de template, um gerador que lê schemas já carregados,
+      um modo a mais no orientador e um cruzamento de dois globs. O ganho é que a fronteira de cada
+      agente passa a existir onde ela é lida, e não só onde foi declarada.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_agentes_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

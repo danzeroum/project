@@ -15,6 +15,7 @@ aparência de documentação cuidadosa. Seria o ADR-002 violado pela ferramenta 
 Uso:
   python ci/orient.py                     panorama: papel, âncora, fiscais, próximo passo
   python ci/orient.py --tocar <caminho>…  o que uma mudança nesses caminhos aciona
+  python ci/orient.py --pronto            o que falta para estar pronto (R-10: modo, não script)
   python ci/orient.py --json              o mesmo, para consumo por agente
 
 Sai sempre 0. Estado do repositório é assunto de ci/validate_all.py.
@@ -195,6 +196,68 @@ def panorama() -> dict:
     }
 
 
+def pronto() -> dict:
+    """"O que falta para este repositório estar pronto?" — MODO do orientador, não script novo.
+
+    A proposta original era um `/verificar-pronto` separado, rejeitada no R-10 por duplicar o que
+    este arquivo já sabe (e errando o caminho do lock ao duplicar). Aqui ele reusa `papel()`,
+    `fiscais_agora()` e `cobertura_do_alvo()` — as mesmas funções, então não há segunda resposta
+    que possa divergir da primeira.
+
+    E ele NÃO REPROVA, como nada neste arquivo: o ADR-014 decidiu que um orientador que também
+    fiscaliza vira o oitavo fiscal, sem política e sem teste de mordida. Aqui se responde "o que
+    falta"; quem reprova é `validate_all.py`.
+    """
+    p = papel()
+    fiscais = fiscais_agora()
+    pendencias: list[dict] = []
+
+    for nome, code in fiscais.items():
+        if code:
+            pendencias.append({
+                "item": f"fiscal '{nome}'",
+                "estado": "divergência" if code == 1 else "não conseguiu fiscalizar",
+                "comando": "python ci/validate_all.py",
+            })
+
+    if p["kind"] == "derived":
+        if not p.get("sha"):
+            pendencias.append({"item": "target.lock:target_sha", "estado": "ausente",
+                               "comando": "/adotar <url-do-alvo>"})
+        if not p.get("workspace_materializado"):
+            pendencias.append({"item": "workspace/target", "estado": "não materializado",
+                               "comando": "python ci/bootstrap.py"})
+        try:
+            lock = hl.read_yaml("target.lock") or {}
+        except HarnessError:
+            lock = {}
+        if not lock.get("mold_release"):
+            pendencias.append({"item": "target.lock:mold_release", "estado": "sem âncora de molde",
+                               "comando": "/atualizar-carcaca"})
+
+    cob = cobertura_do_alvo()
+    if cob and "erro" not in cob and cob.get("total_orfaos"):
+        pendencias.append({
+            "item": f"{cob['total_orfaos']} arquivo(s) de código sem dono",
+            "estado": "órfão",
+            "comando": "declarar em architecture/components.yaml:source_paths ou em exemptions",
+        })
+
+    return {"papel": p, "pendencias": pendencias, "pronto": not pendencias}
+
+
+def _imprime_pronto(d: dict) -> None:
+    if d["pronto"]:
+        print("■ Pronto: nenhuma pendência derivável do estado atual.")
+        print("  (isto NÃO é aprovação — quem reprova é python ci/validate_all.py)")
+        return
+    print(f"■ Faltam {len(d['pendencias'])} item(ns):\n")
+    for pend in d["pendencias"]:
+        print(f"  · {pend['item']} — {pend['estado']}")
+        print(f"      {pend['comando']}")
+    print("\nEste comando não reprova nada: ele deriva o que falta. O gate é ci/validate_all.py.")
+
+
 def _proximo(p: dict) -> str:
     if p["kind"] == "mold":
         return "/adotar <url-do-alvo>  (este repositório não governa alvo algum)"
@@ -259,11 +322,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Orientação derivada do estado do repositório.")
     parser.add_argument("--tocar", nargs="+", metavar="CAMINHO",
                         help="o que uma mudança nesses caminhos aciona")
+    parser.add_argument("--pronto", action="store_true",
+                        help="o que falta para este repositório estar pronto (não reprova)")
     parser.add_argument("--json", action="store_true", help="saída estruturada")
     args = parser.parse_args(argv)
 
     try:
-        dados = tocar(args.tocar) if args.tocar else panorama()
+        if args.tocar:
+            dados = tocar(args.tocar)
+        elif args.pronto:
+            dados = pronto()
+        else:
+            dados = panorama()
     except HarnessError as exc:
         print(f"• não deu para orientar: {exc}", file=sys.stderr)
         print("  Próximo passo:  python ci/bootstrap.py", file=sys.stderr)
@@ -273,6 +343,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(dados, indent=2, ensure_ascii=False))
     elif args.tocar:
         _imprime_tocar(dados)
+    elif args.pronto:
+        _imprime_pronto(dados)
     else:
         _imprime_panorama(dados)
     return 0

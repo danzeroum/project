@@ -1020,6 +1020,80 @@ def check_external_attestation(harness_doc: dict, risk_doc: dict, findings: Find
         )
 
 
+AGENTS_DIR = "harness/agents"
+PROMPTS_DIR = "harness/prompts"
+_TEMPLATE_RX = re.compile(r"`(harness/prompts/[A-Za-z0-9_.-]+\.md)`")
+
+
+def check_agent_prompt_pairing(findings: Findings) -> None:
+    """Correspondência BIDIRECIONAL entre contrato de agente e template de tarefa (CP-027).
+
+    As duas direções pegam coisas diferentes, e é por isso que ambas existem:
+
+      agente sem template → a fronteira declarada no AGENT.md não é repetida onde ela seria lida,
+      e quem for invocar o agente improvisa a instrução. Improvisar a instrução de um agente que
+      pode editar metadado é onde a fronteira deixa de valer.
+
+      template sem agente → AGENTE-FANTASMA: instrução viva para um papel que não existe mais,
+      invocável, com proibições que ninguém mantém.
+
+    A correspondência é lida do `inputs.md` de cada agente, NUNCA do nome do arquivo. O nome não
+    serve e a evidência está no repositório: `review-task.md` é do `reviewer`, `lgpd-task.md` é do
+    `privacy`. Uma convenção de nome inventada aqui obrigaria a renomear artefatos que outros
+    fiscais e ADRs já citam — trocar a realidade para caber na regra, em vez do contrário.
+    """
+    base = hl.REPO / AGENTS_DIR
+    prompts = hl.REPO / PROMPTS_DIR
+    if not base.exists() or not prompts.exists():
+        return
+
+    declarados: dict[str, str] = {}
+    for agente in sorted(p for p in base.iterdir() if p.is_dir()):
+        nome = agente.name
+        inputs = agente / "inputs.md"
+        if not inputs.exists():
+            findings.add(
+                key=f"AGENT-NO-INPUTS-{nome}", origin="agent_pairing", severity="medium",
+                risk="RISK-META-001", location=f"{AGENTS_DIR}/{nome}",
+                summary=f"O agente '{nome}' não declara inputs.md — sem ele não há onde declarar "
+                        f"qual template a harness lhe passa.",
+            )
+            continue
+        alvos = _TEMPLATE_RX.findall(inputs.read_text(encoding="utf-8"))
+        alvos = [a for a in alvos if "*" not in a]
+        if not alvos:
+            findings.add(
+                key=f"AGENT-NO-TEMPLATE-{nome}", origin="agent_pairing", severity="high",
+                risk="RISK-META-001", location=f"{AGENTS_DIR}/{nome}/inputs.md",
+                summary=f"O agente '{nome}' não declara template de tarefa — a fronteira do "
+                        f"AGENT.md não é repetida onde ela seria lida, e quem o invocar improvisa "
+                        f"a instrução.",
+                remediation=f"Criar {PROMPTS_DIR}/{nome}-task.md e citá-lo em inputs.md.",
+            )
+            continue
+        for alvo in alvos:
+            if not hl.rel_exists(alvo):
+                findings.add(
+                    key=f"AGENT-TEMPLATE-MISSING-{nome}", origin="agent_pairing", severity="high",
+                    risk="RISK-META-001", location=alvo,
+                    summary=f"O agente '{nome}' declara o template '{alvo}', que não existe.",
+                )
+            else:
+                declarados[alvo] = nome
+
+    for arquivo in sorted(prompts.glob("*.md")):
+        rel = hl.rel(arquivo)
+        if rel not in declarados:
+            findings.add(
+                key=f"PROMPT-GHOST-{arquivo.stem}", origin="agent_pairing", severity="high",
+                risk="RISK-META-001", location=rel,
+                summary=f"'{rel}' não é reivindicado por agente algum — agente-fantasma: "
+                        f"instrução viva para um papel que não existe, invocável, com proibições "
+                        f"que ninguém mantém.",
+                remediation="Apagar o template, ou declará-lo no inputs.md do agente dono.",
+            )
+
+
 def check_risk_control_coverage(risk_doc: dict, findings: Findings) -> None:
     """Todo risco tem ao menos um controle verificável localmente.
 
@@ -1112,6 +1186,7 @@ def main(argv: list[str] | None = None) -> int:
     check_repo_partition(stages_doc, findings)
     check_ingest_pipeline(findings, errors)
     check_policy_pointers(findings)
+    check_agent_prompt_pairing(findings)
     check_cp_lifecycle(findings, errors)
     check_references_by_id(findings, errors)
     check_maturity_gates(findings, errors)
