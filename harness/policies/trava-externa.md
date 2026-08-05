@@ -82,6 +82,31 @@ perigosa **inexpressável**: `enabled: true` exige o bloco.
 Não se excluem: a checagem de emissor não tem `return`, então expirado **e** de emissor errado
 produz os dois — são dois problemas, e consertar um não conserta o outro.
 
+## O PR diário mergeia sozinho — e só ele (CP-037 / ADR-029)
+
+O carimbo vale 25h e o cron abre um PR por dia. Exigir um clique humano nele daria à trava um
+gargalo **diário**, e atrito diário é como trava boa vira trava contornada (princípio (e)).
+
+`.github/workflows/atestado-automerge.yml` habilita o **auto-merge nativo** do GitHub sob três
+condições:
+
+| # | Condição | Quem confere |
+|---|---|---|
+| 1 | o diff contém **exclusivamente** o `attestation_path` | `ci/automerge_gate.py::decidir` |
+| 2 | o autor é o App declarado em `authorized_issuer` | `ci/automerge_gate.py::decidir` |
+| 3 | todos os checks obrigatórios passam | o auto-merge nativo |
+
+A terceira não é conferida por código daqui, de propósito: um passo que lesse o estado dos checks
+leria um estado que ainda vai mudar. `--auto` entrega a pergunta a quem tem a resposta.
+
+O gatilho é `pull_request_target` — o workflow vem da **base**, e nenhum passo faz checkout do head
+nem executa uma linha vinda dele. Com `pull_request`, um PR que alterasse o workflow escreveria as
+próprias checagens que decidem se ele pode auto-mergear.
+
+**Recusar não é reprovar:** um PR humano que toca o atestado é legítimo, só não é auto-mergeável —
+o portão sai `0` e diz por quê no resumo do job. Quem sai diferente de `0` é a indeterminação
+(`exit 2`), porque um portão que não sabe contra o que comparar não libera nada.
+
 ## O desligado continua declarável
 
 `enabled: false` segue sendo um estado legítimo, com justificativa e um `accepted_risk` que precisa
@@ -92,11 +117,16 @@ permanente é como um fiscal se aprende a ignorar (ADR-019).
 
 ## O que ainda falta, e não é código
 
-Tornar o check da autoridade **obrigatório no ruleset da `main`**. É o que separa *"o CI reprova"*
-de *"o merge é impossível"*, é administrativo, e mora fora deste repositório. Por isso
-`RISK-EXT-001` está `mitigated` e não `closed`: fechar enquanto esse passo não existe seria
-carimbar a parte que falta.
+Dois passos de admin no GitHub, ambos fora do alcance de qualquer PR deste repositório:
 
-Fiscalizado por: `ci/verify_protection.py::verify_protection`, `ci/verify_protection.py::verify_tag_protection`, `ci/audit_governance.py::check_external_attestation`, `harness/schemas/protection-attestation.schema.json`
-Declarado em: `harness/harness.yaml` → `external_audit`; `harness/change-proposals/CP-024-trava-externa-em-duas-camadas.yaml` (status `deferred`); `harness/change-proposals/CP-036-ligar-a-autoridade-externa.yaml`
-Falha como: proteção desligada ou caminho sem dono ⇒ exit 1; sem credencial ⇒ exit 3; atestado ausente, expirado, fora do schema ou de emissor não autorizado ⇒ achado bloqueante.
+1. tornar o check da autoridade **obrigatório no ruleset da `main`** — é o que separa *"o CI
+   reprova"* de *"o merge é impossível"*;
+2. habilitar o **auto-merge nativo** (Settings → General → Pull Requests → *Allow auto-merge*).
+   Sem ele o PR diário permanece manual, e o passo falha com essa instrução exata no log.
+
+Por isso `RISK-EXT-001` está `mitigated` e não `closed`: fechar enquanto esses passos não existem
+seria carimbar a parte que falta.
+
+Fiscalizado por: `ci/verify_protection.py::verify_protection`, `ci/verify_protection.py::verify_tag_protection`, `ci/audit_governance.py::check_external_attestation`, `ci/automerge_gate.py::decidir`, `harness/schemas/protection-attestation.schema.json`
+Declarado em: `harness/harness.yaml` → `external_audit`; `harness/change-proposals/CP-024-trava-externa-em-duas-camadas.yaml` (status `deferred`); `harness/change-proposals/CP-036-ligar-a-autoridade-externa.yaml`; `harness/change-proposals/CP-037-auto-merge-do-atestado.yaml`
+Falha como: proteção desligada ou caminho sem dono ⇒ exit 1; sem credencial ⇒ exit 3; atestado ausente, expirado, fora do schema ou de emissor não autorizado ⇒ achado bloqueante; portão do auto-merge sem declaração contra a qual comparar ⇒ exit 2 (nunca liberação).

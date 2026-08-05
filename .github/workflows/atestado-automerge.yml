@@ -1,0 +1,79 @@
+name: atestado — auto-merge
+
+# O PR diário da autoridade externa mergeia sem humano — e SÓ ele.
+#
+# Desde a CP-036 o atestado vale 25h e o molde bloqueia quando ele vence. O cron da autoridade
+# abre um PR por dia; exigir um clique humano nele daria à trava um gargalo diário, que é como
+# trava boa vira trava contornada (princípio (e)).
+#
+# `pull_request_target` E NÃO `pull_request`, e a escolha é a segurança inteira deste workflow:
+# com `pull_request_target` o YAML executado vem da BASE, nunca do head do PR. Com
+# `pull_request`, um PR que alterasse este arquivo rodaria a versão alterada — as próprias
+# checagens que decidem se ele pode auto-mergear seriam escritas por ele. Nenhum passo abaixo faz
+# checkout do head nem executa uma linha vinda dele: o que se lê do PR é metadado da API (autor e
+# lista de arquivos), nunca código.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  portao:
+    runs-on: ubuntu-latest
+    steps:
+      # A BASE. Sem `ref:`, o checkout de pull_request_target traz a branch de destino — que é
+      # exatamente o que se quer: o fiscal e a declaração vêm de onde o PR não alcança.
+      - name: Trazer o molde na BASE (nunca o head do PR)
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements-ci.txt
+
+      # Metadado, não código: a lista de caminhos vem da API do GitHub. Um `git diff` contra o
+      # head exigiria trazer o head para o runner, que é a coisa que este workflow não faz.
+      - name: Listar o que o PR toca
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" --json files \
+            --jq '.files[].path' > arquivos.txt
+          echo "arquivos no diff:"; cat arquivos.txt
+
+      # AS TRÊS CONDIÇÕES, num núcleo puro e testável fora do GitHub. Recusar aqui NÃO reprova o
+      # PR: um PR humano que toca o atestado é legítimo, só não é auto-mergeável.
+      - name: Decidir se este PR é auto-mergeável
+        id: portao
+        run: python ci/automerge_gate.py --arquivos arquivos.txt
+
+      # A TERCEIRA CONDIÇÃO — os checks — não é conferida aqui, e não é esquecimento: quem a
+      # confere é o auto-merge NATIVO do GitHub, que segura o merge até os required status checks
+      # e o ruleset passarem. Conferir checks neste passo seria conferir um estado que ainda vai
+      # mudar, e depois mergear por conta própria com base nele.
+      #
+      # `--auto`, e nunca a variante administrativa que atropela o ruleset — o ruleset é a única
+      # coisa deste desenho que o conteúdo de um PR não alcança. O nome dessa flag NÃO é escrito
+      # aqui de propósito: a asserção que a proíbe procura o literal no arquivo inteiro,
+      # comentários inclusive, e uma trava que o próprio comentário dispara é uma trava que alguém
+      # aprende a afrouxar. O ADR-029 a nomeia por extenso, que é onde ela deve ser explicada.
+      - name: Habilitar o auto-merge NATIVO
+        if: steps.portao.outputs.liberar == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh pr merge "${{ github.event.pull_request.number }}" \
+                 --repo "${{ github.repository }}" --auto --merge 2>erro.txt; then
+            cat erro.txt
+            if grep -qi "auto.merge is not allowed\|not enabled" erro.txt; then
+              echo "::error::o auto-merge nativo está DESABILITADO neste repositório. Ação de admin: Settings → General → Pull Requests → marcar 'Allow auto-merge'. Sem ela o PR diário do atestado permanece manual."
+            fi
+            exit 1
+          fi
+          echo "::notice::auto-merge habilitado — o GitHub mergeia quando os checks obrigatórios passarem."

@@ -433,11 +433,18 @@ risks:
     #     25h: uma execução perdida do cron o faz EXPIRAR em vez de continuar valendo;
     #   - `external_audit.enabled: true`, com `authorized_issuer` conferido a cada execução.
     #
-    # `mitigate`, não `closed`: resta um passo administrativo fora deste repositório — tornar o
-    # check da autoridade OBRIGATÓRIO no ruleset da `main`, que é o que separa "o CI reprova" de
-    # "o merge é impossível". Fechar o risco enquanto esse passo não existe seria carimbar a parte
-    # que falta. Sem `due` porque `mitigate` não é `open`: não há prazo a vencer, há um estado a
-    # melhorar — e o ADR-028 diz qual.
+    # `mitigate`, não `closed`: restam DOIS passos administrativos fora do alcance de qualquer PR
+    # deste repositório, e ambos são de admin no GitHub:
+    #
+    #   1. tornar o check da autoridade OBRIGATÓRIO no ruleset da `main` — é o que separa "o CI
+    #      reprova" de "o merge é impossível";
+    #   2. habilitar o auto-merge nativo (Settings → General → Pull Requests → Allow auto-merge),
+    #      sem o qual o PR diário do atestado permanece manual (CP-037/ADR-029). O fallback é o
+    #      estado anterior, não um pior: o passo falha com a instrução exata no log.
+    #
+    # Fechar o risco enquanto eles não existem seria carimbar a parte que falta. Sem `due` porque
+    # `mitigate` não é `open`: não há prazo a vencer, há um estado a melhorar — e os ADR-028 e
+    # ADR-029 dizem qual.
     status: mitigated
     controls:
       - kind: local_path
@@ -452,6 +459,10 @@ risks:
         ref: architecture/adr/ADR-020-camada-local-nao-equivale-a-externa.md
       - kind: local_path
         ref: architecture/adr/ADR-028-a-autoridade-externa-ligada.md
+      - kind: local_path
+        ref: ci/automerge_gate.py
+      - kind: local_path
+        ref: architecture/adr/ADR-029-o-atestado-e-o-unico-conteudo-auto-mergeavel.md
       - kind: branch_protection
         ref: "main:require_pull_request_reviews"
       - kind: branch_protection
