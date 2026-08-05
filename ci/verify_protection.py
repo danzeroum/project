@@ -16,7 +16,13 @@ Núcleo puro, camada de rede separada — mesma divisão do ci/mold_release.py e
 ci/verify_approval.py, pela mesma razão: "a proteção está desligada" e "não consegui perguntar"
 exigem reações opostas (princípio (h)).
 
+DOIS EIXOS, um fiscal: `--branch` pergunta se a `main` é protegida; `--tags` pergunta se a ÂNCORA
+das releases é imóvel. São a mesma pergunta sobre dois namespaces de ref, e dependem da mesma raiz
+administrativa — separá-las em dois arquivos duplicaria a lógica de indeterminação e criaria duas
+cópias que um dia divergiriam.
+
 Uso:  python ci/verify_protection.py [--repo owner/name] [--branch main] [--quiet]
+      python ci/verify_protection.py --tags [--tag-glob 'v*']
 Saída: 0 protegido · 1 proteção ausente ou caminho sem dono · 3 protection_unverifiable.
 """
 
@@ -84,6 +90,64 @@ def verify_protection(*, protection: dict | None, codeowners: list[str],
     return v
 
 
+REGRAS_DE_TAG_EXIGIDAS = ("deletion", "non_fast_forward", "update")
+
+
+def verify_tag_protection(*, rulesets: list[dict] | None, tag_glob: str = "v*") -> list[str]:
+    """A imutabilidade da ÂNCORA — segundo eixo da mesma trava externa, não um fiscal novo.
+
+    Por que aqui e não num arquivo próprio: proteção de branch e proteção de tag são a mesma
+    pergunta feita sobre dois namespaces de ref, e as duas dependem da mesma raiz administrativa.
+    Um fiscal novo duplicaria a lógica de indeterminação e o dia em que uma das cópias divergisse
+    ninguém saberia qual acreditar.
+
+    O ADR-025 deixa o workflow CRIAR a ref e conta com o servidor para não deixá-lo MOVÊ-LA. O
+    `git push` sem `--force` recusa, mas essa recusa é do cliente: quem tem token e vontade empurra
+    com `--force`. O que torna a recusa uma trava é o ruleset — e por isso as três regras exigidas
+    são exatamente as que impedem mover e apagar, nunca criar:
+
+      `deletion`         — a tag não some;
+      `non_fast_forward` — a tag não é reescrita por force push;
+      `update`           — a tag não é reapontada.
+
+    `creation` NÃO é exigida de propósito: exigi-la trancaria o único caminho legítimo de
+    publicação, e uma trava que impede o trabalho legítimo é desligada por quem tem trabalho a
+    fazer.
+
+    `rulesets=None` é indeterminação (a API responde 403/404 tanto para "não há" quanto para "você
+    não pode ver"), e quem a trata é o chamador — igual ao eixo de branch, pela mesma razão.
+    """
+    if rulesets is None:
+        return []
+
+    cobrem = []
+    for rs in rulesets:
+        if rs.get("target") != "tag" or rs.get("enforcement") != "active":
+            continue
+        inclui = ((rs.get("conditions") or {}).get("ref_name") or {}).get("include") or []
+        if any(i == "~ALL" or i == f"refs/tags/{tag_glob}" or i == "refs/tags/**" for i in inclui):
+            cobrem.append(rs)
+
+    if not cobrem:
+        return [f"nenhum ruleset de tag ATIVO cobre refs/tags/{tag_glob} — a âncora das releases "
+                f"depende de a tag não se mover, e nada impede que ela se mova. O `git push` sem "
+                f"--force do workflow é recusa do cliente; a trava é do servidor"]
+
+    v: list[str] = []
+    for rs in cobrem:
+        nome = rs.get("name") or rs.get("id")
+        tipos = {r.get("type") for r in (rs.get("rules") or [])}
+        faltando = [t for t in REGRAS_DE_TAG_EXIGIDAS if t not in tipos]
+        if faltando:
+            v.append(f"o ruleset de tag {nome!r} não exige {', '.join(faltando)} — sem essas "
+                     f"regras a tag pode ser reapontada ou apagada, e todo derivado que a cita "
+                     f"passa a afirmar procedência sobre conteúdo que já não está lá")
+        if rs.get("bypass_actors"):
+            v.append(f"o ruleset de tag {nome!r} tem bypass list NÃO-VAZIA — quem pode bypassar "
+                     f"pode mover a tag, e a trava passa a valer só para quem não precisaria dela")
+    return v
+
+
 def estado_da_auditoria_externa(harness_doc: dict) -> dict:
     """O bloco declarado. Ausente ⇒ tratado como desligado, nunca como ligado por omissão."""
     return (harness_doc or {}).get("external_audit") or {"enabled": False}
@@ -110,10 +174,33 @@ def _api(url: str, token: str) -> object | None:
         raise
 
 
+def _rulesets_de_tag(repo: str, token: str) -> list[dict] | None:
+    """Os rulesets de tag COM suas regras. None = não foi possível olhar.
+
+    Duas chamadas porque a listagem devolve resumo sem `rules`, e decidir sobre um ruleset sem ver
+    suas regras seria concluir a partir do nome dele.
+    """
+    lista = _api(f"https://api.github.com/repos/{repo}/rulesets?includes_parents=true", token)
+    if lista is None:
+        return None
+    detalhes = []
+    for rs in lista:
+        if rs.get("target") != "tag":
+            continue
+        completo = _api(f"https://api.github.com/repos/{repo}/rulesets/{rs['id']}", token)
+        if completo is None:
+            return None
+        detalhes.append(completo)
+    return detalhes
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Camada local da trava externa.")
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     parser.add_argument("--branch", default="main")
+    parser.add_argument("--tags", action="store_true",
+                        help="eixo de TAGS: a âncora das releases é imóvel?")
+    parser.add_argument("--tag-glob", dest="tag_glob", default="v*")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
@@ -133,6 +220,41 @@ def main(argv: list[str] | None = None) -> int:
               "de prova.", file=sys.stderr)
         return EXIT_UNVERIFIABLE
 
+    externo = estado_da_auditoria_externa(harness_doc)
+
+    if args.tags:
+        try:
+            rulesets = _rulesets_de_tag(args.repo, token)
+        except (urllib.error.URLError, TimeoutError) as exc:
+            print(f"• protection_unverifiable: não foi possível listar os rulesets ({exc}).",
+                  file=sys.stderr)
+            return EXIT_UNVERIFIABLE
+        if rulesets is None:
+            print(f"• protection_unverifiable: a API não distingue 'sem ruleset de tag' de 'sem "
+                  f"permissão para ver' em {args.repo}. Estado indeterminado.", file=sys.stderr)
+            return EXIT_UNVERIFIABLE
+
+        violacoes = verify_tag_protection(rulesets=rulesets, tag_glob=args.tag_glob)
+        if not violacoes:
+            if not args.quiet:
+                print(f"✓ proteção: refs/tags/{args.tag_glob} imóvel — o ruleset recusa mover e "
+                      f"apagar, e deixa criar (que é o caminho legítimo do release.yml).")
+            return 0
+
+        # Enquanto external_audit está DESLIGADA, este eixo REPORTA e não bloqueia — a mesma
+        # doutrina do eixo de branch, pela mesma razão: repositório vermelho por condição que
+        # ninguém aqui satisfaz é repositório cujo fiscal se aprende a ignorar. O risco tem data.
+        cabeca = "✗ proteção de tag" if externo.get("enabled") else "• proteção de tag (informativo)"
+        print(f"{cabeca}: {len(violacoes)} lacuna(s):", file=sys.stderr)
+        for m in violacoes:
+            print(f"  - {m}", file=sys.stderr)
+        if externo.get("enabled"):
+            return 1
+        print(f"  Autoridade externa DESLIGADA: lacuna é risco aceito COM DATA em "
+              f"{externo.get('accepted_risk', 'RISK-EXT-001')}. Ligar external_audit torna estas "
+              f"linhas bloqueantes sem mudar uma linha de código.", file=sys.stderr)
+        return 0
+
     try:
         protection = _api(
             f"https://api.github.com/repos/{args.repo}/branches/{args.branch}/protection", token)
@@ -148,7 +270,6 @@ def main(argv: list[str] | None = None) -> int:
 
     violacoes = verify_protection(protection=protection, codeowners=codeowners,
                                   protected_paths=protegidos, branch=args.branch)
-    externo = estado_da_auditoria_externa(harness_doc)
     if violacoes:
         print(f"✗ proteção: {len(violacoes)} violação(ões):", file=sys.stderr)
         for m in violacoes:
