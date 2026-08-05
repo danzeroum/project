@@ -1519,3 +1519,75 @@ adrs:
         description: "Com a camada ligada, o atestado está na árvore. Removê-lo não deixa o repositório em silêncio — deixa em vermelho, porque ausente vale o mesmo que expirado: é o preço declarado de depender de um cron que este repositório não controla."
         paths:
           - harness/state/protection-attestation.json
+
+  - id: ADR-029
+    title: "O atestado é o único conteúdo auto-mergeável, e o portão não julga os checks"
+    status: accepted
+    file: architecture/adr/ADR-029-o-atestado-e-o-unico-conteudo-auto-mergeavel.md
+    related_risks: [RISK-EXT-001, RISK-META-002]
+    assertions:
+      - id: ADR-029-A1
+        kind: path_present
+        severity: high
+        risk: RISK-EXT-001
+        description: "A decisão de dispensar o clique — e SÓ o clique — existe como ADR, com a janela calculada e o passo de admin que ela não alcança."
+        paths:
+          - architecture/adr/ADR-029-o-atestado-e-o-unico-conteudo-auto-mergeavel.md
+          - ci/automerge_gate.py
+          - .github/workflows/atestado-automerge.yml
+      - id: ADR-029-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "O gatilho é `pull_request_target`, e essa linha é a segurança inteira: com `pull_request` o YAML executado viria do head, e as checagens que decidem se o PR pode auto-mergear seriam escritas pelo próprio PR."
+        files: [".github/workflows/atestado-automerge.yml"]
+        pattern: "pull_request_target"
+      - id: ADR-029-A3
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "A ORDEM é a decisão: o portão decide ANTES de o auto-merge ser habilitado. Ancorada no NOME do passo (lição da ADR-025-A14) para que a asserção não case com qualquer menção solta ao comando."
+        files: [".github/workflows/atestado-automerge.yml"]
+        pattern: 'Decidir se este PR é auto-mergeável[\s\S]*?Habilitar o auto-merge NATIVO[\s\S]*?gh pr merge'
+      - id: ADR-029-A4
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "Habilitar o auto-merge é CONDICIONAL à saída do portão. Sem o `if`, os dois passos continuariam na ordem certa e o segundo rodaria de qualquer jeito — ordem sem condição é encenação."
+        files: [".github/workflows/atestado-automerge.yml"]
+        pattern: "if: steps\\.portao\\.outputs\\.liberar == 'true'"
+      - id: ADR-029-A5
+        kind: file_lacks
+        severity: critical
+        risk: RISK-META-002
+        description: "Nada de `--admin` neste workflow. `--auto` entrega o julgamento ao ruleset; `--admin` o atropela, e o ruleset é a única coisa deste desenho que o conteúdo de um PR não alcança."
+        files: [".github/workflows/atestado-automerge.yml"]
+        pattern: "--admin"
+      - id: ADR-029-A6
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "A CHECAGEM DE DIFF, e a forma dela é a decisão: IGUALDADE contra uma lista de UM caminho, não allowlist, não prefixo, não glob. Um `startswith` teria o mesmo efeito hoje e custaria uma linha para virar `harness/` amanhã. É esta asserção que torna caro alargar o que pode auto-mergear."
+        files: ["ci/automerge_gate.py"]
+        pattern: 'tocados != \[caminho_atestado\]'
+      - id: ADR-029-A7
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "A checagem de AUTOR continua no portão, e exige as duas coisas: o login derivado de `authorized_issuer` e o tipo `Bot`. O login é digitável por um humano que registre uma conta com esse nome; o tipo é atribuído pelo GitHub."
+        files: ["ci/automerge_gate.py"]
+        pattern: 'autor_login != esperado or autor_tipo != "Bot"'
+      - id: ADR-029-A8
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "Indeterminação não libera: sem `authorized_issuer` ou sem `attestation_path` declarados, o portão não sabe contra o que comparar e recusa. Sem esta guarda, as duas comparações acima seriam feitas contra string vazia e liberariam por vacuidade."
+        files: ["ci/automerge_gate.py"]
+        pattern: "PORTAO-SEM-DECLARACAO"
+      - id: ADR-029-A9
+        kind: file_lacks
+        severity: high
+        risk: RISK-META-002
+        description: "O portão não faz checkout do head do PR. Ler metadado da API é seguro; trazer o head para o runner de um job com `contents: write` é o modo de falha clássico do `pull_request_target`."
+        files: [".github/workflows/atestado-automerge.yml"]
+        pattern: "github\\.event\\.pull_request\\.head\\.sha"

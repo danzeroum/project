@@ -1,0 +1,104 @@
+# Mudança proposta: o PR diário do atestado deixa de precisar de um clique humano — e só ele.
+# Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-037
+  title: "Auto-merge do atestado, sob três condições asseridas"
+  author_kind: agent
+  created_at: "2026-08-05T21:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - ci/automerge_gate.py
+    - .github/workflows/atestado-automerge.yml
+    - architecture/adr/index.yaml
+    - architecture/adr/ADR-029-o-atestado-e-o-unico-conteudo-auto-mergeavel.md
+    - harness/policies/trava-externa.md
+    - governance/risk-register.yaml
+    - tests/governance/test_automerge_bites.py
+    - docs/metadata-graph.md
+    - docs/alignment.md
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-EXT-001
+      - RISK-META-002
+    rationale: >
+      O PROBLEMA QUE A CP-036 CRIOU AO RESOLVER O SEU. Desde ontem o atestado vale 25h e o molde
+      bloqueia quando ele vence. O cron da autoridade abre um PR por dia, e o clique que integra
+      esse PR é humano. Uma trava cuja manutenção exige uma ação humana DIÁRIA não é uma trava
+      robusta — é uma trava com prazo de tolerância. Quem precisar integrar às 3h da manhã não vai
+      admirar o desenho: vai procurar o caminho de menor resistência, e o caminho de menor
+      resistência de uma trava incômoda é desligá-la. É o princípio (e) literal: o custo do fiscal
+      é parte do fiscal.
+
+      O QUE É DISPENSADO, E O QUE NÃO É. Dispensa-se o CLIQUE. Não se dispensa nada mais: o canal
+      continua sendo PR com checks, o merge continua sendo o auto-merge NATIVO do GitHub, e ele
+      só dispara quando os required status checks e o ruleset passam. Nenhum passo deste desenho
+      chama a API de merge por conta própria, e nenhum usa `--admin` — atropelar o ruleset é
+      justamente a única coisa que o conteúdo de um PR não deve conseguir fazer.
+
+      AS TRÊS CONDIÇÕES, E POR QUE SÃO TRÊS. (1) O diff contém EXCLUSIVAMENTE o
+      `attestation_path`; (2) o autor é o App declarado em `authorized_issuer` — o mesmo campo que
+      a CP-036 tornou conferido, agora fazendo um segundo trabalho; (3) todos os checks passam. A
+      terceira NÃO é conferida por código nosso, de propósito: quem a confere é o auto-merge
+      nativo. Um passo que lesse o estado dos checks estaria lendo um estado que ainda vai mudar,
+      e depois mergeando com base nele.
+
+      `pull_request_target` E NÃO `pull_request`, e essa linha é a segurança inteira. Com
+      `pull_request`, o YAML executado vem do head do PR: as checagens que decidem se o PR pode
+      auto-mergear seriam escritas pelo próprio PR. Com `pull_request_target`, o workflow vem da
+      base. Nenhum passo faz checkout do head nem executa uma linha vinda dele — o que se lê do PR
+      é metadado da API (autor e lista de caminhos), nunca código. É a mesma assimetria do
+      ADR-025: quem propõe não pode reescrever o que julga a proposta.
+
+      O ATESTADO É O ÚNICO CONTEÚDO AUTO-MERGEÁVEL DESTE REPOSITÓRIO, e a asserção torna caro
+      alargar isso. A comparação é uma IGUALDADE contra uma lista de UM caminho lido de
+      `harness.yaml` — não uma allowlist, não um prefixo, não um glob. Acrescentar um segundo
+      caminho exige mudar o núcleo, a asserção que o vigia e a mutação canônica que a prova, os
+      três num PR com CP declarada. Um `startswith` teria o mesmo efeito hoje e teria custado uma
+      linha para virar `harness/` amanhã.
+
+      RECUSAR NÃO É REPROVAR (princípio (h) outra vez). Um PR humano que toca o atestado é
+      legítimo — só não é auto-mergeável. Ele não fica vermelho: o portão sai 0 e escreve no
+      resumo do job por que ficou para revisão. O que sai diferente de 0 é a INDETERMINAÇÃO — sem
+      `authorized_issuer` ou sem `attestation_path` declarados, o portão não sabe contra o que
+      comparar, e um portão que não sabe comparar tem exatamente uma resposta segura.
+
+      TODOS OS MOTIVOS, NÃO O PRIMEIRO. Um PR de humano que toca o atestado E mais um arquivo tem
+      dois problemas. Retornar no primeiro economizaria três linhas e faria a segunda rodada de
+      investigação descobrir algo que já estava lá.
+
+      CUSTO (princípio (e)). Um workflow novo, um fiscal novo de núcleo puro, e uma dependência de
+      configuração de repositório: o auto-merge nativo precisa estar habilitado em Settings.
+
+      E ELE NÃO ESTÁ — sondado em 05/08/2026, e o achado mudou o desenho em vez de virar nota de
+      rodapé. A primeira versão do passo reprovava o job em qualquer erro; teria pintado de
+      vermelho TODO PR de atestado até alguém marcar uma caixa em Settings, e vermelho permanente
+      é como um fiscal se torna ignorado (ADR-019) — a mesma razão pela qual o achado de "auditoria
+      desligada" é `info`. São duas falhas com duas reações: capacidade ausente no ambiente avisa
+      alto com a ação exata e deixa o job VERDE, porque o fallback dela é o estado de ontem; e
+      qualquer outro erro reprova, porque significa que o desenho não fez o que promete. O caminho
+      não classificado termina em `exit 1`, para que um modo de falha ainda desconhecido não seja
+      engolido em silêncio.
+
+      A ação de admin fica registrada no RISK-EXT-001, que continua `mitigated` e não `closed`
+      justamente por causa dela.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_automerge_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
