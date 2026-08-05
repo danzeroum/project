@@ -1,0 +1,82 @@
+# Mudança proposta: a ausência de revisor independente vira risco datado, não status inventado.
+# Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-035
+  title: "Aval humano independente ausente é lacuna declarada com data, não status inventado"
+  author_kind: agent
+  created_at: "2026-08-05T18:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - governance/risk-register.yaml
+    - architecture/adr/index.yaml
+    - architecture/adr/ADR-027-aval-ausente-e-lacuna-declarada.md
+    - harness/policies/ciclo-de-vida-da-cp.md
+    - tests/governance/test_ciclo_cp_bites.py
+    - docs/metadata-graph.md
+    - docs/alignment.md
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-CHANGE-002
+    rationale: >
+      O QUE SE TENTOU E POR QUE PAROU. A tarefa era fechar as CP-021 a CP-034, movendo cada uma de
+      `approved` para `executed` com `approved_by` resolvível — a estreia do `ci/verify_approval.py`
+      em produção. Ela parou num fato, não num detalhe: `danzeroum` é o ÚNICO colaborador do
+      repositório, é o autor de todos os PRs da série (#31 a #45) e é a identidade que a sessão usa
+      na API. A Fraude 3 do `verify_approval` recusa exatamente isso — "o aprovador é o autor do PR;
+      auto-aprovação com um passo a mais continua sendo auto-aprovação". O GitHub também recusa,
+      mas o que importa é que o fiscal recusaria mesmo que a API deixasse.
+
+      O CAMINHO ALTERNATIVO TAMBÉM NÃO PASSA, e por dois motivos independentes que valem registrar
+      porque alguém vai propô-lo de novo. Apontar o aval para um PR de fechamento e a execução para
+      o PR original é recusado pela Fraude 5 ("o aval precisa ser DESTE merge"). E o PR de
+      fechamento não consegue se auto-aprovar: escrever o `review_id` exige um push, o push move o
+      head, e a Fraude 4 passa a ver uma aprovação anterior ao último push. É a mesma
+      autorreferência que o manifesto de release resolveu declarando o pai — aqui ela não tem
+      solução, porque o que falta não é uma referência: é uma pessoa.
+
+      A DECISÃO. Nada é forjado e nada é afrouxado. As doze CPs fecháveis (CP-022, CP-023 e CP-025 a
+      CP-034) permanecem `approved`, que é o estado verdadeiro: integradas, com aval declarado como
+      NECESSÁRIO e nunca prestado. A lacuna passa a ter registro próprio — RISK-CHANGE-002, `open`,
+      `treatment: accept`, com `due`. O schema já exige `due` de risco `open`, então a data não é
+      convenção: é trava. Princípio (g) do plano, o mesmo que datou o RISK-EXT-001.
+
+      A DATA É A MESMA DO RISK-EXT-001 (2026-11-03), de propósito. As duas lacunas fazem a mesma
+      pergunta — existe, fora deste repositório, uma autoridade que não seja quem é fiscalizado? —
+      e revisá-las juntas evita que a segunda seja esquecida por ter calendário próprio.
+
+      DUAS CPs NÃO ENTRAM NA CONTA, e por razões estruturais. A CP-021 é `schema_version: "1.0"` e
+      não tem campo `status`: os campos de ciclo existem a partir de 1.1, e a CP-022 declarou a
+      não-retroatividade como PARTE da decisão. Promovê-la seria reescrever registro histórico. A
+      CP-024 é `deferred` e continua: sua camada externa não foi implementada, o RISK-EXT-001 segue
+      aberto, e o eixo de tags reportou a lacuna na publicação da v1.0.0. Marcá-la `executed` seria
+      falso.
+
+      O QUE IMPEDE ISTO DE VIRAR PERMANÊNCIA SILENCIOSA. Três travas, e nenhuma é nova: o schema
+      recusa risco `open` sem `due`; o `verify_approval` continua rodando no CI, então o dia em que
+      alguém marcar uma CP `executed` o aval é resolvido contra a API; e uma asserção nova prova que
+      a Fraude 3 continua no código — porque a tentação, quando o fechamento incomodar, será apagar
+      a checagem que o impede, e não conseguir o revisor que falta.
+
+      CUSTO (princípio (e)). Nenhum fiscal novo, nenhum passo de CI novo, nenhum segundo a mais em
+      lugar nenhum. Um risco, um ADR e duas asserções.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_ciclo_cp_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

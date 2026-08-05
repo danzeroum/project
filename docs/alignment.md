@@ -26,7 +26,7 @@ fazem: **o que ficou de fora?**
 | access | 3 | 1 |
 | data | 2 | 0 |
 | dependencies | 1 | 0 |
-| governance | 13 | 0 |
+| governance | 14 | 1 |
 | webqa | 1 | 0 |
 
 ## Pendências de alinhamento

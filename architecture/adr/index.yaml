@@ -1429,3 +1429,38 @@ adrs:
           alvo: architecture/adr/index.yaml
           marcador: "id: ADR-008-A5"
           texto: '        exclude: ["harness/releases/*.manifest.json"]'
+
+  - id: ADR-027
+    title: "Aval humano ausente é lacuna declarada, não status inventado"
+    status: accepted
+    file: architecture/adr/ADR-027-aval-ausente-e-lacuna-declarada.md
+    related_risks: [RISK-CHANGE-002, RISK-CHANGE-001]
+    assertions:
+      - id: ADR-027-A1
+        kind: path_present
+        severity: high
+        risk: RISK-CHANGE-002
+        description: "A decisão de não forjar o aval existe como ADR — doze propostas visivelmente não fechadas, com o motivo escrito, valem mais que doze `executed` cujo aval ninguém prestou."
+        paths:
+          - architecture/adr/ADR-027-aval-ausente-e-lacuna-declarada.md
+      - id: ADR-027-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-CHANGE-002
+        description: "A lacuna do aval independente é risco ABERTO e COM DATA. O schema já exige `due` de risco `open`; esta asserção prova que o risco não foi silenciosamente fechado ou removido para o registro parecer limpo."
+        files: ["governance/risk-register.yaml"]
+        pattern: '^  - id: RISK-CHANGE-002$(?:(?!\n  - id: )[\s\S])*?due: "'
+      - id: ADR-027-A3
+        kind: file_matches
+        severity: critical
+        risk: RISK-CHANGE-002
+        description: "O verify_approval continua rodando no CI: no dia em que alguém marcar uma CP `executed`, o aval é resolvido contra a API, não contra a boa-fé de quem escreveu o YAML."
+        files: [".github/workflows/governance.yml"]
+        pattern: "python ci/verify_approval\\.py"
+      - id: ADR-027-A4
+        kind: file_matches
+        severity: critical
+        risk: RISK-CHANGE-002
+        description: "A recusa de auto-aprovação (Fraude 3) continua no código. É a asserção que mais importa: quando doze propostas `approved` parecerem trabalho inacabado, a tentação não será conseguir o revisor que falta — será apagar a checagem que o exige."
+        files: ["ci/verify_approval.py"]
+        pattern: "é o autor do PR"
