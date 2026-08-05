@@ -156,7 +156,6 @@ jobs:
             --tag "${TAG}" \
             --commit "${VALIDADO}" \
             --run-id "${GITHUB_RUN_ID}" \
-            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             --artifact-digest "$digest"
 
           git config user.name "github-actions[bot]"
@@ -260,18 +259,6 @@ jobs:
       - name: Instalar ferramentas de validação
         run: pip install "jsonschema>=4" "pyyaml>=6" "pytest>=8"
 
-      - name: Validação total do projeto
-        run: python ci/validate_all.py
-
-      - name: Testes dos fiscais
-        run: pytest tests/governance -q
-
-      - name: Prova de mutação — as travas ainda mordem
-        run: python ci/audit_mutations.py
-
-      - name: Verificar a cadeia da release
-        run: python ci/mold_release.py --verify-tag "${GITHUB_REF_NAME}"
-
       # Tag móvel = ausência de release. Uma tag reescrita apontaria para outro conteúdo com o
       # mesmo nome, e todo derivado que a cita passaria a afirmar ter nascido de algo que nunca
       # existiu. A trava real é a proteção de tag administrada fora deste workflow; este passo é a
@@ -286,3 +273,38 @@ jobs:
             exit 1
           fi
           echo "tag $tag → $alvo (imóvel neste run)"
+
+      # ------------------------------------------------------------------------------------
+      # A ORDEM É A DECISÃO DO ADR-026, e ela responde a pergunta certa para cada árvore.
+      #
+      # A árvore TAGGEADA não se valida por validate_all.py — ela se valida pela CADEIA. Rodar a
+      # validação total nela sempre foi perguntar a pergunta errada: o manifesto descreve a
+      # validação do PAI, e o elo "nada além do manifesto" é o que transporta essa validação para
+      # a árvore publicada. Enquanto isso não estava dito, este job era incapaz de ficar verde.
+      #
+      # `--verify-tag` lê o manifesto do disco, então roda ENQUANTO a tag está montada. Só depois
+      # o job volta ao pai — que é a árvore para a qual `validate_all` é a pergunta certa.
+      # ------------------------------------------------------------------------------------
+      - name: Verificar a cadeia da release
+        run: python ci/mold_release.py --verify-tag "${GITHUB_REF_NAME}"
+
+      - name: Voltar ao commit validado (o pai da tag)
+        run: |
+          set -euo pipefail
+          commit=$(git rev-list -n 1 "${GITHUB_REF_NAME}")
+          pai=$(git rev-list --parents -n 1 "$commit" | cut -d' ' -f2)
+          if [ -z "$pai" ] || [ "$pai" = "$commit" ]; then
+            echo "::error::o commit de release $commit não tem pai — não há árvore validada para auditar."
+            exit 1
+          fi
+          git switch --detach "$pai"
+          echo "auditando o conteúdo validado: $pai"
+
+      - name: Validação total do projeto
+        run: python ci/validate_all.py
+
+      - name: Testes dos fiscais
+        run: pytest tests/governance -q
+
+      - name: Prova de mutação — as travas ainda mordem
+        run: python ci/audit_mutations.py

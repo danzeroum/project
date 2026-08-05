@@ -45,6 +45,34 @@ errado. Quem o recebe vai reescrever uma trava que estava funcionando. Por isso 
 **verificada** e não assumida, e por isso cada um dos três defeitos virou comentário no código, ao
 lado da correção.
 
+## A mutação que certificaria uma trava decorativa
+
+O modo de falha mais perigoso deste fiscal não é deixar passar — é **carimbar**. Um caso concreto,
+evitado ao escrever a cláusula B do ADR-026.
+
+A regra era *"nenhum manifesto em `harness/releases/`"*, e a forma óbvia seria `path_absent` com
+glob:
+
+```yaml
+kind: path_absent
+paths: ["harness/releases/*.manifest.json"]     # ARMADILHA
+```
+
+`assert_path_absent` usa `rel_exists`, que é **literal**: o glob nunca casaria e a asserção passaria
+sempre. Mas o problema não é esse. O problema é que **a prova de mutação a aprovaria**: o inverso
+canônico `criar_caminho` criaria um arquivo chamado *literalmente* `v*.manifest.json`, `rel_exists`
+o encontraria, a asserção ficaria vermelha depois de mutada — e a trava sairia da prova com selo de
+que morde, sem nunca ter mordido um manifesto de verdade.
+
+> **Um fiscal de fiscais enganado é pior que fiscal nenhum, porque produz um selo.**
+
+Daí o tipo `dir_allowlist`, que **enumera** a lotação do diretório em vez de perguntar por um nome
+que precisaria adivinhar. Seu inverso — pôr qualquer outra coisa lá dentro — não tem como coincidir
+com a forma da pergunta, que era o buraco.
+
+A lição generaliza: **quando a mutação e a asserção compartilham a mesma string, o acordo entre elas
+pode não ser sobre o mundo.**
+
 ## O teste de mordida involuntário
 
 O mais convincente da série não foi escrito: foi sofrido.
