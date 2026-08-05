@@ -4,121 +4,416 @@
   "title": "architecture/adr/index.yaml — índice fiscalizável de ADRs",
   "description": "Os ADRs são prosa (markdown); o índice é a parte verificável: cada entrada aponta para um arquivo real, resolve suas referências (CAP/CMP/RISK/ADR) e declara ASSERÇÕES executáveis. A seção '## Fiscal' de cada ADR nomeia o fiscal em prosa; assertions[] é a mesma coisa numa forma que a máquina executa. Um ADR aceito sem asserção é, ele próprio, o que o ADR-002 proíbe.",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "adrs"],
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "adrs"
+  ],
   "additionalProperties": false,
   "oneOf": [
     {
       "properties": {
-        "source_of_truth": { "const": true },
-        "generated_from": { "const": null }
+        "source_of_truth": {
+          "const": true
+        },
+        "generated_from": {
+          "const": null
+        }
       }
     },
     {
       "properties": {
-        "source_of_truth": { "const": false },
-        "generated_from": { "type": "string", "minLength": 1 }
+        "source_of_truth": {
+          "const": false
+        },
+        "generated_from": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["generated_from"]
+      "required": [
+        "generated_from"
+      ]
     }
   ],
   "$defs": {
     "assertion": {
       "type": "object",
       "description": "Uma afirmação verificável sobre o repositório real. Tipada como os controls[] do risk-register: o kind determina quais campos são exigidos.",
-      "required": ["id", "kind", "severity", "description"],
+      "required": [
+        "id",
+        "kind",
+        "severity",
+        "description"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^ADR-[0-9]{3}-A[0-9]+$" },
+        "id": {
+          "type": "string",
+          "pattern": "^ADR-[0-9]{3}-A[0-9]+$"
+        },
         "kind": {
           "enum": [
-            "path_absent", "path_present",
-            "import_required", "import_forbidden",
-            "file_matches", "file_lacks",
+            "path_absent",
+            "path_present",
+            "import_required",
+            "import_forbidden",
+            "file_matches",
+            "file_lacks",
             "schema_lock",
             "manual"
           ]
         },
-        "severity": { "enum": ["low", "medium", "high", "critical"] },
-        "description": { "type": "string", "minLength": 10 },
-        "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" },
-        "paths": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "module_glob": { "type": "string", "minLength": 1 },
-        "symbols": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "files": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "pattern": { "type": "string", "minLength": 1 },
-        "match": { "enum": ["all", "any"] },
-        "exclude": { "type": "array", "items": { "type": "string" } },
-        "dotall": { "type": "boolean" },
-        "file": { "type": "string", "pattern": "^harness/schemas/.*\\.json$" },
-        "pointer": { "type": "string", "pattern": "^/" },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10
+        },
+        "risk": {
+          "type": "string",
+          "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$"
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "module_glob": {
+          "type": "string",
+          "minLength": 1
+        },
+        "symbols": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "pattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "match": {
+          "enum": [
+            "all",
+            "any"
+          ]
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dotall": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": "string",
+          "pattern": "^harness/schemas/.*\\.json$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^/"
+        },
         "expected": {},
         "contains": {},
         "justification": {
           "type": "string",
           "minLength": 40,
           "description": "Só para kind manual. Declarar o que NÃO é verificável é honesto; deixar implícito, não."
+        },
+        "mutation": {
+          "type": "object",
+          "required": [
+            "op",
+            "alvo"
+          ],
+          "additionalProperties": false,
+          "description": "A mutação canônica que esta asserção DEVE reprovar (prova de fogo 4, §12). Declará-la é o ESCAPE para o que a derivação não alcança — regex expressiva, I/O dentro de escopo. Quando ausente, ci/audit_mutations.py DERIVA o inverso da asserção e VERIFICA que ele de fato a reprova; se não reprovar, o achado é sobre a asserção, que passa a ser decorativa. É a regra bloqueante reprovando a si mesma.",
+          "properties": {
+            "op": {
+              "enum": [
+                "remover_caminho",
+                "criar_caminho",
+                "apagar_padrao",
+                "apagar_linha",
+                "injetar_texto",
+                "injetar_apos",
+                "quebrar_ponteiro"
+              ]
+            },
+            "alvo": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "pointer": {
+              "type": "string"
+            },
+            "texto": {
+              "type": "string"
+            },
+            "contendo": {
+              "type": "string"
+            },
+            "marcador": {
+              "type": "string"
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       },
       "allOf": [
         {
-          "if": { "properties": { "kind": { "enum": ["path_absent", "path_present"] } }, "required": ["kind"] },
-          "then": { "required": ["paths"] }
-        },
-        {
-          "if": { "properties": { "kind": { "enum": ["import_required", "import_forbidden"] } }, "required": ["kind"] },
-          "then": { "required": ["module_glob", "symbols"] }
-        },
-        {
-          "if": { "properties": { "kind": { "enum": ["file_matches", "file_lacks"] } }, "required": ["kind"] },
-          "then": { "required": ["files", "pattern"] }
-        },
-        {
-          "comment": "schema_lock prova que uma trava if/then continua no schema. Exige o alvo e exatamente uma forma de comparação.",
-          "if": { "properties": { "kind": { "const": "schema_lock" } }, "required": ["kind"] },
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "path_absent",
+                  "path_present"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
           "then": {
-            "required": ["file", "pointer"],
-            "oneOf": [{ "required": ["expected"] }, { "required": ["contains"] }]
+            "required": [
+              "paths"
+            ]
           }
         },
         {
-          "if": { "properties": { "kind": { "const": "manual" } }, "required": ["kind"] },
-          "then": { "required": ["justification"] }
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "import_required",
+                  "import_forbidden"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "module_glob",
+              "symbols"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "file_matches",
+                  "file_lacks"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "files",
+              "pattern"
+            ]
+          }
+        },
+        {
+          "comment": "schema_lock prova que uma trava if/then continua no schema. Exige o alvo e exatamente uma forma de comparação.",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "schema_lock"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "file",
+              "pointer"
+            ],
+            "oneOf": [
+              {
+                "required": [
+                  "expected"
+                ]
+              },
+              {
+                "required": [
+                  "contains"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "manual"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "justification"
+            ]
+          }
         }
       ]
     }
   },
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "source_of_truth": { "type": "boolean" },
-    "generated_from": { "type": ["string", "null"] },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "metadata_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "source_of_truth": {
+      "type": "boolean"
+    },
+    "generated_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "adrs": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "title", "status", "file"],
+        "required": [
+          "id",
+          "title",
+          "status",
+          "file"
+        ],
         "additionalProperties": false,
         "allOf": [
           {
             "comment": "Uma decisão aceita sem nenhuma asserção é markdown que não morde. O schema recusa antes de o fiscal precisar reclamar.",
-            "if": { "properties": { "status": { "const": "accepted" } }, "required": ["status"] },
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "accepted"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
             "then": {
-              "required": ["assertions"],
-              "properties": { "assertions": { "minItems": 1 } }
+              "required": [
+                "assertions"
+              ],
+              "properties": {
+                "assertions": {
+                  "minItems": 1
+                }
+              }
             }
           }
         ],
         "properties": {
-          "id": { "type": "string", "pattern": "^ADR-[0-9]{3}$" },
-          "title": { "type": "string" },
-          "status": { "enum": ["proposed", "accepted", "superseded", "deprecated"] },
-          "file": { "type": "string", "pattern": "^architecture/adr/ADR-[0-9]{3}-.*\\.md$" },
-          "supersedes": { "type": "array", "items": { "type": "string", "pattern": "^ADR-[0-9]{3}$" } },
-          "related_capabilities": { "type": "array", "items": { "type": "string", "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$" } },
-          "related_components": { "type": "array", "items": { "type": "string", "pattern": "^CMP-[A-Z0-9]+(-[A-Z0-9]+)*$" } },
-          "related_risks": { "type": "array", "items": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" } },
-          "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } }
+          "id": {
+            "type": "string",
+            "pattern": "^ADR-[0-9]{3}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "accepted",
+              "superseded",
+              "deprecated"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^architecture/adr/ADR-[0-9]{3}-.*\\.md$"
+          },
+          "supersedes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^ADR-[0-9]{3}$"
+            }
+          },
+          "related_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$"
+            }
+          },
+          "related_components": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^CMP-[A-Z0-9]+(-[A-Z0-9]+)*$"
+            }
+          },
+          "related_risks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$"
+            }
+          },
+          "assertions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/assertion"
+            }
+          }
         }
       }
     }

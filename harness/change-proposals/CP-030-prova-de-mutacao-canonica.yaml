@@ -1,0 +1,81 @@
+# Mudança proposta: toda regra bloqueante prova que morde, e declaração de dependência não se
+# contradiz. Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-030
+  title: "Prova de mutação canônica (§12) e fiscal de conflito de dependências (§10)"
+  author_kind: agent
+  created_at: "2026-08-05T20:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - ci/audit_mutations.py
+    - ci/check_dependency_conflict.py
+    - architecture/adr/index.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-CONF-001
+      - RISK-DEP-001
+    rationale: >
+      A PERGUNTA QUE FALTAVA. Todos os fiscais desta casa perguntam "o repositório está conforme?".
+      Nenhum perguntava "as travas ainda mordem?". Um repositório verde com travas que não mordem é
+      indistinguível de um repositório verde — e é o único estado que este sistema inteiro existe
+      para impedir.
+
+      A TENSÃO NO ENUNCIADO, e como foi resolvida. O plano pede que "cada controle bloqueante
+      declare nos metadados a mutação mínima que deve reprovar" e, na mesma frase, que a suíte seja
+      "derivada dos metadados, nunca de lista duplicada". Com 123 asserções, escrever 118 blocos
+      `mutation:` à mão SERIA a lista duplicada: ela derivaria da asserção real no primeiro dia em
+      que alguém mudasse um `pattern` e esquecesse o bloco.
+
+      A leitura adotada: a mutação é DERIVADA da asserção, porque cada tipo tem inverso bem
+      definido — o que existe passa a não existir, o padrão exigido some, a trava de schema muda de
+      valor. Uma asserção pode DECLARAR `mutation`, e a declaração vence; é o escape para o que a
+      derivação não alcança. Dez das 118 precisaram declarar, todas `file_lacks` com regex
+      expressiva — gerar um texto que case exige entender a INTENÇÃO da regra, não só a sua forma.
+
+      E A PARTE QUE DÁ DENTES: a mutação é VERIFICADA. O fiscal aplica e exige que a asserção fique
+      vermelha. Se não ficar, o achado não é sobre o repositório — é sobre a asserção, que passa a
+      ser decorativa. É a regra bloqueante reprovando a si mesma, como o §12 pede.
+
+      O QUE A PROVA ENCONTROU AO SER ESCRITA, e por que isto importa mais que o resultado final:
+      ela acusou 19 asserções na primeira execução. Dessas, NENHUMA era uma trava quebrada — todas
+      as 19 eram defeitos da própria mutação. Cinco porque o inverso de "o arquivo contém o padrão"
+      apagava UMA ocorrência de um padrão que aparecia várias; uma porque a mutação escolhia um
+      arquivo que a própria asserção EXCLUI; uma porque apagar o símbolo de um import deixava o
+      arquivo com erro de sintaxe, e o fiscal passava a reportar ERRO em vez de ACHADO — dois
+      estados que esta casa separa por desenho, e que a mutação não pode confundir.
+
+      Vale registrar porque é a lição: um fiscal de fiscais erra primeiro no seu próprio lado, e
+      "a asserção é decorativa" é um achado caro — ele manda consertar o lugar errado. Cada um dos
+      três defeitos virou comentário no código, ao lado da correção.
+
+      COMPLEMENTO §10 — conflito de dependências. Três arquivos declaram dependência, cada um
+      respondendo a uma pergunta diferente. Três respostas IGUAIS são redundância barata; três
+      DIFERENTES são uma pergunta sem resposta, e o que se instala passa a depender de qual arquivo
+      o comando leu. O fiscal só acusa `==` contra `==`: um `>=8` no pyproject com um `==9.1.1` no
+      lock não se contradizem — o segundo é resolução válida do primeiro, e acusar isso seria o
+      fiscal reprovando o funcionamento normal de um lockfile.
+
+      CUSTO (princípio (e)). A prova copia o repositório e roda o fiscal de conformidade 118 vezes:
+      cerca de um minuto, e por isso ela fica FORA de `validate_all.py`. Um fiscal que torna o loop
+      de trabalho insuportável é desligado, não obedecido — e o hook Stop roda a validação total a
+      cada turno. Ela é passo próprio do CI, onde o minuto não incomoda ninguém.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_mutacao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

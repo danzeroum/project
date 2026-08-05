@@ -459,6 +459,8 @@ REMEDIACAO_POR_ORIGEM = {
     "lgpd_declaration": "Alinhar a declaração de papel e finalidade ao que o sistema de fato trata.",
     "lgpd_judgment": "Rodar /revisao-lgpd e regravar scope_fingerprint: "
                      "python ci/audit_lgpd.py --print-fingerprint",
+    "dependency_conflict": "Igualar as versões, ou deixar UMA fonte fixar e as outras "
+                           "referenciarem — a mesma regra da versão da régua (ADR-003).",
 }
 
 @dataclass

@@ -44,6 +44,8 @@ risks:
         ref: harness/policies/dependency-updates.md
       - kind: local_path
         ref: ci/env_guard.py
+      - kind: local_path
+        ref: ci/check_dependency_conflict.py
       - kind: branch_protection
         ref: "main:require_pull_request_reviews"
       - kind: local_path
@@ -107,6 +109,10 @@ risks:
         ref: harness/schemas/adr-index.schema.json
       - kind: local_path
         ref: harness/policies/conformance.md
+      - kind: local_path
+        ref: ci/audit_mutations.py
+      - kind: local_path
+        ref: harness/policies/prova-de-mutacao.md
       - kind: local_path
         ref: architecture/adr/ADR-006-conformidade-como-assercao.md
       - kind: branch_protection

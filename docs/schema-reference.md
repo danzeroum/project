@@ -40,7 +40,7 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 |---|---|---|---|
 | `schema_version` | const(1.0) | sim |  |
 | `provenance` | object | sim | Quem produziu o laudo, sobre qual estado do repositório. |
-| `provenance.auditor` | enum(ci/audit_governance.py · ci/audit_lgpd.py · ci/alignment_report.py · ci/audit_conformance.py · ci/audit_ledger.py) | sim |  |
+| `provenance.auditor` | enum(ci/audit_governance.py · ci/audit_lgpd.py · ci/alignment_report.py · ci/audit_conformance.py · ci/audit_ledger.py · ci/check_dependency_conflict.py) | sim |  |
 | `provenance.auditor_version` | string | sim |  |
 | `provenance.repository` | string | sim |  |
 | `provenance.commit` | string | sim |  |
@@ -53,7 +53,7 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `summary.by_severity` | object | sim |  |
 | `findings` | array<object> | sim | Divergências entre o declarado e o real. severity é TRIAGEM, não gate: com fail-closed qualquer achado derruba o CI. |
 | `findings[].id` | string | sim |  |
-| `findings[].origin` | enum(adr_assertion · adr_meta · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing) | sim |  |
+| `findings[].origin` | enum(adr_assertion · adr_meta · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing · dependency_conflict) | sim |  |
 | `findings[].severity` | enum(info · low · medium · high · critical) | sim |  |
 | `findings[].summary` | string | sim |  |
 | `findings[].adr` | string | — |  |
