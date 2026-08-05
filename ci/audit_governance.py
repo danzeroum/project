@@ -277,12 +277,29 @@ def _enforcer_resolves(e: dict, errors: Errors) -> tuple[bool, str]:
     return False, f"kind desconhecido: {kind}"
 
 
-def check_stage_coverage(stages_doc: dict, findings: Findings, errors: Errors) -> None:
+def check_stage_coverage(stages_doc: dict, findings: Findings, errors: Errors,
+                         project_doc: dict | None = None) -> None:
+    """Artefato de etapa casa arquivo real — salvo enquanto o derivado incuba (CP-019).
+
+    Um derivado recém-adotado ainda não tem os artefatos que a ingestão vai escrever: o CP-000
+    remove os do exemplo, e business/rules some do versionamento porque diretório vazio não é
+    versionado. Cobrar aqui transformaria "a ingestão ainda não chegou nesta etapa" em achado
+    permanente, do mesmo modo que o piso das coleções fazia antes do CP-017 — e a resposta é a
+    mesma, pelo mesmo sinal declarado, porque é o mesmo problema uma camada acima.
+
+    A permissão é AMPLA de propósito, e é o custo desta decisão: enquanto incuba, um derivado que
+    perdesse governance/ ou security/ inteiros também não seria acusado aqui. Restringi-la exigiria
+    saber quais artefatos a ingestão cria, e ingest.yaml só declara isso para parte deles. O
+    contrapeso é o teste negativo: promovido o lifecycle, artefato ausente volta a reprovar.
+    """
+    projeto = (project_doc or {}).get("project") or {}
+    incubando = projeto.get("kind") == "derived" and projeto.get("lifecycle") == "incubating"
+
     for stage in (stages_doc or {}).get("stages", []):
         sid = stage.get("id", "?")
 
         for artifact in stage.get("artifacts", []):
-            if not hl.resolve_glob(artifact):
+            if not hl.resolve_glob(artifact) and not incubando:
                 findings.add(
                     key=f"{sid}-ARTIFACT-{artifact}", origin="stage_coverage", severity="medium",
                     stage=sid, risk="RISK-STAGE-001", location=artifact,
@@ -594,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     check_adr_conformance(adr_index, findings, errors)
-    check_stage_coverage(stages_doc, findings, errors)
+    check_stage_coverage(stages_doc, findings, errors, project_doc)
     check_repo_partition(stages_doc, findings)
     check_ingest_pipeline(findings, errors)
     check_policy_pointers(findings)

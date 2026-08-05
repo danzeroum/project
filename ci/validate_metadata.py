@@ -370,22 +370,30 @@ def check_pending_judgment(loaded: dict[str, dict]) -> None:
 
 
 def check_threat_model(doc: dict | None, comp_ids: set[str], ifc_ids: set[str],
-                       ui_ids: set[str], risk_ids: set[str]) -> None:
+                       ui_ids: set[str], risk_ids: set[str],
+                       stage_ids: set[str] | None = None) -> None:
     """Toda ameaça vigia algo que existe e deixa um residual rastreável.
 
     O schema já garante que existe ao menos uma mitigação e um residual_risk. Aqui se cobra que os
     alvos RESOLVEM: ameaça contra componente inexistente é trava que não encontra o que vigiar —
     quebrada, não satisfeita (ADR-006) — e residual apontando para risco inexistente devolve a
     ameaça ao limbo de onde o residual deveria tirá-la.
+
+    As ETAPAS entram no conjunto de alvos possíveis (CP-019) porque parte do que se ameaça é a
+    própria máquina de governar, e ela não é componente de negócio. Antes disso, uma ameaça ao
+    harness só passava apontando para um CMP-* arbitrário que por acaso existisse — o fiscal ficava
+    satisfeito sem que a declaração dissesse nada verdadeiro, que é conformidade por vacuidade
+    dentro do fiscal que existe para impedi-la. Ampliar o conjunto não afrouxa a trava: é o que
+    permite exercê-la com um alvo real.
     """
     if not doc:
         return
-    conhecidos = comp_ids | ifc_ids | ui_ids
+    conhecidos = comp_ids | ifc_ids | ui_ids | (stage_ids or set())
     for ameaca in doc.get("threats", []):
         tid = ameaca.get("id", "?")
         if ameaca.get("target") not in conhecidos:
             err(f"[ameaça] {tid}: target {ameaca.get('target')} não existe em components, "
-                f"interfaces nem ui-surfaces")
+                f"interfaces, ui-surfaces nem nas etapas de harness/stages.yaml")
         if ameaca.get("residual_risk") not in risk_ids:
             err(f"[ameaça] {tid}: residual_risk {ameaca.get('residual_risk')} não existe no "
                 f"risk-register — ameaça sem residual rastreável volta ao limbo")
@@ -867,7 +875,9 @@ def main(argv: list[str] | None = None) -> int:
     check_privacy_review(loaded.get("governance/privacy-review.yaml"), risk_ids)
     ifc_ids = {i.get("id") for i in (loaded.get("architecture/interfaces.yaml") or {}).get("interfaces", [])}
     ui_ids = {u.get("id") for u in (loaded.get("design/ui-surfaces.yaml") or {}).get("ui_surfaces", [])}
-    check_threat_model(loaded.get("security/threat-model.yaml"), comp_ids, ifc_ids, ui_ids, risk_ids)
+    stage_ids = {s.get("id") for s in (loaded.get("harness/stages.yaml") or {}).get("stages", [])}
+    check_threat_model(loaded.get("security/threat-model.yaml"), comp_ids, ifc_ids, ui_ids,
+                       risk_ids, stage_ids)
     check_dependency_inventory(loaded.get("security/dependencies.yaml"))
     check_change_proposals()
 

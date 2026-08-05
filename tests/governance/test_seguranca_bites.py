@@ -130,3 +130,41 @@ def test_inventario_le_declaracao_e_nao_ambiente(repo_copy, run_metadata):
     # pytest/jsonschema/pyyaml estão instalados neste ambiente e inventariados; nada além disso
     # entra no veredito, e é o que mantém o resultado reprodutível fora desta máquina.
     assert code == 0, errors
+
+
+# --------------------------------------------------------------------------------------
+# CP-019: a ameaça ao harness ganha alvo verdadeiro — e alvo inexistente segue reprovando
+# --------------------------------------------------------------------------------------
+
+def _threats(root):
+    import yaml
+    p = root / "security/threat-model.yaml"
+    return p, yaml.safe_load(p.read_text(encoding="utf-8"))
+
+
+def _gravar_threats(p, doc):
+    import yaml
+    p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
+def test_ameaca_pode_ter_etapa_como_alvo(repo_copy, run_metadata):
+    """O que a ameaça ao harness de fato ameaça é a máquina de governar, não um componente de
+    negócio. Antes do CP-019 ela só passava apontando para um CMP-* arbitrário que existisse —
+    o fiscal satisfeito sem que a declaração dissesse nada verdadeiro."""
+    p, doc = _threats(repo_copy)
+    doc["threats"][0]["target"] = "STAGE-CI-HARNESS"
+    _gravar_threats(p, doc)
+    code, errors = run_metadata(repo_copy)
+    assert not [e for e in errors if "[ameaça]" in e], errors
+    assert code == 0, errors
+
+
+def test_alvo_de_etapa_inexistente_reprova(repo_copy, run_metadata):
+    """A namespace nova não é passe livre: ela resolve contra harness/stages.yaml como as outras
+    resolvem contra components, interfaces e ui-surfaces."""
+    p, doc = _threats(repo_copy)
+    doc["threats"][0]["target"] = "STAGE-QUE-NAO-EXISTE"
+    _gravar_threats(p, doc)
+    code, errors = run_metadata(repo_copy)
+    assert code == 1
+    assert any("[ameaça]" in e and "STAGE-QUE-NAO-EXISTE" in e for e in errors), errors

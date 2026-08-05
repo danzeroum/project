@@ -267,3 +267,38 @@ def test_a_mensagem_do_piso_nomeia_a_fase_que_preenche(repo_copy, run_metadata):
     _, errors = run_metadata(repo_copy)
     piso = [e for e in errors if "[piso]" in e and "components.yaml" in e]
     assert piso and "ING-03-CARTOGRAFIA" in piso[0], piso
+
+
+# --------------------------------------------------------------------------------------
+# CP-019: artefato de etapa que a ingestão ainda vai criar
+# --------------------------------------------------------------------------------------
+
+def _sumir_com_as_regras(root) -> None:
+    """O estado que o CP-000 produz: sem arquivo de regra, o diretório sai do versionamento."""
+    import shutil
+    shutil.rmtree(root / "business/rules", ignore_errors=True)
+
+
+def test_artefato_ausente_nao_reprova_enquanto_o_derivado_incuba(repo_copy, run_auditor):
+    _derivado(repo_copy)
+    _lifecycle(repo_copy, "incubating")
+    _sumir_com_as_regras(repo_copy)
+    _, findings = run_auditor("audit_governance", repo_copy)
+    assert not [f for f in findings if f.get("origin") == "stage_coverage"], findings
+
+
+def test_artefato_ausente_reprova_depois_de_promovido(repo_copy, run_auditor):
+    """O contrapeso da permissão ampla do CP-019, e a razão de ela poder ser ampla.
+
+    Enquanto incuba, um derivado que perdesse governance/ inteiro também não seria acusado — o
+    preço de não saber quais artefatos a ingestão cria. Promovido o lifecycle, a cobrança volta
+    inteira, e é isto que impede a permissão de virar permanente.
+    """
+    _derivado(repo_copy)
+    _lifecycle(repo_copy, "active")
+    _sumir_com_as_regras(repo_copy)
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1
+    alvo = [f for f in findings if f.get("origin") == "stage_coverage"
+            and "business/rules" in f.get("location", "")]
+    assert alvo, findings

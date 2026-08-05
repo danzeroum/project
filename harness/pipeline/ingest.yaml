@@ -55,7 +55,7 @@ phases:
     name: "Propor capacidades, regras e requisitos"
     agent: cartographer
     inputs: ["harness/state/harvest.json", "harness/state/code-inventory.json"]
-    outputs: ["business/capabilities.yaml", "business/requirements/backlog.yaml"]
+    outputs: ["business/capabilities.yaml", "business/requirements/backlog.yaml", "business/rules"]
     fiscal:
       kind: ci_script
       ref: ci/validate_metadata.py
