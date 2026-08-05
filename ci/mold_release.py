@@ -14,6 +14,7 @@ Uso:
   python ci/mold_release.py --emit --repository O/R --tag vX.Y.Z --commit SHA \\
       --run-id N [--run-url U] [--artifact-digest sha256:...]   # escreve o manifesto
   python ci/mold_release.py --verify-tag vX.Y.Z                 # cadeia completa, via git local
+  python ci/mold_release.py --preflight vX.Y.Z --validado SHA   # pode publicar AGORA?
   python ci/mold_release.py --update-lock --manifest CAMINHO --repository O/R
 Saída: 0 conforme · 1 cadeia quebrada · 2 não foi possível verificar (indeterminação).
 """
@@ -23,6 +24,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -163,6 +165,61 @@ def verify_chain(*, lock: dict, manifest: dict, manifest_bytes: bytes,
     return violations
 
 
+TAG_RE = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
+
+
+def preflight_publicacao(*, tag: str, tags_remotas: list[str], head_sha: str,
+                         validado_sha: str, manifesto_na_arvore: bool) -> list[str]:
+    """As pré-condições da publicação — o LIMITE DE MAIOR RISCO do caminho de release.
+
+    A cadeia (`verify_chain`) responde "o que já foi publicado confere?". Esta função responde a
+    pergunta anterior, e ela é de outra natureza: "publicar AGORA é legítimo?". Separá-las importa
+    porque a segunda tem uma janela — entre o commit que a validação aprovou e o instante em que a
+    ref nasce, o mundo pode mudar. Se mudar e ninguém olhar, a tag passa a certificar uma árvore
+    que nenhuma validação viu, com o carimbo de uma que viu outra.
+
+    Três negativas, e cada uma fecha um modo de falha distinto:
+
+      TAG PREEXISTENTE. Publicar por cima é mover a âncora, e âncora móvel faz todo derivado que a
+      cita afirmar procedência sobre conteúdo que nunca existiu. O `git push` sem `--force` já
+      recusa — isto é a recusa ANTES do trabalho, para que a falha chegue em segundos e não depois
+      da prova de mutação.
+
+      HEAD MOVIDO. `validado_sha` é o commit em que a validação total rodou; `head_sha` é o que
+      está prestes a virar pai do commit de release. Diferentes ⇒ a validação não fala do que vai
+      ser publicado. É a janela inteira, num `!=`.
+
+      MANIFESTO JÁ NA ÁRVORE. Se o commit validado já contém o manifesto desta tag, o commit de
+      release não teria o que acrescentar — e o elo 5 de `verify_chain` (o commit de release não
+      muda nada além do manifesto) passaria por vacuidade em vez de por verificação.
+
+    Pura pela mesma razão de `verify_chain`: quem tem o git e a rede é o chamador. "A publicação é
+    ilegítima" e "não consegui olhar" pedem reações opostas (princípio (h)).
+    """
+    v: list[str] = []
+
+    if not TAG_RE.match(tag or ""):
+        v.append(f"a tag {tag!r} não tem a forma vX.Y.Z — o caminho do manifesto é DERIVADO da "
+                 f"tag, e uma tag de forma livre produz um caminho que nenhum fiscal prevê")
+
+    if tag in tags_remotas:
+        v.append(f"a tag {tag} já existe no remoto — publicar por cima seria mover a âncora, e "
+                 f"todo derivado que a cita passaria a afirmar ter nascido de algo que já não está "
+                 f"lá. Uma versão nova recebe um número novo")
+
+    if head_sha != validado_sha:
+        v.append(f"o HEAD mudou entre a validação e a criação da ref: validou-se "
+                 f"{validado_sha[:12]} e o pai do commit de release seria {head_sha[:12]} — a tag "
+                 f"certificaria uma árvore que nenhuma validação olhou")
+
+    if manifesto_na_arvore:
+        v.append(f"{manifest_path_for(tag)} já está na árvore do commit validado — o commit de "
+                 f"release não teria o que acrescentar, e o elo que exige 'nada além do manifesto' "
+                 f"passaria por vacuidade")
+
+    return v
+
+
 # --------------------------------------------------------------------------------------
 # Consumo — o lock ganha a âncora, e SÓ ela
 # --------------------------------------------------------------------------------------
@@ -265,6 +322,40 @@ def _cmd_verify_tag(args) -> int:
     return 0
 
 
+def _cmd_preflight(args) -> int:
+    """As pré-condições, com o git de fora. Rede indisponível ⇒ indeterminação, nunca liberação.
+
+    A ordem importa: `git ls-remote` consulta o REMOTO, e a resposta é o estado no instante da
+    pergunta. Não é garantia contra uma corrida — a garantia é o `git push` sem `--force`, que é
+    atômico no servidor. Este comando existe para que a recusa chegue em segundos em vez de depois
+    da validação inteira, e para negar os dois casos que o push sozinho não vê: HEAD movido e
+    manifesto já na árvore.
+    """
+    try:
+        head = _git("rev-parse", "HEAD")
+        saida = _git("ls-remote", "--tags", "origin")
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        print(f"• preflight de {args.tag}: não foi possível consultar o git/remoto ({exc}). "
+              f"Indeterminação, nunca liberação.", file=sys.stderr)
+        return EXIT_UNVERIFIABLE
+
+    tags = [linha.split("refs/tags/", 1)[1].removesuffix("^{}")
+            for linha in saida.splitlines() if "refs/tags/" in linha]
+
+    violacoes = preflight_publicacao(
+        tag=args.tag, tags_remotas=tags, head_sha=head,
+        validado_sha=args.validado or head,
+        manifesto_na_arvore=hl.rel_exists(manifest_path_for(args.tag)),
+    )
+    if violacoes:
+        for v in violacoes:
+            print(f"✗ {v}", file=sys.stderr)
+        return 1
+    print(f"✓ preflight de {args.tag}: remoto sem a tag, HEAD em {head[:12]} (o mesmo que foi "
+          f"validado), manifesto ausente da árvore.")
+    return 0
+
+
 def _cmd_update_lock(args) -> int:
     caminho = Path(args.manifest)
     if not caminho.is_absolute():
@@ -287,6 +378,10 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Raiz de confiança do molde.")
     p.add_argument("--emit", action="store_true")
     p.add_argument("--verify-tag", dest="verify_tag", metavar="TAG")
+    p.add_argument("--preflight", metavar="TAG",
+                   help="pré-condições da publicação: tag inédita, HEAD imóvel, manifesto ausente")
+    p.add_argument("--validado", metavar="SHA",
+                   help="o commit em que a validação total rodou (default: HEAD)")
     p.add_argument("--update-lock", action="store_true")
     p.add_argument("--repository")
     p.add_argument("--tag")
@@ -302,6 +397,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.verify_tag:
         args.tag = args.verify_tag
         return _cmd_verify_tag(args)
+    if args.preflight:
+        args.tag = args.preflight
+        return _cmd_preflight(args)
     if args.emit:
         if not (args.repository and args.tag and args.commit):
             p.error("--emit exige --repository, --tag e --commit")
@@ -310,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.manifest:
             p.error("--update-lock exige --manifest")
         return _cmd_update_lock(args)
-    p.error("escolha um modo: --emit, --verify-tag ou --update-lock")
+    p.error("escolha um modo: --emit, --verify-tag, --preflight ou --update-lock")
     return 2  # pragma: no cover - parser.error não retorna
 
 

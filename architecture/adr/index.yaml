@@ -1263,3 +1263,91 @@ adrs:
         description: "O fiscal de conflito só acusa == contra ==: um >=8 no pyproject com um ==9.1.1 no lock não se contradizem, e acusá-los seria reprovar o funcionamento normal de um lockfile."
         files: ["ci/check_dependency_conflict.py"]
         pattern: "op == \"==\""
+
+  - id: ADR-025
+    title: "O workflow cria a ref, e não pode movê-la"
+    status: accepted
+    file: architecture/adr/ADR-025-o-workflow-cria-a-ref-e-nao-a-move.md
+    related_risks: [RISK-MOLD-001, RISK-EXT-001, RISK-CONF-001]
+    assertions:
+      - id: ADR-025-A1
+        kind: path_present
+        severity: high
+        risk: RISK-MOLD-001
+        description: "A decisão que revê o comentário do CP-021 existe como ADR, não como edição silenciosa de comentário."
+        paths:
+          - architecture/adr/ADR-025-o-workflow-cria-a-ref-e-nao-a-move.md
+      - id: ADR-025-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "O caminho de publicação existe: dispatch com a versão como entrada. Sem ele, a única forma de nascer uma tag volta a ser `git tag` manual — que aponta para qualquer commit."
+        files: [".github/workflows/release.yml"]
+        pattern: "workflow_dispatch:"
+      - id: ADR-025-A3
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "O job de publicação tem permissão de escrita de conteúdo — sem ela o workflow não cria ref alguma e o caminho volta a ser decorativo."
+        files: [".github/workflows/release.yml"]
+        pattern: "contents: write"
+      - id: ADR-025-A4
+        kind: file_matches
+        severity: critical
+        risk: RISK-CONF-001
+        description: "A prova de mutação é passo do caminho de release: uma versão sem ela sairia sem evidência de que as regras bloqueantes ainda bloqueavam naquele commit."
+        files: [".github/workflows/release.yml"]
+        pattern: "run: python ci/audit_mutations\\.py"
+      - id: ADR-025-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "A ORDEM é a decisão: a prova de mutação aparece ANTES do push da ref. Validar depois de publicar é descobrir o problema com o problema já publicado."
+        files: [".github/workflows/release.yml"]
+        pattern: 'python ci/audit_mutations\.py[\s\S]*?git push origin "refs/tags/'
+      - id: ADR-025-A6
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "A cadeia é verificada ANTES do push da ref: o que se publica é byte a byte o que se verificou, porque é o mesmo objeto Git."
+        files: [".github/workflows/release.yml"]
+        pattern: 'mold_release\.py --verify-tag "\$\{TAG\}"[\s\S]*?git push origin "refs/tags/'
+      - id: ADR-025-A7
+        kind: file_lacks
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "Nenhum push de ref com --force neste workflow. Criar e mover são operações distintas, e a assimetria entre elas é toda a resposta à objeção do auto-atestado."
+        files: [".github/workflows/release.yml"]
+        pattern: "^[^#\\n]*git push[^\\n]*--force"
+        mutation:
+          op: injetar_texto
+          alvo: .github/workflows/release.yml
+          texto: '        run: git push --force origin "refs/tags/${TAG}"'
+      - id: ADR-025-A8
+        kind: file_matches
+        severity: high
+        risk: RISK-MOLD-001
+        description: "A janela entre validar e criar a ref tem tranca própria, e ela é função pura — o chamador é quem tem o git."
+        files: ["ci/mold_release.py"]
+        pattern: "def preflight_publicacao"
+      - id: ADR-025-A9
+        kind: file_matches
+        severity: high
+        risk: RISK-MOLD-001
+        description: "A release é registrada no ledger, referenciando o commit taggeado. Publicação sem registro é evento que só existe enquanto alguém lembra."
+        files: [".github/workflows/release.yml"]
+        pattern: "ci/audit_ledger\\.py --append release"
+      - id: ADR-025-A10
+        kind: file_matches
+        severity: high
+        risk: RISK-EXT-001
+        description: "O eixo de tags da trava externa existe no mesmo fiscal da branch: são a mesma pergunta sobre dois namespaces de ref, e dependem da mesma raiz administrativa."
+        files: ["ci/verify_protection.py"]
+        pattern: "def verify_tag_protection"
+      - id: ADR-025-A11
+        kind: file_matches
+        severity: high
+        risk: RISK-EXT-001
+        description: "O eixo de tags exige as regras que impedem MOVER e APAGAR, e não `creation`: exigir creation trancaria o único caminho legítimo de publicação."
+        files: ["ci/verify_protection.py"]
+        pattern: "non_fast_forward"

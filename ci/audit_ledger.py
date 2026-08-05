@@ -13,7 +13,9 @@ Duas invariantes, e as duas existem porque a alternativa é sutil demais para se
   anterior ("o schema proíbe PII") era infactível, porque JSON Schema valida estrutura e não
   detecta dado pessoal em texto livre.
 
-Uso:  python ci/audit_ledger.py [--quiet] [--json] [--append EVENTO]
+Uso:  python ci/audit_ledger.py [--quiet] [--json]
+      python ci/audit_ledger.py --append release --commit-sha SHA --fiscal ci/mold_release.py \\
+          [--run-id ID] [--artifact-ref harness/...] [--result pass|fail|unverifiable]
 Saída: 0 conforme · 1 reescrita ou linha inválida · 2 o fiscal não conseguiu fiscalizar.
 """
 
@@ -155,13 +157,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", default=REPORT_PATH)
     parser.add_argument("--append", metavar="EVENTO",
                         help="acrescenta uma linha (uso do CI, não do fiscal)")
+    # O evento `release` é o primeiro que NÃO fala do commit corrente: ele registra o commit
+    # TAGGEADO, e é gravado num commit filho dele — porque um commit não pode conter o registro de
+    # si mesmo, a mesma aritmética que fez o manifesto declarar o pai. Sem --commit-sha o default
+    # continua sendo commit_corrente(), que é o certo para `validation`.
+    parser.add_argument("--commit-sha", dest="commit_sha", metavar="SHA")
+    parser.add_argument("--fiscal", default="ci/validate_all.py")
+    parser.add_argument("--run-id", dest="run_id", metavar="ID")
+    parser.add_argument("--artifact-ref", dest="artifact_ref", metavar="CAMINHO")
+    parser.add_argument("--result", default="pass", choices=["pass", "fail", "unverifiable"])
     args = parser.parse_args(argv)
 
     findings, errors = Findings(), Errors()
 
     if args.append:
+        extra = {k: v for k, v in (("run_id", args.run_id),
+                                   ("artifact_ref", args.artifact_ref)) if v}
         try:
-            linha = append(args.append)
+            linha = append(args.append, result=args.result, commit_sha=args.commit_sha,
+                           fiscal=args.fiscal, **extra)
         except HarnessError as exc:
             print(f"✗ ledger: linha recusada pelo schema — {exc}", file=sys.stderr)
             return 1

@@ -16,9 +16,28 @@ que o contém; declarar o pai é a formulação honesta. O elo que fecha o burac
 manifesto**: sem ele, código não validado entraria na versão sob a bandeira de uma validação que
 rodou no pai.
 
-**Como uma release nasce.** Só por `.github/workflows/release.yml`, em push de tag `vX.Y.Z`. O
-workflow roda a validação total, verifica a cadeia inteira e falha se qualquer elo estiver rompido.
-Tag que aponta para commit sem manifesto não é release parcial — é ausência de release.
+**Como uma release nasce.** Só pelo job `publicar` de `.github/workflows/release.yml`, por
+`workflow_dispatch` com a versão como entrada. A ordem é a decisão inteira (ADR-025):
+
+1. fixa o commit a validar e recusa tag que já exista no remoto;
+2. `validate_all.py`, `pytest tests/governance` e `audit_mutations.py` — *as travas ainda mordem*;
+3. `preflight_publicacao`: tag inédita, `HEAD` imóvel desde a validação, manifesto ausente da árvore;
+4. emite o manifesto, monta o commit de release e **tagueia localmente**;
+5. `--verify-tag` sobre esses objetos, **antes de qualquer push**;
+6. `git push` da ref — **sem `--force`**, o que cria e não move.
+
+Qualquer passo vermelho e nenhuma ref nasce. Tag que aponta para commit sem manifesto não é release
+parcial — é ausência de release.
+
+**O manifesto vive na árvore do commit taggeado, não na `main`.** `harness/` é caminho protegido e
+o ruleset da `main` recusa push direto: um workflow que escrevesse lá faria por fora o que esta
+casa exige que se faça por PR. É de lá que `/atualizar-carcaca` o lê — resolvendo a tag, não a
+branch.
+
+**O job de auditoria por push de tag continua existindo**, e cobre toda tag que chegue por outro
+caminho. Ele **não** roda para a tag que o dispatch cria: ref criada com `GITHUB_TOKEN` não dispara
+workflows. Por isso o dispatch verifica a cadeia por conta própria — contar com o push-audit seria
+contar com um passo que não executa.
 
 **Como um derivado consome.** `/atualizar-carcaca` resolve a tag, verifica a cadeia e escreve
 `target.lock:mold_release`. Ele nunca toca metadado do alvo: a única coisa que ele altera é a

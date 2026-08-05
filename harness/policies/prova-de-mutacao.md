@@ -26,6 +26,37 @@ esquecesse o bloco.
 A mutação é **verificada**. O fiscal aplica e exige que a asserção fique vermelha. Se não ficar, o
 achado não é sobre o repositório — é sobre a asserção, que passa a ser decorativa.
 
+## O que a prova acusou primeiro: ela mesma
+
+Na primeira execução o fiscal apontou **19 asserções** como decorativas. Nenhuma era. **As 19 eram
+defeitos da própria mutação:**
+
+- **cinco** porque o inverso de *"o arquivo contém o padrão"* apagava **uma** ocorrência de um
+  padrão que aparecia várias — o arquivo continuava casando, e a asserção continuava
+  (corretamente) verde;
+- **uma** porque a mutação escolhia, num glob, justamente o arquivo que a asserção **exclui**;
+- **uma** porque apagar o símbolo de um `import` deixava o arquivo com erro de sintaxe, e o fiscal
+  passava a reportar **erro** (*"não consegui fiscalizar"*) em vez de **achado** — dois estados que
+  esta casa separa por desenho, e que a mutação não pode confundir.
+
+A lição vale mais que o resultado: **um fiscal de fiscais erra primeiro no próprio lado.** E o
+achado dele é caro de um jeito específico — *"a asserção é decorativa"* manda consertar o lugar
+errado. Quem o recebe vai reescrever uma trava que estava funcionando. Por isso a mutação é
+**verificada** e não assumida, e por isso cada um dos três defeitos virou comentário no código, ao
+lado da correção.
+
+## O teste de mordida involuntário
+
+O mais convincente da série não foi escrito: foi sofrido.
+
+Ao rodar o smoke test da higiene de ambiente estendida (CP-025), o autor da trava exportou
+`HTTPS_PROXY` no próprio comando — e **o hook recusou**, citando a política que ele acabara de
+escrever. A trava mordeu quem a construiu, sem saber quem era, no minuto em que ele foi o primeiro
+a passar por ela.
+
+É o que separa uma trava de uma placa. Uma placa depende de o leitor concordar; e quem escreve a
+regra é sempre o primeiro a ter um bom motivo para abrir uma exceção.
+
 ## Por que fica fora da validação total
 
 A prova copia o repositório e roda o fiscal de conformidade 118 vezes: cerca de um minuto. O hook
