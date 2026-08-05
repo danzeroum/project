@@ -1,0 +1,19 @@
+{
+  "generated_from": null,
+  "metadata_version": "1.0",
+  "release": {
+    "artifact_digest": "sha256:94229cb8aec78c6236b40a48deb85f1f2c253fb0ea5c4cfd8e3c5b414c799396",
+    "commit_sha": "9b8071c146e22b5bc189458cddac2a0cfc93973c",
+    "released_at": "2026-08-05T14:05:52+00:00",
+    "repository": "danzeroum/project",
+    "tag": "v1.0.0",
+    "validation": {
+      "command": "python ci/validate_all.py",
+      "result": "pass",
+      "run_id": "31013179910",
+      "run_url": "https://github.com/danzeroum/project/actions/runs/31013179910"
+    }
+  },
+  "schema_version": "1.0",
+  "source_of_truth": true
+}
