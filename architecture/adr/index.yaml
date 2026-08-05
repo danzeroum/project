@@ -1102,3 +1102,67 @@ adrs:
         paths:
           - ci/verificar_pronto.py
           - ci/check_ready.py
+
+  - id: ADR-023
+    title: "Duração de CI nunca é gate; paridade local é"
+    status: accepted
+    file: architecture/adr/ADR-023-duracao-de-ci-nunca-e-gate.md
+    related_risks: [RISK-DEP-001, RISK-META-001]
+    assertions:
+      - id: ADR-023-A1
+        kind: path_present
+        severity: high
+        risk: RISK-DEP-001
+        description: "O lockfile do ambiente dos fiscais e o script de paridade local existem."
+        paths:
+          - requirements-ci.txt
+          - harness/local_validate.sh
+      - id: ADR-023-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-DEP-001
+        description: "Toda linha do lockfile carrega hash — sem isso o cache poderia esconder dependência adulterada."
+        files: ["requirements-ci.txt"]
+        pattern: "--hash=sha256:[0-9a-f]{64}"
+      - id: ADR-023-A3
+        kind: file_matches
+        severity: critical
+        risk: RISK-DEP-001
+        description: "O CI continua instalando com verificação de hash: restore falho nunca vira artefato de fiscal."
+        files: [".github/workflows/governance.yml"]
+        pattern: "pip install --require-hashes -r requirements-ci\\.txt"
+      - id: ADR-023-A4
+        kind: file_matches
+        severity: high
+        risk: RISK-DEP-001
+        description: "O local instala do MESMO lockfile e com a MESMA exigência de hash — é o que faz 'passa aqui' significar 'passa lá'."
+        files: ["harness/local_validate.sh"]
+        pattern: "--require-hashes --quiet -r requirements-ci\\.txt"
+      - id: ADR-023-A5
+        kind: file_matches
+        severity: high
+        risk: RISK-DEP-001
+        description: "A chave do cache inclui o lockfile: uma chave que ignorasse o lock serviria um ambiente que não corresponde ao declarado."
+        files: [".github/workflows/governance.yml"]
+        pattern: "hashFiles\\('requirements-ci\\.txt'\\)"
+      - id: ADR-023-A6
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "O mapa de remediação por origem continua existindo — achado sem o que fazer transfere ao leitor o trabalho de descobrir."
+        files: ["ci/harness_lib.py"]
+        pattern: "REMEDIACAO_POR_ORIGEM"
+      - id: ADR-023-A7
+        kind: file_lacks
+        severity: high
+        risk: RISK-META-001
+        description: "Nenhum threshold de duração voltou como gate (R-12): o workflow não compara tempo de execução com número algum."
+        files: [".github/workflows/governance.yml"]
+        pattern: "(duration|elapsed|SECONDS).*(-lt|-gt|<|>)\\s*[0-9]+"
+      - id: ADR-023-A8
+        kind: file_lacks
+        severity: medium
+        risk: RISK-META-001
+        description: "O checklist de PR continua fora da validação total: ele é ergonomia, não o nono fiscal."
+        files: ["ci/validate_all.py"]
+        pattern: "pr_checklist"

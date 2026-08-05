@@ -23,5 +23,6 @@ onde ela é **efetivamente** aplicada — um gate da suíte externa, um passo do
 | [`lgpd.md`](lgpd.md) | inventário de dado pessoal; julgamento existe e não venceu | `ci/audit_lgpd.py` + schema |
 | [`ciclo-de-vida-da-cp.md`](ciclo-de-vida-da-cp.md) | proposta executada prova onde e quem aprovou; aval vale para o conteúdo integrado | `ci/verify_approval.py` + `ci/audit_governance.py` + schema |
 | [`cadeia-de-decisao.md`](cadeia-de-decisao.md) | achado encaminhado aponta para o artefato que o consumiu | `ci/audit_governance.py::check_decision_chain` + schemas |
+| [`paridade-local.md`](paridade-local.md) | o local instala o mesmo lock com hash; duração de CI nunca é gate | workflow + `harness/local_validate.sh` |
 | [`trava-externa.md`](trava-externa.md) | a proteção declarada está de fato ligada; o desligado é declarado com risco datado | `ci/verify_protection.py` + `ci/audit_governance.py` |
 | [`ancoragem-do-molde.md`](ancoragem-do-molde.md) | derivado declara de qual versão do molde nasceu; a âncora é o hash do manifesto | `ci/mold_release.py` + `ci/validate_metadata.py` + workflow de release |

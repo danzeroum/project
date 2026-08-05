@@ -1,0 +1,82 @@
+# Mudança proposta: o CI instala do lockfile com hash, o local instala igual, e todo achado diz
+# o que fazer. Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-028
+  title: "Velocidade e paridade local: cache por propriedade funcional, lockfile com hashes, erros acionáveis"
+  author_kind: agent
+  created_at: "2026-08-05T19:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - requirements-ci.txt
+    - harness/local_validate.sh
+    - .github/workflows/governance.yml
+    - ci/harness_lib.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-DEP-001
+      - RISK-META-001
+    rationale: >
+      A REVOGAÇÃO QUE ABRE ESTA CP (R-12). A v2.1 aprovou um gate de "≥30% de ganho em 5 runs"
+      para o cache. Está revogado, e a revogação é revisão explícita de decisão própria, não
+      esquecimento: o threshold misturava cold e warm, fila do GitHub e variação de rede num
+      critério de MERGE. Teria criado um fiscal instável — fonte nova de flakiness, num
+      repositório cujo argumento inteiro é que verde e vermelho significam algo.
+
+      **Duração de CI nunca é gate de merge.** O cache é aprovado pela PROPRIEDADE FUNCIONAL:
+      chave inclui o lockfile e a versão do runtime; restauração observável no log; falha de
+      restore nunca usa artefato de fiscal; o CI permanece correto em cache miss. Ganho de tempo é
+      OBSERVABILIDADE — medido, registrado, e discutido em CP se não aparecer.
+
+      PARIDADE LOCAL COM INTEGRIDADE. `harness/local_validate.sh` instala do MESMO
+      `requirements-ci.txt` que o CI, com `--require-hashes`. Sem os hashes, um cache poderia
+      esconder dependência adulterada, ou uma resolução diferente localmente produziria um verde
+      que o CI limpo contradiz — e "na minha máquina passa" é o oposto do que um repositório de
+      governança pode tolerar.
+
+      O CUSTO HONESTO DOS HASHES, declarado porque ele vai doer um dia: `--require-hashes` fixa
+      ARTEFATOS, e artefato de wheel é específico de plataforma. O lockfile é gerado para o que o
+      CI usa (linux, cp311). Numa máquina diferente a instalação FALHA — explicitamente, com
+      mensagem que diz o que fazer. Falhar explícito é o comportamento certo: a alternativa seria
+      cair para uma resolução diferente em silêncio, que é exatamente a divergência que o lockfile
+      existe para impedir. Containerização por digest fica como CP posterior, condicionada a
+      divergência medida.
+
+      ERROS ACIONÁVEIS, e a forma importa. Medido antes de decidir: 38 dos 49 achados de
+      `audit_governance.py` não traziam `remediation`. Acrescentar a linha 38 vezes seria uma
+      lista mantida à mão que deriva na primeira adição esquecida. Em vez disso, `Findings.add`
+      passa a ter um mapa origin → o que fazer, aplicado quando o chamador não diz algo mais
+      específico. Achado sem remediação deixa de ser representável — e um achado que não diz o que
+      fazer transfere para quem lê o trabalho de descobrir, que é onde a trava vira obstáculo.
+
+      A FRONTEIRA DO R-01 PERMANECE: o fiscal SUGERE o comando, jamais o executa. Um fiscal que
+      conserta o que acusa é juiz e parte, e o diff entra sem que ninguém tenha revisado o
+      julgamento que o originou.
+
+      CHECKLIST DE PR, derivado de `stages.yaml`. Ergonomia declarada, NÃO trava: ele não reprova
+      nada e não entra em `validate_all.py`. Um checklist que reprovasse viraria o nono fiscal,
+      sem política e sem teste de mordida — e a §6 do plano o classifica como polimento
+      justamente por isso.
+
+      CUSTO (princípio (e)). Um arquivo de lock, um script de shell, um mapa de doze linhas e um
+      gerador que ninguém é obrigado a rodar. O ganho é que o CI para de reinstalar o mundo a cada
+      run, e que "passa aqui" e "passa lá" voltam a significar a mesma coisa.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_paridade_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

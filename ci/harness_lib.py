@@ -413,6 +413,54 @@ def tokenize_identifier(name: str) -> list[str]:
 SEVERITIES = ("info", "low", "medium", "high", "critical")
 
 
+# O que fazer diante de cada classe de achado. Um mapa, não 49 repetições: a lista à mão deriva
+# na primeira adição esquecida, e um achado que não diz o que fazer transfere para quem lê o
+# trabalho de descobrir — que é onde a trava vira obstáculo.
+REMEDIACAO_POR_ORIGEM = {
+    "adr_assertion": "Alinhar o repositório à decisão, ou revisar o ADR: decisão que o código não "
+                     "segue muda explicitamente, nunca em silêncio.",
+    "adr_meta": "Declarar ao menos uma asserção executável no ADR, ou uma 'manual' justificada "
+                "(architecture/adr/index.yaml).",
+    "stage_coverage": "Restaurar o fiscal em harness/stages.yaml, ou declarar kind:none com "
+                      "justificativa — a etapa passa a aparecer como não fiscalizada.",
+    "stage_partition": "Acrescentar o caminho aos artifacts da etapa certa em harness/stages.yaml, "
+                       "ou declarar a isenção em 'ungoverned' com justificativa.",
+    "policy_pointer": "Terminar a política com 'Fiscalizado por:' apontando para um fiscal que "
+                      "exista — sem isso ela é lembrete, nunca garantia.",
+    "risk_control": "Declarar ao menos um controle local_path verificável em "
+                    "governance/risk-register.yaml, e um dono real em project.yaml.",
+    "protected_path": "Cobrir o caminho em .github/CODEOWNERS — protected_path sem dono é "
+                      "proteção declarada que ninguém precisa revisar.",
+    "ingest_pipeline": "Corrigir a fase em harness/pipeline/ingest.yaml: fiscal resolvível, ordem "
+                       "sem duplicata, e nenhuma escrita em workspace/.",
+    "cp_lifecycle": "Completar a change-proposal: 'executed' exige executed_in, e risco alto exige "
+                    "approved_by com review real (harness/policies/ciclo-de-vida-da-cp.md).",
+    "decision_chain": "Declarar consumed_by apontando para o artefato que consumiu o achado, ou "
+                      "mudar a disposição para 'accepted' com rationale.",
+    "change_buffer": "Ver harness/policies/ — os três amortecedores (referência por ID, gate de "
+                     "maturidade, fronteira fonte/derivado) dizem o que restaurar.",
+    "external_audit": "Ligar external_audit em harness/harness.yaml com atestado válido, ou manter "
+                      "desligado com risco aceito E datado.",
+    "agent_pairing": "Criar o template em harness/prompts/ e citá-lo no inputs.md do agente — ou "
+                     "apagar o template órfão.",
+    "ledger": "Acrescentar uma linha nova ao ledger; nunca editar a antiga. O registro é o que "
+              "aconteceu, não o que se preferia.",
+    "conformance_review": "Rodar o agente `conformance` e regravar scope_fingerprint: "
+                          "python ci/audit_conformance.py --print-fingerprint",
+    "alignment_risk": "Declarar o risco que cobre a capacidade, ou a isenção em "
+                      "governance/risk-register.yaml:risk_exemptions.",
+    "alignment_orphan": "Reivindicar o artefato órfão no metadado que deveria descrevê-lo.",
+    "lgpd_inventory": "Inventariar o campo em governance/data-inventory.yaml — finalidade, base "
+                      "legal, retenção e componente dono.",
+    "lgpd_scan": "Inventariar o campo, ou declarar a exclusão em data-inventory.yaml:scan.exclusions "
+                 "com justificativa. Nunca apagando termo do léxico.",
+    "lgpd_retention": "Igualar a retenção declarada em project.yaml, tests/qa/campanha.yaml e nos "
+                      "uploads de artifact.",
+    "lgpd_declaration": "Alinhar a declaração de papel e finalidade ao que o sistema de fato trata.",
+    "lgpd_judgment": "Rodar /revisao-lgpd e regravar scope_fingerprint: "
+                     "python ci/audit_lgpd.py --print-fingerprint",
+}
+
 @dataclass
 class Findings:
     """Divergências entre o declarado e o real. Qualquer uma derruba o CI (fail-closed).
@@ -430,6 +478,16 @@ class Findings:
             pbd_principle: str | None = None) -> None:
         if severity not in SEVERITIES:
             raise HarnessError(f"severidade desconhecida: {severity!r}")
+        # CP-028 — achado sem remediação deixa de ser representável.
+        #
+        # Medido antes de decidir: 38 dos 49 achados de audit_governance.py não traziam
+        # `remediation`. Acrescentar a linha 38 vezes seria uma lista mantida à mão que deriva na
+        # primeira adição esquecida — a mesma classe de defeito que este repositório recusa em
+        # toda parte. Um padrão por ORIGEM cobre o caso geral; quem tem algo mais específico a
+        # dizer continua dizendo, e o específico vence.
+        #
+        # A fronteira do R-01 é o que este mapa NÃO faz: ele sugere o comando, jamais o executa.
+        remediation = remediation or REMEDIACAO_POR_ORIGEM.get(origin)
         slug = re.sub(r"-{2,}", "-", re.sub(r"[^A-Z0-9-]", "-", key.upper())).strip("-")
         item = {
             "id": "FIND-" + slug,

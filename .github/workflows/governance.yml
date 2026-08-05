@@ -21,8 +21,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Instalar ferramentas de validação
-        run: pip install "jsonschema>=4" "pyyaml>=6" "pytest>=8"
+      # CP-028 — cache aprovado pela PROPRIEDADE FUNCIONAL, nunca por threshold de tempo.
+      # O gate de "≥30% em 5 runs" da v2.1 está REVOGADO (R-12): misturava cold/warm, fila e rede
+      # num critério de merge, criando um fiscal instável. Duração de CI nunca é gate.
+      #
+      # A chave inclui o lockfile e a versão do runtime — é o que impede o cache de servir um
+      # ambiente que não corresponde ao declarado. `cache-hit` fica no log como observabilidade.
+      - name: Cache das ferramentas de validação
+        id: cache-pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: fiscais-${{ runner.os }}-py3.11-${{ hashFiles('requirements-ci.txt') }}
+
+      # --require-hashes: sem ele, um cache envenenado ou um índice trocado entregaria outro
+      # artefato com o mesmo nome e versão, e os fiscais rodariam em cima dele reportando verde
+      # com convicção. Restore falho NUNCA vira artefato de fiscal — o hash recusa antes.
+      - name: Instalar ferramentas de validação (lockfile com hash)
+        run: |
+          echo "cache_hit=${{ steps.cache-pip.outputs.cache-hit || 'false' }}"
+          pip install --require-hashes -r requirements-ci.txt
 
       # CP-025 — o job que julga o repositório é o que menos pode ter o próprio import sequestrado:
       # PYTHONPATH definido aqui faria os fiscais importarem harness_lib de outra pessoa e reportarem
