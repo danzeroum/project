@@ -89,7 +89,7 @@
           "target": {
             "type": "string",
             "pattern": "^(CMP|IFC|UI|STAGE)-[A-Z0-9]+(-[A-Z0-9]+)*$",
-            "description": "O que é ameaçado: um componente, interface ou superfície do sistema governado, ou uma ETAPA do harness (STAGE-*) quando o ameaçado é a própria máquina de governar. Resolvido por ci/validate_metadata.py::check_threat_model — ameaça contra alvo inexistente é trava que não encontra o que vigiar. A segunda namespace existe porque apontar uma ameaça ao harness para um componente de negócio qualquer satisfaz o fiscal sem dizer nada verdadeiro."
+            "description": "O que é ameaçado: um componente, interface ou superfície do sistema governado, ou uma ETAPA do harness (STAGE-*) quando o ameaçado é a própria máquina de governar. Resolvido por ci/validate_metadata.py::check_threat_model — ameaça contra alvo inexistente é trava que não encontra o que vigiar. A segunda namespace existe porque apontar uma ameaça ao harness para um componente de negócio qualquer satisfaz o fiscal sem dizer nada verdadeiro. Referência por ID, nunca por caminho: o artefato vigiado continua sendo o mesmo onde quer que o arquivo passe a morar (CP-029)."
           },
           "attack_vector": {
             "type": "string",

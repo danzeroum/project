@@ -1,0 +1,85 @@
+# Mudança proposta: os três amortecedores que tornam pivôs baratos deixam de ser propriedade
+# emergente e viram asserção executável. Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-029
+  title: "Amortecedores de mudança como asserções executáveis"
+  author_kind: agent
+  created_at: "2026-08-05T15:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - ci/audit_governance.py
+    - architecture/adr/index.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-META-001
+      - RISK-CONF-001
+    rationale: >
+      O QUE ESTA CP PROTEGE. A harness não replica uma mudança grande por todos os metadados, e
+      não deveria: ela separa decisão de execução. O que a torna VIÁVEL são três propriedades —
+      (i) arestas por ID, não por caminho, então reorganizar estrutura não quebra referência;
+      (ii) maturidade permite transição honesta, então rebaixar para `proposed` deixa o
+      repositório verde dizendo a verdade em vez de vermelho por semanas ou verde mentindo;
+      (iii) derivado se regenera sem pedir licença, fonte de verdade se edita com revisão.
+
+      O PROBLEMA. Verificado em `ci/validate_metadata.py`: as três funcionam por BOM DESENHO, não
+      por garantia. Existem fiscais específicos — `check_capabilities` condiciona código e teste à
+      maturidade, os schemas travam padrões de ID nos campos que já existem — e nenhuma asserção
+      GENÉRICA. Propriedade emergente sem asserção é propriedade que o primeiro refactor grande
+      destrói sem avisar, e destrói exatamente quando ela é mais necessária: durante o pivô.
+
+      (1) `check_references_by_id`, e a formulação honesta importa. A garantia útil não é "os dados
+      de hoje usam IDs" — os schemas já recusam o contrário nos campos que existem. É que **todo
+      campo de referência cruzada tenha padrão de ID**, inclusive os que ainda não foram escritos.
+      O fiscal deriva do próprio schema quais campos são de referência e exige que cada um
+      constranja a um padrão de ID ou esteja declarado como campo de CAMINHO. Um schema novo com
+      `satisfies` de string livre passaria hoje; a partir daqui, não. A metade dos dados também
+      roda, mais barata e redundante de propósito: valor com forma de caminho num campo de ID
+      reprova ainda que algum schema esteja frouxo.
+
+      Nota de escopo, para não prometer o que não se entrega: `verified_by`, `validated_by`,
+      `tested_by` e `source_paths` SÃO caminhos por desenho — eles apontam para evidência em
+      arquivo, não para artefato com identidade. Tratá-los como campos de ID inverteria a decisão
+      do ADR-009. Eles entram na lista de campos de caminho, declarada e conferida.
+
+      (2) `check_maturity_gates` formaliza como asserção genérica o que hoje vive disperso: item
+      `proposed` é isento de código e teste; `implemented`/`verified` os exige. Genérico porque a
+      próxima coleção com maturidade nasce coberta, em vez de esperar alguém lembrar de escrever
+      um `check_*` para ela.
+
+      (3) `check_derived_vs_source` — e este já encontrou o defeito que existia para encontrar.
+      Os DOIS artefatos derivados de hoje usam cabeçalhos DIFERENTES: `docs/metadata-graph.md`
+      abre com "> **Gerado** por..." e `docs/alignment.md` com "<!-- DERIVADO de ... -->". Duas
+      convenções para a mesma promessa é como a terceira nasce sem nenhuma. O cabeçalho passa a
+      ser canônico e conferido, e nomeia o script que regenera — de modo que quem abrir o arquivo
+      saiba o comando sem procurar.
+
+      O fiscal DERIVA a lista de geradores lendo, de cada script em `ci/`, o caminho `docs/*.md`
+      que ele declara escrever. Nunca uma lista mantida à mão: é a lição do CP-020, e sem ela um
+      gerador novo nasceria fora da cobertura — que é precisamente o modo de falha que o
+      `alignment_report.py` já exibe hoje, por não casar o glob `generate_*.py` do enunciado
+      original desta CP.
+
+      CUSTO (princípio (e)). Os três leem estruturas que os fiscais já carregam em memória, mais
+      um glob sobre `ci/`. Segundos. O ganho é proteger as três propriedades que tornam mudanças
+      grandes viáveis — que são a vantagem competitiva real deste sistema, e hoje dependem de
+      ninguém as quebrar por acidente.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_amortecedores_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

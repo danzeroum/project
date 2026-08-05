@@ -694,6 +694,243 @@ def check_decision_chain(risk_doc: dict, adr_doc: dict, findings: Findings, erro
             resolve(consumo, "privacy", ident, PRIVACY_REVIEW)
 
 
+# --------------------------------------------------------------------------------------
+# Os três amortecedores de mudança (CP-029)
+#
+# A harness não propaga uma mudança grande automaticamente — ela expõe o que ficou inconsistente
+# e deixa a decisão para quem decide. O que torna isso VIÁVEL são três propriedades do desenho, e
+# até aqui elas funcionavam por bom gosto, não por garantia. Propriedade emergente sem asserção é
+# propriedade que o primeiro refactor grande destrói sem avisar — e destrói exatamente durante o
+# pivô, que é quando ela é mais necessária.
+# --------------------------------------------------------------------------------------
+
+# Vocabulário de referência cruzada. Os nomes são lidos aqui porque é o que "campo de referência"
+# significa neste repositório; o que NÃO se duplica é a lista de onde eles aparecem — isso vem dos
+# schemas reais.
+CAMPOS_DE_REFERENCIA = {
+    "capability", "satisfies", "implements", "depends_on", "governed_by", "risk",
+    "related_capabilities", "related_components", "related_risks", "supersedes",
+    "owning_component", "residual_risk",
+}
+
+# `target` FICA DE FORA, e a exclusão é um achado desta CP, não um esquecimento. A palavra
+# significa três coisas diferentes neste repositório: o repositório governado (project.yaml), o
+# artefato que uma ameaça vigia (threat-model), e o VALOR-META de uma métrica (vision). Só o
+# segundo é referência cruzada. Um fiscal genérico que tratasse os três como iguais acusaria
+# `target: 0.85` de "referenciar por caminho" — e fiscal que acusa o legítimo é desligado por quem
+# tem trabalho a fazer, que é o pior desfecho possível para uma trava. A cobertura do caso real
+# vem do pattern declarado no próprio threat-model.schema.json.
+
+# Campos que são CAMINHO por desenho, e a distinção é do ADR-009: eles apontam para evidência em
+# arquivo, não para artefato com identidade. Tratá-los como campos de ID inverteria a decisão.
+CAMPOS_DE_CAMINHO = {
+    "verified_by", "validated_by", "tested_by", "source_paths", "test_paths", "business_rules",
+    "paths_affected", "file", "path", "ref", "location", "document", "manifest_path",
+}
+
+_ID_PATTERN = re.compile(r"\^(CAP|CMP|REQ|RULE|UI|MET|ADR|RISK|CP|THREAT|STAGE|DEP|CONF|PRIV)-")
+_PARECE_CAMINHO = re.compile(r"[/\\]|\.(ya?ml|json|md|py|txt)$")
+
+
+def _valor_do_campo(node: dict) -> dict:
+    """Onde mora a restrição de um campo: nele mesmo, ou nos itens se for lista."""
+    return node.get("items") if node.get("type") == "array" and isinstance(node.get("items"), dict) else node
+
+
+def check_references_by_id(findings: Findings, errors: Errors) -> None:
+    """Amortecedor (i): arestas por ID, nunca por caminho.
+
+    `CAP-001` continua sendo `CAP-001` onde quer que o arquivo passe a morar — é o que faz
+    reorganização estrutural não quebrar referência, e é metade do que torna um pivô barato.
+
+    A garantia útil não é "os dados de hoje usam IDs": os schemas já recusam o contrário NOS CAMPOS
+    QUE EXISTEM. É que todo campo de referência TENHA padrão de ID, inclusive os que ainda não
+    foram escritos. Um schema novo com `satisfies` de string livre passa hoje e não passa daqui em
+    diante.
+
+    A metade dos dados roda também, e é redundante de propósito: se algum schema estiver frouxo por
+    caminho que este fiscal não previu, valor com forma de caminho num campo de ID ainda reprova.
+    """
+    for schema_file in sorted((hl.REPO / "harness" / "schemas").glob("*.json")):
+        try:
+            schema = hl.read_json(hl.rel(schema_file))
+        except HarnessError as exc:
+            errors.err(str(exc))
+            continue
+
+        def visitar(node, caminho: str) -> None:
+            if isinstance(node, list):
+                for i, item in enumerate(node):
+                    visitar(item, f"{caminho}/{i}")
+                return
+            if not isinstance(node, dict):
+                return
+            for nome, sub in (node.get("properties") or {}).items():
+                if nome in CAMPOS_DE_REFERENCIA and nome not in CAMPOS_DE_CAMINHO:
+                    alvo = _valor_do_campo(sub) if isinstance(sub, dict) else {}
+                    tem_id = bool(_ID_PATTERN.search(str(alvo.get("pattern", "")))) or "enum" in alvo
+                    # `$ref`/`oneOf` delegam a restrição; objetos aninhados a carregam dentro.
+                    delega = any(k in alvo for k in ("$ref", "oneOf", "anyOf", "properties"))
+                    if not tem_id and not delega:
+                        findings.add(
+                            key=f"REF-BY-ID-{schema_file.name}-{nome}", origin="change_buffer",
+                            severity="high", risk="RISK-META-001",
+                            location=f"{hl.rel(schema_file)}{caminho}/properties/{nome}",
+                            summary=f"{schema_file.name}: o campo de referência '{nome}' não "
+                                    f"constrange a um padrão de ID — sem isso ele aceita caminho "
+                                    f"de arquivo, e a aresta passa a quebrar em toda reorganização.",
+                            remediation="Declarar o pattern do ID (ex.: ^CAP-[A-Z0-9-]+$), ou "
+                                        "acrescentar o campo a CAMPOS_DE_CAMINHO se ele for "
+                                        "mesmo um caminho por desenho.",
+                        )
+                visitar(sub, f"{caminho}/properties/{nome}")
+            for chave in ("items", "then", "else", "if", "allOf", "anyOf", "oneOf", "$defs"):
+                if chave in node:
+                    visitar(node[chave], f"{caminho}/{chave}")
+
+        visitar(schema, "")
+
+    # Metade dos dados: valor com forma de caminho onde deveria haver ID.
+    for path in sorted(hl.REPO.rglob("*.yaml")):
+        rel = hl.rel(path)
+        if hl.is_excluded(rel) or rel.startswith(("workspace/", "tests/")):
+            continue
+        try:
+            doc = hl.read_yaml(rel)
+        except HarnessError:
+            continue
+
+        def varrer(node, onde: str) -> None:
+            if isinstance(node, dict):
+                for nome, valor in node.items():
+                    if nome in CAMPOS_DE_REFERENCIA and nome not in CAMPOS_DE_CAMINHO:
+                        for v in (valor if isinstance(valor, list) else [valor]):
+                            if isinstance(v, str) and _PARECE_CAMINHO.search(v):
+                                findings.add(
+                                    key=f"REF-PATH-{rel}-{nome}-{v}", origin="change_buffer",
+                                    severity="high", risk="RISK-META-001", location=rel,
+                                    summary=f"{rel}: o campo '{nome}' referencia por CAMINHO "
+                                            f"({v!r}) onde deveria referenciar por ID — a aresta "
+                                            f"quebra assim que o arquivo mudar de lugar.",
+                                )
+                    varrer(valor, f"{onde}/{nome}")
+            elif isinstance(node, list):
+                for item in node:
+                    varrer(item, onde)
+
+        varrer(doc, rel)
+
+
+# Onde a maturidade vive, e o que ela condiciona. Derivado dos artefatos reais: cada entrada diz
+# arquivo, chave da coleção e quais campos a maturidade concreta passa a exigir.
+COLECOES_COM_MATURIDADE = [
+    ("business/capabilities.yaml", "capabilities", ("source_paths", "test_paths")),
+    ("architecture/components.yaml", "components", ("source_paths",)),
+]
+
+
+def check_maturity_gates(findings: Findings, errors: Errors) -> None:
+    """Amortecedor (ii): maturidade permite transição honesta.
+
+    Rebaixar uma capacidade para `proposed` durante um pivô isenta-a de código e teste, e o
+    repositório fica verde DIZENDO A VERDADE ("em transição") em vez de vermelho por semanas ou
+    verde mentindo. É o que torna um pivô fatiável: a fatia 1 rebaixa e fica verde-honesta, as
+    seguintes elevam de volta conforme entregam.
+
+    Genérico de propósito. O que já existia vivia dentro de `check_capabilities`, específico de uma
+    coleção; assim, a próxima coleção com maturidade nasce coberta em vez de esperar alguém lembrar
+    de escrever um `check_*` para ela.
+    """
+    for rel, chave, exigidos in COLECOES_COM_MATURIDADE:
+        if not hl.rel_exists(rel):
+            continue
+        try:
+            doc = hl.read_yaml(rel) or {}
+        except HarnessError as exc:
+            errors.err(str(exc))
+            continue
+        for item in doc.get(chave, []) or []:
+            iid = item.get("id", "?")
+            status = item.get("status")
+            if status in hl.CONCRETE:
+                for campo in exigidos:
+                    if not item.get(campo):
+                        findings.add(
+                            key=f"MATURITY-{iid}-{campo}", origin="change_buffer", severity="high",
+                            risk="RISK-CONF-001", location=rel,
+                            summary=f"{iid} está '{status}' e não declara {campo} — maturidade "
+                                    f"concreta sem evidência é a afirmação que o gate existe para "
+                                    f"impedir.",
+                            remediation=f"Declarar {campo}, ou rebaixar para 'proposed' enquanto "
+                                        f"a implementação não existe — verde honesto vale mais "
+                                        f"que verde que mente.",
+                        )
+            elif status == "proposed":
+                # O par positivo do gate, e ele é a metade que costuma ser esquecida: o fiscal
+                # precisa DEIXAR PASSAR o item em transição, senão a saída honesta fica fechada e
+                # a única forma de ficar verde volta a ser mentir.
+                continue
+
+
+# O cabeçalho canônico. Um formato só, porque duas convenções para a mesma promessa é como a
+# terceira nasce sem nenhuma — e foi exatamente o que se encontrou ao escrever este fiscal.
+GENERATED_HEADER = "<!-- GENERATED: não editar; rodar {script} -->"
+_GENERATED_RX = re.compile(r"^<!-- GENERATED: não editar; rodar ([^\s]+) -->", re.MULTILINE)
+
+
+def geradores_declarados() -> dict[str, str]:
+    """Mapa documento→script, DERIVADO de cada script em ci/ que declara escrever um docs/*.md.
+
+    Nunca uma lista mantida à mão. Sem isso, um gerador novo nasceria fora da cobertura — que é
+    precisamente o modo de falha que ci/alignment_report.py já exibia, por não casar o glob
+    `generate_*.py` com que esta regra foi enunciada.
+    """
+    mapa: dict[str, str] = {}
+    for script in sorted((hl.REPO / "ci").glob("*.py")):
+        texto = script.read_text(encoding="utf-8", errors="replace")
+        for alvo in re.findall(r'["\'](docs/[A-Za-z0-9_.\-]+\.md)["\']', texto):
+            mapa[alvo] = hl.rel(script)
+        # generate_graph.py monta o caminho por partes: REPO / "docs" / "metadata-graph.md"
+        for pasta, arquivo in re.findall(r'"(docs)"\s*/\s*"([A-Za-z0-9_.\-]+\.md)"', texto):
+            mapa[f"{pasta}/{arquivo}"] = hl.rel(script)
+    return mapa
+
+
+def check_derived_vs_source(findings: Findings) -> None:
+    """Amortecedor (iii): fonte de verdade se edita com revisão; derivado se regenera sem licença.
+
+    A fronteira é cirúrgica e precisa ser LEGÍVEL no próprio arquivo: quem abre um documento
+    derivado tem que saber, na primeira linha, que editar ali é trabalho perdido — e qual comando
+    o regenera. Sem isso, a edição manual acontece de boa-fé e o `--check` do CI a contradiz
+    depois, na hora mais cara.
+    """
+    for doc, script in sorted(geradores_declarados().items()):
+        if not hl.rel_exists(doc):
+            findings.add(
+                key=f"DERIVED-MISSING-{doc}", origin="change_buffer", severity="medium",
+                risk="RISK-META-001", location=doc,
+                summary=f"{script} declara gerar '{doc}', que não existe — regerar com "
+                        f"`python {script}`.",
+            )
+            continue
+        cabecalho = _GENERATED_RX.search(hl.read_text(doc))
+        if not cabecalho:
+            findings.add(
+                key=f"DERIVED-NO-HEADER-{doc}", origin="change_buffer", severity="high",
+                risk="RISK-META-001", location=doc,
+                summary=f"'{doc}' é gerado por {script} e não carrega o cabeçalho canônico — "
+                        f"quem o abrir não tem como saber que editar ali é trabalho perdido.",
+                remediation=f"Emitir na primeira linha: {GENERATED_HEADER.format(script=script)}",
+            )
+        elif cabecalho.group(1) != script:
+            findings.add(
+                key=f"DERIVED-WRONG-SCRIPT-{doc}", origin="change_buffer", severity="medium",
+                risk="RISK-META-001", location=doc,
+                summary=f"'{doc}' diz ser regerado por {cabecalho.group(1)}, e quem o escreve é "
+                        f"{script} — o comando do cabeçalho manda o leitor ao lugar errado.",
+            )
+
+
 def check_risk_control_coverage(risk_doc: dict, findings: Findings) -> None:
     """Todo risco tem ao menos um controle verificável localmente.
 
@@ -787,6 +1024,9 @@ def main(argv: list[str] | None = None) -> int:
     check_ingest_pipeline(findings, errors)
     check_policy_pointers(findings)
     check_cp_lifecycle(findings, errors)
+    check_references_by_id(findings, errors)
+    check_maturity_gates(findings, errors)
+    check_derived_vs_source(findings)
     check_decision_chain(risk_doc, adr_index, findings, errors)
     check_risk_control_coverage(risk_doc, findings)
     check_protected_paths(harness_doc, findings)

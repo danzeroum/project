@@ -142,8 +142,9 @@ def isencao_morta(d: dict, f: Findings) -> None:
 def render(d: dict, f: Findings) -> str:
     cob = cobertos(d["riscos"])
     linhas = [
-        "<!-- DERIVADO de ci/alignment_report.py. NÃO EDITE À MÃO: regere com",
-        "     python ci/alignment_report.py — o --check do CI contradiz qualquer edição manual. -->",
+        # Cabeçalho CANÔNICO (CP-029) — mesmo formato de ci/generate_graph.py.
+        "<!-- GENERATED: não editar; rodar ci/alignment_report.py -->",
+        "<!-- O --check do CI contradiz qualquer edição manual: edita-se a FONTE, não o derivado. -->",
         "# Alinhamento entre departamentos",
         "",
         "Matriz derivada do metadado declarado. Ela responde a pergunta que os demais fiscais não",
