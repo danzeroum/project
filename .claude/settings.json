@@ -5,7 +5,8 @@
     "protected_paths (harness/harness.yaml) e a enforcement de verdade vive em",
     ".github/workflows/governance.yml mais branch protection.",
     "Custo: só o hook Stop roda o conjunto completo, uma vez por turno em vez de a cada edição;",
-    "validate_all.py chama os quatro fiscais in-process e harness_lib memoiza os schemas."
+    "validate_all.py chama os quatro fiscais in-process e harness_lib memoiza os schemas.",
+    "Os comandos de hook resolvem a raiz ANTES de chamar o interpretador (CP-020). Caminho relativo aqui fazia a trava depender do cwd, e um cd para workspace/target — que a ingestão obriga — travava a sessão inteira: o hook não achava o arquivo, o Bash era recusado, e só o Bash devolveria o cwd. Prefere CLAUDE_PROJECT_DIR; sem ela, sobe diretórios até achar ci/hooks. Fora do repositório a subida chega em / e a falha segue fechada, que é o correto: não há repositório para fiscalizar."
   ],
   "permissions": {
     "deny": [
@@ -25,13 +26,13 @@
             "$comment": "Primeiro o estado de adoção: molde ou derivado, e o próximo passo. Roda antes das dependências existirem e trata a falta delas como estado a reportar — orientação que quebra no clone cru é inútil na única hora em que seria necessária.",
             "type": "command",
             "timeout": 20,
-            "command": "python ci/adoption_status.py"
+            "command": "python \"${CLAUDE_PROJECT_DIR:-$(d=$PWD; until [ -d \"$d/ci/hooks\" ] || [ \"$d\" = / ]; do d=$(dirname \"$d\"); done; echo \"$d\")}/ci/adoption_status.py\""
           },
           {
             "$comment": "--summary nunca bloqueia e, sem dependências, reporta em vez de estourar. Fora do --summary a mesma falta vira exit 2: um validador que passa por não ter conseguido rodar seria a trava que o vigiado desliga sem tocar em nada.",
             "type": "command",
             "timeout": 60,
-            "command": "python ci/validate_all.py --summary"
+            "command": "python \"${CLAUDE_PROJECT_DIR:-$(d=$PWD; until [ -d \"$d/ci/hooks\" ] || [ \"$d\" = / ]; do d=$(dirname \"$d\"); done; echo \"$d\")}/ci/validate_all.py\" --summary"
           }
         ]
       }
@@ -43,7 +44,7 @@
           {
             "type": "command",
             "timeout": 10,
-            "command": "python ci/hooks/pre_bash_env_hygiene.py"
+            "command": "python \"${CLAUDE_PROJECT_DIR:-$(d=$PWD; until [ -d \"$d/ci/hooks\" ] || [ \"$d\" = / ]; do d=$(dirname \"$d\"); done; echo \"$d\")}/ci/hooks/pre_bash_env_hygiene.py\""
           }
         ]
       }
@@ -55,7 +56,7 @@
           {
             "type": "command",
             "timeout": 10,
-            "command": "python ci/hooks/post_edit_guard.py"
+            "command": "python \"${CLAUDE_PROJECT_DIR:-$(d=$PWD; until [ -d \"$d/ci/hooks\" ] || [ \"$d\" = / ]; do d=$(dirname \"$d\"); done; echo \"$d\")}/ci/hooks/post_edit_guard.py\""
           }
         ]
       }
@@ -66,7 +67,7 @@
           {
             "type": "command",
             "timeout": 180,
-            "command": "python ci/validate_all.py --hook"
+            "command": "python \"${CLAUDE_PROJECT_DIR:-$(d=$PWD; until [ -d \"$d/ci/hooks\" ] || [ \"$d\" = / ]; do d=$(dirname \"$d\"); done; echo \"$d\")}/ci/validate_all.py\" --hook"
           }
         ]
       }

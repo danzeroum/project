@@ -168,3 +168,55 @@ def test_alvo_de_etapa_inexistente_reprova(repo_copy, run_metadata):
     code, errors = run_metadata(repo_copy)
     assert code == 1
     assert any("[ameaça]" in e and "STAGE-QUE-NAO-EXISTE" in e for e in errors), errors
+
+
+# --------------------------------------------------------------------------------------
+# CP-020: o hook acha o próprio arquivo de qualquer diretório
+# --------------------------------------------------------------------------------------
+
+def _comandos_de_hook(root) -> list[str]:
+    """Lidos do settings.json, nunca repetidos aqui.
+
+    Uma lista de comandos copiada para dentro do teste seria a segunda cópia que deriva em
+    silêncio — o hook novo de amanhã nasceria fora da cobertura sem ninguém perceber. Lendo do
+    arquivo, ele já nasce coberto.
+    """
+    import json
+    d = json.loads((root / ".claude/settings.json").read_text(encoding="utf-8"))
+    return [h["command"] for evento in d["hooks"].values() for grupo in evento
+            for h in grupo["hooks"] if h.get("type") == "command"]
+
+
+def test_hook_resolve_o_proprio_arquivo_de_dentro_do_workspace(repo_copy):
+    """O achado que originou o CP-020, na forma mínima.
+
+    A ingestão obriga o agente a entrar em workspace/target, e ali o caminho relativo do hook não
+    resolve. O hook falhava, o PreToolUse recusava o comando, e o Bash — a única ferramenta capaz
+    de devolver o cwd — ficava inutilizável.
+    """
+    import subprocess
+    fundo = repo_copy / "workspace" / "target" / "src" / "fundo"
+    fundo.mkdir(parents=True)
+    comandos = _comandos_de_hook(repo_copy)
+    assert comandos, "settings.json não declara comando de hook algum"
+    for cmd in comandos:
+        p = subprocess.run(cmd, shell=True, cwd=fundo, input="{}",
+                           capture_output=True, text=True, timeout=180)
+        assert "can't open file" not in p.stderr, (cmd, p.stderr)
+        assert "No such file or directory" not in p.stderr, (cmd, p.stderr)
+
+
+def test_hook_continua_falhando_fechado_fora_do_repositorio(repo_copy, tmp_path):
+    """O contrapeso, e o modo de falha que esta proposta poderia ter introduzido.
+
+    Um resolvedor largo demais tornaria os cinco hooks no-op silencioso — passariam sempre, e a
+    camada que avisa cedo viraria verde constante. Fora de qualquer repositório não há o que
+    fiscalizar, e o hook precisa continuar não encontrando nada em vez de inventar uma raiz.
+    """
+    import subprocess
+    fora = tmp_path / "sem-repositorio"
+    fora.mkdir()
+    cmd = next(c for c in _comandos_de_hook(repo_copy) if "pre_bash_env_hygiene" in c)
+    p = subprocess.run(cmd, shell=True, cwd=fora, input="{}",
+                       capture_output=True, text=True, timeout=60)
+    assert p.returncode != 0, p
