@@ -261,6 +261,9 @@ stages:
       - "CLAUDE.md"
       - "harness/schemas"
       - "pyproject.toml"
+      # CP-028 — o lockfile do ambiente dos fiscais e o script que dá paridade local a ele.
+      - "requirements-ci.txt"
+      - "harness/local_validate.sh"
     enforced_by:
       - kind: ci_script
         ref: ci/validate_all.py
