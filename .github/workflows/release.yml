@@ -204,14 +204,22 @@ jobs:
         run: git push origin "refs/tags/${TAG}"
 
       # ------------------------------------------------------------------------------------
-      # (5) O registro. Filho do commit taggeado, porque um commit não pode conter o registro de
-      # si mesmo — mesma aritmética que fez o manifesto declarar o pai. Vai para branch própria:
+      # (5) O registro. Um commit não pode conter o registro de si mesmo — mesma aritmética que
+      # fez o manifesto declarar o pai — então ele é um commit à parte, e vai para branch própria:
       # o ruleset da main recusa push direto para todos, e um workflow que pudesse escrever na
       # main poderia reescrever a evidência das releases anteriores.
+      #
+      # NASCE DO VALIDADO, REFERENCIA O TAGGEADO (CP-033). O registro não precisa DESCENDER do
+      # commit que ele registra — precisa CITÁ-LO, e `--commit-sha` já faz isso. Confundir as duas
+      # coisas custou um PR manual ao fechar a v1.0.0: com o commit do ledger como filho do commit
+      # de release, a branch de evidência carregava o manifesto junto, e trazê-la para a main
+      # reprovava em ADR-008-A5. Detachar no commit validado antes do append faz a branch ser
+      # exatamente a main mais um commit que muda um arquivo.
       # ------------------------------------------------------------------------------------
       - name: Registrar a release no ledger
         run: |
           set -euo pipefail
+          git switch --detach "${VALIDADO}"
           python ci/audit_ledger.py --append release \
             --commit-sha "${RELEASE_COMMIT}" \
             --fiscal ci/mold_release.py \

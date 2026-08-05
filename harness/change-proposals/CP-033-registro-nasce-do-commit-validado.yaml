@@ -1,0 +1,77 @@
+# Mudança proposta: o commit do ledger nasce do commit VALIDADO, não do taggeado.
+# Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-033
+  title: "O registro no ledger nasce do commit validado e referencia o taggeado"
+  author_kind: agent
+  created_at: "2026-08-05T16:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - .github/workflows/release.yml
+    - architecture/adr/index.yaml
+    - harness/releases/README.md
+    - tests/governance/test_release_publicacao.py
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-MOLD-001
+    rationale: >
+      O QUE ESTA CP CORRIGE, e como se soube. Fechar a v1.0.0 exigiu um PR manual intermediário.
+      O commit do ledger nascia FILHO do commit taggeado, então a branch de evidência
+      `release/ledger-v1.0.0` carregava dois commits — o do manifesto e o do registro — e trazê-la
+      inteira para a `main` levaria junto `harness/releases/v1.0.0.manifest.json`. O fiscal acusou
+      (FIND-ADR-008-A5), corretamente, e o merge direto ficou impossível. A saída foi copiar a
+      linha para uma branch nova sobre a `main`: funcionou, e é trabalho manual num caminho que
+      existe para não ter trabalho manual.
+
+      A CORREÇÃO É DE UM CARACTERE CONCEITUAL. O registro não precisa DESCENDER do commit que ele
+      registra — precisa CITÁ-LO. São coisas diferentes, e confundi-las foi o defeito: `--commit-sha`
+      já carregava o SHA taggeado desde a CP-031, então a ancestralidade não acrescentava informação
+      alguma. Ela só acrescentava o manifesto ao diff.
+
+      Um `git switch --detach "${VALIDADO}"` antes do append, e a branch de evidência passa a ser
+      exatamente a `main` mais um commit que muda um arquivo. O PR fica direto.
+
+      A ASSERÇÃO PRECISA PROVAR AS DUAS METADES, e por isso ela é ancorada no NOME do passo. O
+      mesmo `git switch --detach "${VALIDADO}"` já aparece antes, no passo que monta o commit de
+      release; uma asserção que só procurasse o comando casaria com aquele e continuaria verde
+      depois de removido este — decorativa, no sentido exato que o ADR-024 define. Ancorada em
+      "Registrar a release no ledger", ela exige um detach DEPOIS desse nome, e não existe outro
+      adiante: removido o do passo do ledger, a asserção fica vermelha. O `--commit-sha
+      "${RELEASE_COMMIT}"` na sequência prova a outra metade — nasce do validado, referencia o
+      taggeado.
+
+      O QUE NÃO MUDA. Nenhuma linha do ledger é alterada; o append segue sendo append. A v1.0.0
+      permanece exatamente como está: tag, manifesto e linha na `main` intactos, sem re-emissão. A
+      ordem dos passos é a mesma — a ref continua nascendo depois da validação, da prova de mutação
+      e da verificação da cadeia.
+
+      O QUE FICA PARA A CP-034, e não entra aqui. A árvore taggeada reprova em `validate_all.py`
+      sob o ADR-008-A5, porque o manifesto carrega `run_url`. É defeito real, já presente, e
+      independente desta CP: ele torna o job `auditar` incapaz de ficar verde para qualquer tag que
+      chegue por outro caminho. A decisão está arbitrada e sai na CP-034 — misturá-la aqui faria
+      uma CP responder a duas perguntas, e o vermelho de uma esconderia o verde da outra.
+
+      CUSTO (princípio (e)). Nenhum fiscal novo, nenhum passo novo no CI, nenhum segundo a mais no
+      caminho de release. Uma asserção entra no ADR-025 e um teste de sistema simula o fluxo inteiro
+      sobre um repositório git de verdade.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_release_publicacao.py
+
+  human_approval_required: true
+  change_mode: pull_request

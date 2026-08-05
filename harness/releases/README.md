@@ -31,6 +31,13 @@ rodou no pai.
 Qualquer passo vermelho e nenhuma ref nasce. Tag que aponta para commit sem manifesto não é release
 parcial — é ausência de release.
 
+**O registro nasce do commit validado.** Publicada a ref, o workflow volta ao commit **validado**,
+acrescenta a linha `release` ao ledger e empurra para `release/ledger-vX.Y.Z`. O registro não
+precisa *descender* do commit que ele registra — precisa **citá-lo**, e `commit_sha` já faz isso.
+Confundir as duas coisas custou um PR manual ao fechar a v1.0.0: como filho do commit de release, a
+branch de evidência carregava o manifesto junto e não mergeava. Nascendo do validado, ela é a `main`
+mais um commit que muda um arquivo — e o PR é direto.
+
 **O manifesto vive na árvore do commit taggeado, não na `main`.** `harness/` é caminho protegido e
 o ruleset da `main` recusa push direto: um workflow que escrevesse lá faria por fora o que esta
 casa exige que se faça por PR. É de lá que `/atualizar-carcaca` o lê — resolvendo a tag, não a
