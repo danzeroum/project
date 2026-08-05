@@ -36,11 +36,13 @@ def _steps() -> list[tuple[str, object, list[str]]]:
     import audit_governance
     import audit_lgpd
     import generate_graph
+    import generate_schema_docs
     import validate_metadata
 
     return [
         ("metadados", validate_metadata.main, []),
         ("grafo", generate_graph.main, ["--check"]),
+        ("schema-docs", generate_schema_docs.main, ["--check"]),
         ("conformidade", audit_governance.main, []),
         ("alinhamento", alignment_report.main, ["--check"]),
         ("conformidade-continua", audit_conformance.main, []),
@@ -87,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.quiet or args.summary:
             # generate_graph não conhece --quiet; os demais sim. Comparado por NOME da etapa
             # porque o módulo agora é importado tarde e não existe neste escopo.
-            if name != "grafo":
+            if name not in ("grafo", "schema-docs"):
                 step_argv.append("--quiet")
         try:
             codes[name] = fn(step_argv)
