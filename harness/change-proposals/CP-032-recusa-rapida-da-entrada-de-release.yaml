@@ -19,9 +19,9 @@ proposal:
     - architecture/adr/index.yaml
     - harness/releases/README.md
     - tests/governance/test_release_publicacao.py
-    # Derivados: grafo regerado e fingerprint da revisão semântica recalculado, porque o escopo
-    # governável mudou.
-    - docs/metadata-graph.md
+    # Derivado: o fingerprint da revisão semântica é recalculado porque o escopo governável mudou.
+    # O grafo NÃO entra — regerei e ele saiu idêntico, e declarar caminho que não se toca é a
+    # mesma mentira que omitir o que se toca, só na direção que ninguém confere.
     - governance/conformance-review.yaml
 
   risk_assessment:
