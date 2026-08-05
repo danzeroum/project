@@ -137,10 +137,22 @@ def test_workflow_sem_auditoria_externa_reprova(repo_copy: Path, run_auditor):
 # --------------------------------------------------------------------------------------
 
 def _ligar(root: Path) -> None:
+    """Liga a camada externa e parte de um estado CONHECIDO: sem atestado.
+
+    A remoção não é zelo excessivo — ela é a correção de um teste que passava por acidente. Até
+    hoje o repositório não tinha atestado nenhum, então `test_ligada_sem_atestado_reprova` testava
+    a ausência sem precisar produzi-la. Quando a autoridade externa entregou o primeiro atestado
+    real, a premissa do teste evaporou e ele passou a falhar — corretamente, porque a cópia já não
+    representava o cenário que o nome dele promete.
+
+    Quem quer atestado chama `_atestado`. Fixture que depende do acaso do repositório testa o que o
+    repositório é hoje, não o que a regra diz.
+    """
     caminho = root / "harness/harness.yaml"
     doc = yaml.safe_load(caminho.read_text(encoding="utf-8"))
     doc["external_audit"]["enabled"] = True
     caminho.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    (root / "harness/state/protection-attestation.json").unlink(missing_ok=True)
 
 
 def _atestado(root: Path, *, expires: str) -> None:
