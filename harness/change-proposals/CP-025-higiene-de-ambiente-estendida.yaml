@@ -1,0 +1,79 @@
+# Mudança proposta: a higiene de ambiente passa a cobrir sequestro de rede e de import.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-025
+  title: "Higiene de ambiente estendida: a denylist cobre sequestro de rede e de import"
+  author_kind: agent
+  created_at: "2026-08-05T14:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - harness/harness.yaml
+    - ci/env_guard.py
+    - .github/workflows/qa.yml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-SEC-001
+      - RISK-DEP-001
+    rationale: >
+      A DENYLIST ATUAL RESPONDE UMA PERGUNTA SÓ. `WEBQA_*` impede que um agente se autorize a
+      sondar — e isso está certo e continua valendo. Mas a lista foi escrita olhando para uma
+      ameaça: a auto-autorização. Existe uma segunda família de variáveis que não autoriza nada e
+      é pior, porque não precisa de permissão nenhuma para agir: as que redirecionam PARA ONDE o
+      processo vai buscar o que executa.
+
+      `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` reescrevem o destino de toda requisição
+      do job — inclusive as do `pip`, inclusive as que baixam a régua cuja versão este repositório
+      trava com tanto cuidado. `PIP_INDEX_URL` e `PIP_EXTRA_INDEX_URL` trocam o índice de pacotes:
+      o pin exato de `requirements-qa.txt` continua exato e passa a apontar para outro lugar.
+      `PYTHONPATH` e `PYTHONSTARTUP` injetam código no interpretador ANTES de qualquer linha
+      deste repositório rodar — um fiscal que importa `harness_lib` importaria o `harness_lib` de
+      quem definiu a variável. `NODE_OPTIONS` faz o mesmo do lado JS via `--require`.
+
+      O PADRÃO É O MESMO, e é o que justifica tratá-las juntas: nenhuma delas ATACA o fiscal. Elas
+      trocam o que o fiscal lê. Um fiscal enganado reporta verde com convicção — e verde com
+      convicção é estritamente pior que vermelho, porque encerra a investigação.
+
+      POR QUE ISTO NÃO É PARANOIA DE CATÁLOGO. A regra desta casa é que trava nova precisa de
+      custo declarado. O custo aqui é um passo de segundos que lê variáveis de ambiente. E o vetor
+      é concreto e barato para o atacante: qualquer coisa que consiga definir um `env:` num
+      workflow — uma action de terceiro, um PR de fork num repositório mal configurado, um
+      `$GITHUB_ENV` escrito por passo anterior — passa a controlar de onde vem o código que os
+      fiscais executam.
+
+      DERIVADO, NUNCA DUPLICADO. A lista mora em `harness/harness.yaml` e `ci/env_guard.py` a LÊ.
+      O workflow não a repete: repetir criaria uma segunda cópia que deriva em silêncio, e a
+      primeira coisa a divergir seria justamente a entrada que alguém removeu. É a lição do CP-020
+      atravessando o plano inteiro, e é o que faz uma variável nova nascer coberta.
+
+      A EXCEÇÃO É DECLARADA, e é o ponto delicado. `PYTHONPATH` é legitimamente usado pelos testes
+      de mordida, que rodam um fiscal a partir de uma cópia mutada do repositório em subprocesso.
+      A resposta certa não é tirar `PYTHONPATH` da lista — seria desligar a trava para acomodar um
+      caso —, é declarar a exceção com nome, contexto e justificativa em `env_hygiene.exceptions`,
+      onde ela fica visível e revisável. Exceção declarada é exceção que alguém pode contestar;
+      entrada removida da lista é exceção que ninguém mais vê.
+
+      FAIL-CLOSED CONTINUA SENDO O COMPORTAMENTO. `fail_on_denied_env: true` aborta em vez de
+      ignorar. Ignorar em silêncio esconde exatamente o erro de configuração que o controle existe
+      para revelar.
+
+      CUSTO (princípio (e)): um passo por job, milissegundos, sem rede. Mordida provada por passo
+      negativo que injeta `HTTP_PROXY=evil` e exige o abort.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_env_hygiene_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

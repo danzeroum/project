@@ -24,6 +24,12 @@ jobs:
       - name: Instalar ferramentas de validação
         run: pip install "jsonschema>=4" "pyyaml>=6" "pytest>=8"
 
+      # CP-025 — o job que julga o repositório é o que menos pode ter o próprio import sequestrado:
+      # PYTHONPATH definido aqui faria os fiscais importarem harness_lib de outra pessoa e reportarem
+      # verde com convicção. Sem --context: este job não tem exceção nenhuma declarada.
+      - name: Higiene de ambiente estendida (sequestro de rede e de import)
+        run: python ci/env_guard.py
+
       # CP-016 — materializa o alvo ANTES dos fiscais, e só quando há alvo.
       #
       # CONDICIONAL AO PAPEL: lê project.yaml:project.kind. No molde, target_sha é null e não há
@@ -480,6 +486,10 @@ jobs:
           printf "raise ImportError('ausente por teste')\n" > "$mut/stub/yaml.py"
           printf "raise ImportError('ausente por teste')\n" > "$mut/stub/jsonschema.py"
           code=0
+          # PYTHONPATH aqui é a exceção DECLARADA em harness.yaml:env_hygiene.exceptions
+          # (contexto mutation-tests): apontar o interpretador para a cópia mutada é o que faz
+          # esta prova provar algo. A exceção é por COMANDO — nenhum job define PYTHONPATH no
+          # seu `env:`, e ci/env_guard.py, que roda no início do job, aborta se alguém o fizer.
           PYTHONPATH="$mut/stub" HARNESS_REPO_ROOT="$mut" python "$mut/ci/validate_all.py" || code=$?
           if [ "$code" != "2" ]; then
             echo "::error::validate_all saiu $code sem dependências; esperado 2. Um validador que passa por não ter conseguido rodar desliga todos os fiscais de uma vez."

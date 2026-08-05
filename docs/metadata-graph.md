@@ -142,6 +142,9 @@ graph TD
   ADR_017["ADR-017"]
   ADR_017 -->|mitiga| RISK_CONF_001
   ADR_017 -->|mitiga| RISK_DECISION_001
+  ADR_018["ADR-018"]
+  ADR_018 -->|mitiga| RISK_DEP_001
+  ADR_018 -->|mitiga| RISK_SEC_001
   classDef project fill:#1f2937,stroke:#111827,color:#fff;
   class PROJ_danzeroum_project project;
   classDef cap fill:#2563eb,stroke:#1e40af,color:#fff;
@@ -161,7 +164,7 @@ graph TD
   classDef test fill:#57534e,stroke:#44403c,color:#fff;
   class TEST_tests_unit_test_ports_py,TEST_tests_unit_test_pricing_py test;
   classDef adr fill:#ca8a04,stroke:#a16207,color:#fff;
-  class ADR_001,ADR_002,ADR_003,ADR_004,ADR_005,ADR_006,ADR_007,ADR_008,ADR_009,ADR_010,ADR_011,ADR_012,ADR_013,ADR_014,ADR_015,ADR_016,ADR_017 adr;
+  class ADR_001,ADR_002,ADR_003,ADR_004,ADR_005,ADR_006,ADR_007,ADR_008,ADR_009,ADR_010,ADR_011,ADR_012,ADR_013,ADR_014,ADR_015,ADR_016,ADR_017,ADR_018 adr;
   classDef risk fill:#dc2626,stroke:#991b1b,color:#fff;
   class RISK_ALIGN_001,RISK_CHANGE_001,RISK_CONF_001,RISK_CONF_002,RISK_DECISION_001,RISK_DEP_001,RISK_DERIV_001,RISK_DERIV_002,RISK_INGEST_001,RISK_INGEST_002,RISK_META_001,RISK_META_002,RISK_MOLD_001,RISK_ORIENT_001,RISK_PRIV_001,RISK_PRIV_002,RISK_SEC_001,RISK_STAGE_001,RISK_WEBQA_001 risk;
 ```
