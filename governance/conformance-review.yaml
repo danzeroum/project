@@ -12,7 +12,7 @@ generated_from: null
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: "sha256:d97bab4429f16ea92aedc0b124bce14fd5565b9d90d85e2bb934c59834be00ad"
+  scope_fingerprint: "sha256:9edd9819194e741d7818929693985e5008b30af8452910de8cf3b486f8cd292a"
 
   findings:
     - id: CONF-001

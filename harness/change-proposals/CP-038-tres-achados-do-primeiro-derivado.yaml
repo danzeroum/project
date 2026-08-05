@@ -1,0 +1,93 @@
+# Três achados que só apareceram quando um derivado de verdade consumiu a v1.0.0.
+# Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-038
+  title: "Incubação que não incuba, mensagem que esconde o dígito, e um workflow fora do pin"
+  author_kind: agent
+  created_at: "2026-08-05T22:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - ci/mold_release.py
+    - .github/workflows/atestado-automerge.yml
+    - governance/risk-register.yaml
+    - tests/governance/test_ancoragem_bites.py
+    - docs/metadata-graph.md
+    - docs/alignment.md
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-MOLD-001
+      - RISK-META-002
+      - RISK-INCUBA-001
+    rationale: >
+      OS TRÊS NASCERAM DO MESMO EVENTO, e é isso que os junta: `danzeroum/projectCockpitDocker`
+      virou o primeiro derivado a consumir a v1.0.0 de verdade. Nenhum apareceu em teste do molde,
+      porque nenhum é sobre o molde sozinho — os três são sobre o molde SENDO CONSUMIDO. É a razão
+      de a prova de fogo 2 existir.
+
+      (1) A INCUBAÇÃO NÃO INCUBA. `harness.yaml`/`project.yaml` têm `lifecycle: incubating`, e o
+      molde documenta que derivado em incubação nasce vermelho e que `/ingerir` é o caminho até o
+      verde. Mas só `audit_governance.py::check_stage_coverage` consulta o campo. As invariantes de
+      ingestão de `validate_metadata` — órfão, teste órfão, regra, REQ, I4, I5 — não o consultam, e
+      `audit_lgpd` apenas o registra no laudo. Resultado medido no derivado: 299 achados, e nenhum
+      estado em que `validate_all` saia 0 antes da ingestão terminar. A promessa "o vermelho é o
+      mapa" (ADR-019) está escrita e não tem mecanismo: hoje o mapa e o defeito têm exatamente a
+      mesma cor, e é o consumidor que precisa inventar a diferença — o que ele fez, com uma catraca
+      própria. Uma promessa que cada derivado reimplementa não é do molde.
+
+      O QUE ESTA CP NÃO DECIDE: se a resposta é silenciar as invariantes durante a incubação (como
+      `check_stage_coverage` faz), se é rebaixá-las a severidade não-bloqueante, ou se é adotar a
+      catraca do consumidor como mecanismo do molde. As três têm custos diferentes e a terceira é a
+      única que não afrouxa fiscal nenhum. A decisão é do ADR que esta CP abre, não da CP.
+
+      (2) A MENSAGEM ESCONDE O DÍGITO QUE MUDOU. `verify_chain` trunca os dois hashes em 12
+      caracteres ao relatar `manifest_sha` divergente. Quando a alteração está além da posição 12 —
+      exatamente o caso que o teste de borda exercita, e exatamente o caso de um adulterador
+      cuidadoso — a mensagem imprime `espera 8d5986b6ad3c ... produzem 8d5986b6ad3c`: dois prefixos
+      idênticos sob a palavra "não confere". Quem lê perde tempo achando que o fiscal está errado.
+      Custo de conserto: imprimir o hash inteiro, ou o prefixo comum mais o primeiro dígito que
+      diverge. É cosmético no sentido de não deixar nada passar, e não é cosmético no sentido de
+      que a mensagem é o produto do fiscal.
+
+      (3) UM WORKFLOW FORA DO PIN, e este é MEU defeito, introduzido nesta mesma sessão.
+      `atestado-automerge.yml` (CP-037) pede Python 3.12; todos os outros workflows do molde pedem
+      3.11. `requirements-ci.txt` carrega UM hash por pacote — o do wheel daquela versão de
+      interpretador — então 3.12 baixa o wheel `cp312`, cujo hash não é o listado, e o pip aborta
+      com "THESE PACKAGES DO NOT MATCH THE HASHES". O passo nunca chegaria a rodar o portão.
+
+      Não foi pego por teste nenhum porque o workflow ainda não rodou: ele dispara em
+      `pull_request_target` de PR de atestado, e o próximo é o de amanhã às 06:17Z. Foi pego porque
+      o derivado copiou o padrão e reprovou primeiro. A lição, e ela é a mesma que já apareceu três
+      vezes nesta série: um lockfile de hash único é travado por versão de interpretador, e essa
+      propriedade não está escrita em lugar nenhum — o que a torna descobrível só por falha.
+
+      O QUE ESTA CP EXECUTA E O QUE ELA DECLARA, e a diferença é deliberada. Executa (2) e (3): são
+      conserto, não decisão — uma linha de pin e uma função de formatação, com teste. DECLARA (1)
+      como `RISK-INCUBA-001`, `open`, `due: 2026-11-03`, a mesma data do RISK-EXT-001 e do
+      RISK-CHANGE-002. Escolher entre silenciar, rebaixar ou adotar a catraca muda o significado de
+      "validado" para todo derivado futuro, e improvisar isso dentro de uma CP que nasceu para
+      consertar duas coisas pequenas seria exatamente o tipo de decisão que vira permanência por
+      não ter sido discutida.
+
+      CUSTO (princípio (e)). O (3) é uma linha. O (2) é uma função de formatação e dois testes. O (1)
+      custa uma data no registro e a promessa de voltar — que é o preço honesto de não decidir hoje.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_ancoragem_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

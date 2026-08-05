@@ -492,4 +492,33 @@ risks:
       - kind: branch_protection
         ref: "main:require_pull_request_reviews"
 
+  - id: RISK-INCUBA-001
+    area: governance
+    description: "A promessa 'o vermelho é o mapa' (ADR-019) não tem mecanismo para um derivado em incubação. `lifecycle: incubating` só é consultado por `audit_governance.py::check_stage_coverage`; as invariantes de ingestão de `validate_metadata` (órfão, teste órfão, regra, REQ, I4, I5) e o `audit_lgpd` não o consultam. Enquanto a ingestão não termina, mapa e defeito têm exatamente a mesma cor, e cabe a cada derivado inventar a diferença."
+    likelihood: high
+    impact: medium
+    treatment: accept
+    owner: technical_owner
+    status: open
+    # Medido, não suposto: `danzeroum/projectCockpitDocker` virou o primeiro derivado a consumir a
+    # v1.0.0 e ficou com 299 achados — dos quais 209 são o mapa de componentes e testes que a
+    # ingestão ainda vai autorar. Ele resolveu por conta própria, com uma catraca que recusa SUBIDA
+    # e CATEGORIA NOVA contra um baseline versionado. Funciona; e uma promessa que cada derivado
+    # reimplementa não é do molde.
+    #
+    # Três respostas possíveis, com custos diferentes, e é por isso que esta CP declara em vez de
+    # decidir: (a) silenciar as invariantes durante a incubação, como check_stage_coverage faz —
+    # barato e amplo demais, esconderia regressão junto com dívida; (b) rebaixá-las a severidade
+    # não-bloqueante — mantém visível e perde o gate; (c) adotar a catraca como mecanismo do molde
+    # — a única que não afrouxa fiscal nenhum, e a mais cara.
+    #
+    # Mesma data do RISK-EXT-001 e do RISK-CHANGE-002, pela razão de sempre: calendário próprio é
+    # como um risco é esquecido sozinho.
+    due: "2026-11-03"
+    controls:
+      - kind: local_path
+        ref: harness/change-proposals/CP-038-tres-achados-do-primeiro-derivado.yaml
+      - kind: local_path
+        ref: architecture/adr/ADR-019-vermelho-durante-mudanca-e-mapa.md
+
 risk_exemptions: []
