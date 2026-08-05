@@ -291,3 +291,82 @@ def test_captura_vermelho_transitorio_associa_a_cp_aberta():
 def test_sem_cp_aberta_nao_ha_vermelho_transitorio():
     propostas = [{"id": "CP-A", "status": "executed", "risk_assessment": {"level": "high"}}]
     assert af.capturar_vermelho_transitorio(propostas, [{"location": "x"}]) == []
+
+
+# --------------------------------------------------------------------------------------
+# A lacuna do aval independente (CP-035 / ADR-027)
+# --------------------------------------------------------------------------------------
+
+def _cp_do_disco(nome: str) -> dict:
+    caminho = REPO / "harness/change-proposals" / nome
+    return yaml.safe_load(caminho.read_text(encoding="utf-8"))
+
+
+def test_o_dono_aprovando_o_proprio_pr_e_recusado():
+    """A borda que decidiu o desfecho: não há revisor independente, e o fiscal recusa o aval de
+    quem propôs. Recusaria mesmo que a API o permitisse — e a API também recusa."""
+    v = va.verify_approval(
+        proposal={"id": "CP-T", "executed_in": {"pr_number": 9, "merge_commit_sha": MERGE},
+                  "approved_by": {"login": AUTOR, "review_id": 1, "pr_number": 9,
+                                  "approved_at": "2026-08-05T18:00:00Z"}},
+        pr={"user": {"login": AUTOR}, "head": {"sha": HEAD}, "merge_commit_sha": MERGE},
+        reviews=[{"id": 1, "state": "APPROVED", "user": {"login": AUTOR}, "commit_id": HEAD}])
+    assert any("é o autor do PR" in m for m in v)
+
+
+def test_aval_em_um_pr_e_execucao_em_outro_e_recusado():
+    """O caminho consolidado que se cogitou: aval no PR de fechamento, execução no PR original."""
+    v = va.verify_approval(
+        proposal={"id": "CP-T", "executed_in": {"pr_number": 9, "merge_commit_sha": MERGE},
+                  "approved_by": {"login": REVISOR, "review_id": 1, "pr_number": 46,
+                                  "approved_at": "2026-08-05T18:00:00Z"}},
+        pr={"user": {"login": AUTOR}, "head": {"sha": HEAD}, "merge_commit_sha": MERGE},
+        reviews=[{"id": 1, "state": "APPROVED", "user": {"login": REVISOR}, "commit_id": HEAD}])
+    assert any("o aval precisa ser DESTE merge" in m for m in v)
+
+
+def test_as_doze_cps_fechaveis_seguem_approved():
+    """O estado VERDADEIRO: integradas, com aval declarado como necessário e nunca prestado.
+
+    Se alguma virar `executed`, este teste cai — e cair é o ponto: o fechamento tem de ser uma
+    decisão visível, com o review real por trás, não um campo que apareceu num commit qualquer.
+    """
+    fechaveis = ["CP-022-ciclo-de-vida-da-cp.yaml",
+                 "CP-023-consumo-obrigatorio-de-pareceres.yaml"]
+    fechaveis += [p.name for p in sorted((REPO / "harness/change-proposals").glob("CP-0[23]*.yaml"))
+                  if "CP-025" <= p.name[:6] <= "CP-034"]
+    assert len(fechaveis) == 12, fechaveis
+    for nome in fechaveis:
+        assert _cp_do_disco(nome)["proposal"]["status"] == "approved", nome
+
+
+def test_cp_021_nao_e_promovida_a_1_1():
+    """Os campos de ciclo existem a partir de 1.1, e a não-retroatividade é PARTE da decisão da
+    CP-022. Promovê-la para caber num fechamento seria reescrever registro histórico."""
+    doc = _cp_do_disco("CP-021-ancoragem-verificavel-do-molde.yaml")
+    assert doc["schema_version"] == "1.0"
+    assert "status" not in doc["proposal"]
+
+
+def test_cp_024_continua_deferred():
+    """Sua camada externa não foi implementada — RISK-EXT-001 segue aberto. `executed` seria falso."""
+    assert _cp_do_disco("CP-024-trava-externa-em-duas-camadas.yaml")["proposal"]["status"] == "deferred"
+
+
+def test_a_lacuna_do_aval_e_risco_aberto_com_data():
+    """Princípio (g): risco aceito TEM data. O schema recusa `open` sem `due`, então isto é trava."""
+    reg = yaml.safe_load((REPO / "governance/risk-register.yaml").read_text(encoding="utf-8"))
+    risco = next(r for r in reg["risks"] if r["id"] == "RISK-CHANGE-002")
+    assert risco["status"] == "open"
+    assert risco["treatment"] == "accept"
+    assert risco["due"]
+
+
+def test_a_recusa_de_auto_aprovacao_continua_no_codigo():
+    """A asserção que mais importa, em forma de teste: quando doze propostas `approved` parecerem
+    trabalho inacabado, a tentação não será conseguir o revisor que falta — será apagar a checagem
+    que o exige."""
+    fonte = (REPO / "ci/verify_approval.py").read_text(encoding="utf-8")
+    assert "é o autor do PR" in fonte
+    assert "aprovador == autor_pr" in fonte.replace("aprovador and autor_pr and aprovador == autor_pr",
+                                                    "aprovador == autor_pr")

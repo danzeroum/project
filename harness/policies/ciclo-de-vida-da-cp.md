@@ -38,6 +38,24 @@ qualquer coisa.
 **Nada é retroativo.** Os campos existem a partir de `schema_version: "1.1"`. Reescrever propostas
 antigas para satisfazer fiscal novo transformaria registro em rascunho.
 
+## Quando não há a quem pedir aval
+
+Doze propostas deste repositório (CP-022, CP-023 e CP-025 a CP-034) estão `approved` e vão continuar.
+Não por descuido: **há um colaborador só, e ele é o autor de todas elas e dos PRs que as
+integraram.** A Fraude 3 recusa esse aval, e recusaria mesmo que a API o permitisse.
+
+O estado verdadeiro é `approved` — *integrada, com aval declarado como necessário e nunca prestado*.
+Não existe status que descreva isso melhor, e inventar um seria trocar uma lacuna visível por um
+rótulo confortável.
+
+A lacuna vira **risco datado**: `RISK-CHANGE-002`, `open`, `due: 2026-11-03` — a mesma data do
+`RISK-EXT-001`, porque as duas fazem a mesma pergunta. O schema recusa risco `open` sem `due`, então
+a data é trava, não convenção (ADR-027).
+
+**O que destrava é uma segunda pessoa, não uma emenda.** Com um revisor independente, o caminho
+direto passa sem mudar uma linha: review no PR mergeado, `executed_in` e `approved_by` no mesmo PR,
+e a regra do head satisfeita de graça porque o head de um PR mergeado está congelado.
+
 ## Fraude e indeterminação
 
 Aprovação forjada → exit 1, com o código da violação. Sem credencial → `approval_unverifiable`,

@@ -437,4 +437,28 @@ risks:
       - kind: branch_protection
         ref: "main:require_pull_request_reviews"
 
+  - id: RISK-CHANGE-002
+    area: governance
+    description: "Não há revisor humano independente: o único colaborador é também o autor de todas as change-proposals e dos PRs que as integram. `human_approval_required: true` declara que o aval era necessário, e ele não foi prestado por ninguém além de quem propôs."
+    likelihood: high
+    impact: medium
+    treatment: accept
+    owner: security_owner
+    status: open
+    # Mesma data do RISK-EXT-001, de propósito: as duas lacunas fazem a mesma pergunta — existe,
+    # fora deste repositório, uma autoridade que não seja quem é fiscalizado? Revisá-las juntas
+    # evita que a segunda seja esquecida por ter calendário próprio. Em 03/11/2026: ou existe
+    # revisor independente e as CPs fecham pelo caminho direto, ou o risco é RE-ACEITO com data
+    # nova. O schema exige `due` de risco `open`, então a data é trava e não convenção.
+    due: "2026-11-03"
+    controls:
+      - kind: local_path
+        ref: ci/verify_approval.py
+      - kind: local_path
+        ref: harness/policies/ciclo-de-vida-da-cp.md
+      - kind: local_path
+        ref: architecture/adr/ADR-027-aval-ausente-e-lacuna-declarada.md
+      - kind: branch_protection
+        ref: "main:require_pull_request_reviews"
+
 risk_exemptions: []
