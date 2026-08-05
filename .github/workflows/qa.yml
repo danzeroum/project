@@ -81,8 +81,34 @@ jobs:
         with:
           python-version: "3.11"
 
+      # CP-025 — higiene ESTENDIDA, e ela roda ANTES do pip por um motivo específico: as variáveis
+      # que ela recusa (PIP_INDEX_URL, HTTPS_PROXY) mudam de onde o pip baixa. Rodar depois seria
+      # verificar a fechadura com o ladrão já dentro.
+      #
+      # A lista NÃO está aqui: ci/env_guard.py a lê de harness/harness.yaml. Repeti-la criaria uma
+      # segunda cópia que deriva em silêncio, e a primeira entrada a divergir seria justamente a
+      # que alguém removeu.
+      - name: Higiene de ambiente estendida (sequestro de rede e de import)
+        run: pip install "pyyaml>=6" --quiet && python ci/env_guard.py
+
       - name: Instalar pacote de negócio + ferramentas
         run: pip install -e ".[dev]"
+
+      # A trava que morde, para a família nova: injeta HTTP_PROXY e exige o abort. O passo PASSA
+      # quando o guard recusa; falha se o guard deixar passar — mesmo idioma do WEBQA_LEAK acima.
+      - name: Higiene estendida — sequestro de rede deve abortar (passo negativo)
+        env:
+          HTTP_PROXY: "http://evil.example:3128"
+        run: |
+          set +e
+          python ci/env_guard.py --quiet
+          codigo=$?
+          set -e
+          if [ "$codigo" != "10" ]; then
+            echo "::error::env_guard não abortou com HTTP_PROXY definido (saiu $codigo) — a trava de sequestro parou de morder."
+            exit 1
+          fi
+          echo "Detecção OK: DENIED_ENV=10 com HTTP_PROXY presente."
 
       # CP-016 — "alvo do inventário é código real" só é verdade se o código real estiver aqui.
       # No molde são os testes do negócio de exemplo; num derivado são os do ALVO, que vivem em

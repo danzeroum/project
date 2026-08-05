@@ -70,6 +70,38 @@ execution_modes:
 env_hygiene:
   env_allowlist: [PATH, HOME, LANG]
   env_denylist_prefix: ["WEBQA_"]
+  # CP-025 — a segunda família, e ela não autoriza nada: redireciona PARA ONDE o processo busca o
+  # que executa. Nenhuma destas ataca o fiscal; elas trocam o que o fiscal lê. E fiscal enganado
+  # reporta verde com convicção, que é estritamente pior que vermelho porque encerra a investigação.
+  env_denylist_exact:
+    # Sequestro de rede: reescrevem o destino de toda requisição do job, inclusive as do pip que
+    # baixam a régua cuja versão este repositório trava com tanto cuidado.
+    - HTTP_PROXY
+    - HTTPS_PROXY
+    - ALL_PROXY
+    - NO_PROXY
+    # Sequestro de índice: o pin exato continua exato e passa a apontar para outro lugar.
+    - PIP_INDEX_URL
+    - PIP_EXTRA_INDEX_URL
+    # Sequestro de import: injetam código ANTES de qualquer linha deste repositório rodar. Um
+    # fiscal que importa harness_lib importaria o harness_lib de quem definiu a variável.
+    - PYTHONPATH
+    - PYTHONSTARTUP
+    - NODE_OPTIONS
+  # Exceção DECLARADA, não entrada removida da lista. A diferença é toda: exceção declarada é
+  # exceção que alguém pode contestar numa revisão; entrada removida é exceção que ninguém mais vê.
+  exceptions:
+    - name: PYTHONPATH
+      context: mutation-tests
+      justification: >
+        Rodar um fiscal contra uma CÓPIA MUTADA do repositório exige apontar o interpretador para
+        aquela cópia. Dois lugares fazem isso, e são o mesmo gesto: os testes de mordida em
+        subprocesso, e o passo negativo "validate_all sem dependências" do governance.yml, que
+        injeta stubs de yaml/jsonschema por PYTHONPATH para provar que um validador sem
+        dependências sai 2 e nunca 0. Sem a variável, os dois importariam o fiscal da árvore de
+        trabalho e validariam o repositório errado — provando exatamente nada. A exceção é por
+        COMANDO, nunca por job: nenhum job define PYTHONPATH no seu `env:`, e ci/env_guard.py
+        (que roda no início do job) continua abortando se alguém o fizer.
   fail_on_denied_env: true   # aborta se encontrar, NÃO apenas ignora (erro vira evento auditável)
 
 # Canal de retorno derivado -> alvo. A ÚNICA capacidade deste repositório que escreveria num

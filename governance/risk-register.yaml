@@ -42,6 +42,8 @@ risks:
         ref: requirements-qa.txt
       - kind: local_path
         ref: harness/policies/dependency-updates.md
+      - kind: local_path
+        ref: ci/env_guard.py
       - kind: branch_protection
         ref: "main:require_pull_request_reviews"
       - kind: local_path

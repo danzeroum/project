@@ -827,3 +827,61 @@ adrs:
         file: harness/schemas/conformance-review.schema.json
         pointer: /properties/review/properties/findings/items/allOf/1/then/required
         contains: consumed_by
+
+  - id: ADR-018
+    title: "A denylist cobre sequestro, não só auto-autorização"
+    status: accepted
+    file: architecture/adr/ADR-018-denylist-cobre-sequestro.md
+    related_risks: [RISK-SEC-001, RISK-DEP-001]
+    assertions:
+      - id: ADR-018-A1
+        kind: path_present
+        severity: critical
+        risk: RISK-SEC-001
+        description: "O guard de ambiente existe como código."
+        paths:
+          - ci/env_guard.py
+      - id: ADR-018-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-SEC-001
+        description: "env_denylist_exact continua obrigatório no schema da harness — esvaziá-lo ou removê-lo desliga a família inteira."
+        file: harness/schemas/harness.schema.json
+        pointer: /properties/env_hygiene/required
+        contains: env_denylist_exact
+      - id: ADR-018-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-SEC-001
+        description: "A lista não pode ficar vazia: minItems 1 faz esvaziar ser tão visível quanto remover."
+        file: harness/schemas/harness.schema.json
+        pointer: /properties/env_hygiene/properties/env_denylist_exact/minItems
+        expected: 1
+      - id: ADR-018-A4
+        kind: file_matches
+        severity: critical
+        risk: RISK-SEC-001
+        description: "O guard segue aplicado no workflow que julga o repositório — sem ele, o job que fiscaliza é o que fica com o import sequestrável."
+        files: [".github/workflows/governance.yml"]
+        pattern: "python ci/env_guard\\.py"
+      - id: ADR-018-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-DEP-001
+        description: "O passo negativo que injeta HTTP_PROXY continua provando que a trava morde."
+        files: [".github/workflows/qa.yml"]
+        pattern: "HTTP_PROXY: \"http://evil\\.example:3128\""
+      - id: ADR-018-A6
+        kind: file_lacks
+        severity: high
+        risk: RISK-SEC-001
+        description: "O workflow não REPETE a denylist: uma segunda cópia deriva em silêncio, e a primeira entrada a divergir é a que alguém removeu."
+        files: [".github/workflows/qa.yml", ".github/workflows/governance.yml"]
+        pattern: "PIP_EXTRA_INDEX_URL"
+      - id: ADR-018-A7
+        kind: file_matches
+        severity: high
+        risk: RISK-SEC-001
+        description: "A exceção continua exigindo contexto: exceção sem contexto vale em toda parte, e vale-em-toda-parte é a entrada removida da lista com outro nome."
+        files: ["ci/env_guard.py"]
+        pattern: "e\\.get\\(\"context\"\\) == contexto"
