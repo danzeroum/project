@@ -4,49 +4,105 @@
   "title": "security/threat-model.yaml — ameaças por componente e interface, com residual rastreável",
   "description": "Segurança deixa de ser difusa e vira departamento. Duas travas estruturais definem o arquivo: toda ameaça exige ao menos uma mitigação (referência TIPADA, mesma forma dos controls[] do risk-register) e um residual_risk apontando para um RISK-* real. Ameaça catalogada e não tratada é o 'to-be-assessed' do ADR-002 vestido de diligência: parece trabalho de segurança e não obriga a nada. Com residual_risk, a ameaça herda dono, prazo e a cobertura reversa de R2.",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "threats"],
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "threats"
+  ],
   "additionalProperties": false,
   "oneOf": [
     {
       "properties": {
-        "source_of_truth": { "const": true },
-        "generated_from": { "const": null }
+        "source_of_truth": {
+          "const": true
+        },
+        "generated_from": {
+          "const": null
+        }
       }
     },
     {
       "properties": {
-        "source_of_truth": { "const": false },
-        "generated_from": { "type": "string", "minLength": 1 }
+        "source_of_truth": {
+          "const": false
+        },
+        "generated_from": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["generated_from"]
+      "required": [
+        "generated_from"
+      ]
     }
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "source_of_truth": { "type": "boolean" },
-    "generated_from": { "type": ["string", "null"] },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "metadata_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "source_of_truth": {
+      "type": "boolean"
+    },
+    "generated_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "threats": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "stride", "target", "attack_vector", "severity", "mitigations", "residual_risk"],
+        "required": [
+          "id",
+          "stride",
+          "target",
+          "attack_vector",
+          "severity",
+          "mitigations",
+          "residual_risk"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^THREAT-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+          "id": {
+            "type": "string",
+            "pattern": "^THREAT-[A-Z0-9]+(-[A-Z0-9]+)*$"
+          },
           "stride": {
-            "enum": ["spoofing", "tampering", "repudiation", "information_disclosure", "denial_of_service", "elevation_of_privilege"],
+            "enum": [
+              "spoofing",
+              "tampering",
+              "repudiation",
+              "information_disclosure",
+              "denial_of_service",
+              "elevation_of_privilege"
+            ],
             "description": "Enum fechado de propósito: categoria livre aceita 'outros' para sempre, e ninguém consegue perguntar 'quais ameaças de elevação de privilégio existem?'."
           },
           "target": {
             "type": "string",
-            "pattern": "^(CMP|IFC|UI)-[A-Z0-9]+(-[A-Z0-9]+)*$",
-            "description": "O que é ameaçado. Resolvido por ci/validate_metadata.py::check_threat_model — ameaça contra componente inexistente é trava que não encontra o que vigiar."
+            "pattern": "^(CMP|IFC|UI|STAGE)-[A-Z0-9]+(-[A-Z0-9]+)*$",
+            "description": "O que é ameaçado: um componente, interface ou superfície do sistema governado, ou uma ETAPA do harness (STAGE-*) quando o ameaçado é a própria máquina de governar. Resolvido por ci/validate_metadata.py::check_threat_model — ameaça contra alvo inexistente é trava que não encontra o que vigiar. A segunda namespace existe porque apontar uma ameaça ao harness para um componente de negócio qualquer satisfaz o fiscal sem dizer nada verdadeiro."
           },
-          "attack_vector": { "type": "string", "minLength": 20 },
+          "attack_vector": {
+            "type": "string",
+            "minLength": 20
+          },
           "severity": {
-            "enum": ["low", "medium", "high", "critical", "pending_judgment"],
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical",
+              "pending_judgment"
+            ],
             "description": "pending_judgment: nenhuma ferramenta decide gravidade de ameaça. Recusado em documento promovido pela mesma trava da Fase D."
           },
           "mitigations": {
@@ -55,20 +111,67 @@
             "description": "Referências TIPADAS, mesma forma de risk-register:controls[]. minItems 1 é a trava: ameaça sem mitigação é catálogo, não modelo.",
             "items": {
               "type": "object",
-              "required": ["kind", "ref"],
+              "required": [
+                "kind",
+                "ref"
+              ],
               "additionalProperties": false,
               "properties": {
-                "kind": { "enum": ["local_path", "standard_symbol", "github_environment", "branch_protection", "accepted"] },
-                "ref": { "type": "string", "minLength": 1 },
-                "standard": { "const": "webqa-suite" },
-                "version_source": { "const": "requirements-qa.txt" }
+                "kind": {
+                  "enum": [
+                    "local_path",
+                    "standard_symbol",
+                    "github_environment",
+                    "branch_protection",
+                    "accepted"
+                  ]
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "standard": {
+                  "const": "webqa-suite"
+                },
+                "version_source": {
+                  "const": "requirements-qa.txt"
+                }
               },
               "allOf": [
                 {
                   "comment": "standard_symbol EXIGE âncora de versão; os demais kinds NÃO admitem esses campos.",
-                  "if": { "properties": { "kind": { "const": "standard_symbol" } }, "required": ["kind"] },
-                  "then": { "required": ["standard", "version_source"] },
-                  "else": { "not": { "anyOf": [{ "required": ["standard"] }, { "required": ["version_source"] }] } }
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "standard_symbol"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "standard",
+                      "version_source"
+                    ]
+                  },
+                  "else": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "standard"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "version_source"
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 }
               ]
             }

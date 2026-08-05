@@ -48,7 +48,7 @@ threats:
 
   - id: THREAT-HARNESS-ELEVATION
     stride: elevation_of_privilege
-    target: CMP-PRICING
+    target: STAGE-CI-HARNESS   # o ameaçado é a máquina de governar, não um componente de negócio
     attack_vector: >
       Um agente com shell define WEBQA_* no ambiente do runner e se autoriza a sondar o alvo,
       convertendo acesso de desenvolvimento em capacidade de auditoria ativa que ninguém aprovou.

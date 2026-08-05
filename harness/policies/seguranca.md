@@ -58,12 +58,28 @@ e precisa de mitigação real**. Registrar a herança é o oposto de fingir cobe
 E o modelo de ameaças é escrito por gente. Nenhum fiscal descobre a ameaça que ninguém pensou —
 o que ele garante é que a pensada não fica sem tratamento, sem residual e sem dono.
 
+## O que pode ser ameaçado (CP-019)
+
+Uma ameaça aponta para um componente, interface ou superfície do sistema governado — **ou para uma
+etapa do harness** (`STAGE-*`), quando o ameaçado é a própria máquina de governar.
+
+A segunda namespace não é conveniência. Sem ela, uma ameaça ao harness só passava no fiscal
+apontando para um `CMP-*` arbitrário que por acaso existisse: era o caso de
+`THREAT-HARNESS-ELEVATION`, cujas mitigações são a política de higiene de ambiente, o hook de bash
+e um gate da suíte — nada disso pertencendo ao componente que ela declarava ameaçar. **Conformidade
+por vacuidade dentro do fiscal que existe para impedi-la**, e ela passava verde sem que ninguém
+tivesse errado nada de propósito.
+
+O defeito só ficou visível num derivado, onde o conjunto de componentes esvazia e não sobra nome
+arbitrário para apontar. Vale como lembrete do que a genericidade compra: o molde não expõe esta
+classe de erro porque nele qualquer alvo resolve.
+
 ---
 
 Fiscalizado por: `ci/validate_metadata.py::check_threat_model` (alvo e residual resolvem;
 mitigação `local_path` existe); `ci/validate_metadata.py::check_dependency_inventory` (declarada
 ⇔ inventariada, nos dois sentidos); `harness/schemas/threat-model.schema.json` (mitigação com
-`minItems: 1`; `residual_risk` obrigatório; STRIDE fechado);
+`minItems: 1`; `residual_risk` obrigatório; STRIDE fechado; alvo em `CMP|IFC|UI|STAGE`);
 `harness/schemas/dependencies.schema.json`; `.github/workflows/governance.yml`.
 Declarado em: `security/threat-model.yaml`, `security/dependencies.yaml`,
 `architecture/adr/index.yaml`, `harness/stages.yaml`.

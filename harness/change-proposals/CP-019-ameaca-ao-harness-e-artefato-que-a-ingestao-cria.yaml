@@ -1,0 +1,85 @@
+# Mudança proposta: a ameaça ao harness passa a ter alvo verdadeiro, e o artefato que a ingestão
+# ainda vai criar deixa de ser tratado como artefato perdido.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-019
+  title: "Ameaça pode ter o harness como alvo; artefato de etapa pode estar pendente enquanto o derivado incuba"
+  author_kind: agent
+  created_at: "2026-08-05T08:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-SEC-001
+      - RISK-STAGE-001
+      - RISK-META-001
+    rationale: >
+      Dois achados medidos no derivado depois do CP-000 e do CP-001, e o primeiro é pior do que
+      parecia: ele não quebrou na adoção, ele já estava quebrado aqui.
+
+      A. AMEAÇA AO HARNESS SEM ALVO POSSÍVEL. check_threat_model exige que target resolva em
+      components, interfaces ou ui-surfaces, e o schema fecha o pattern em ^(CMP|IFC|UI)-. Num
+      derivado pré-ingestão as três coleções estão vazias, então toda ameaça fica sem alvo
+      declarável — e THREAT-HARNESS-ELEVATION não pode simplesmente sair, porque é uma ameaça
+      real: agente que consegue exportar variável de ambiente se autoriza a sondar.
+
+      O que a medição expôs, porém, é maior. Neste molde essa ameaça declara target CMP-PRICING,
+      e suas três mitigações são harness/policies/env-hygiene.md, ci/hooks/pre_bash_env_hygiene.py
+      e o gate require_discovery da suíte. Nenhuma delas pertence à precificação. A trava está
+      satisfeita porque aponta para um componente ARBITRÁRIO que por acaso existe — é conformidade
+      por vacuidade dentro do fiscal que existe para impedir vacuidade, e ela passa verde há
+      quantas versões existirem. O derivado não introduziu o defeito; ele o tornou visível ao
+      esvaziar o conjunto de componentes onde qualquer nome servia.
+
+      A correção não é afrouxar o alvo, é dar um alvo VERDADEIRO. O harness já é declarado, em
+      harness/stages.yaml, com IDs estáveis que existem em molde e derivado por igual. target
+      passa a aceitar também STAGE-*, resolvido contra as etapas declaradas, e
+      THREAT-HARNESS-ELEVATION passa a apontar para STAGE-CI-HARNESS — que é o que ela de fato
+      ameaça. Nenhum metadado novo: a segunda namespace já existe e já é fiscalizada.
+
+      B. ARTEFATO QUE A INGESTÃO AINDA VAI CRIAR. STAGE-RULES declara o artefato business/rules,
+      e o CP-000 remove os arquivos de regra do exemplo. Diretório sem arquivo não é versionado,
+      então o artefato para de casar e vira achado — no derivado inteiro, para sempre, até que a
+      ingestão escreva a primeira regra.
+
+      É o mesmo estado que o CP-017 tornou exprimível para capabilities, components, interfaces e
+      backlog, aparecendo uma camada acima. A resposta é a mesma, e ser a mesma é o ponto:
+      artefato de etapa que não casa arquivo é aceitável enquanto kind:derived e
+      lifecycle:incubating, e volta a ser achado em qualquer outro estado. O sinal é o mesmo ato
+      declarado — promover o lifecycle — e não uma segunda regra com vida própria.
+
+      C. LACUNA ADJACENTE, AGORA FECHADA. business/rules não é output de fase alguma em
+      ingest.yaml, embora o nome de ING-04-NEGOCIO diga "capacidades, regras e requisitos".
+      Registrei isso no CP-019 anterior a este — CP-017 — como coisa a não descobrir por surpresa.
+      Aqui ela é declarada: ING-04 passa a listar business/rules entre seus outputs, e o pipeline
+      volta a dizer a verdade sobre o que produz.
+
+      Risco 'high' pela parte B, que RETIRA uma verificação num estado. O modo de falha a temer é
+      um derivado que perde um diretório inteiro de artefatos — governance/, security/, docs/ — e
+      não descobre enquanto incuba, porque a mesma permissão que cobre "a ingestão ainda não
+      escreveu as regras" cobre também "alguém apagou a governança". A permissão é ampla de
+      propósito, porque restringi-la exigiria saber quais artefatos a ingestão cria, e ingest.yaml
+      só declara isso para parte deles. O contrapeso é o teste negativo: promovido o lifecycle,
+      artefato ausente reprova de novo.
+
+      A parte A não retira nada. Ela acrescenta uma namespace de alvo e corrige uma declaração
+      que estava errada — o teste de mordida cobra que ameaça com alvo inexistente continue
+      reprovando, em ambas as namespaces.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_seguranca_bites.py
+    - tests/governance/test_ingestao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
