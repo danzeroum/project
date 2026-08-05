@@ -931,6 +931,95 @@ def check_derived_vs_source(findings: Findings) -> None:
             )
 
 
+def check_external_attestation(harness_doc: dict, risk_doc: dict, findings: Findings) -> None:
+    """A camada externa da trava: ligada e válida, ou desligada e VISÍVEL (CP-024).
+
+    Os dois estados são legítimos; o que não é legítimo é o silêncio. Com `enabled: false`, este
+    fiscal emite um achado informativo a cada execução, citando o risco datado — a lacuna fica
+    barulhenta em vez de sumir. Com `enabled: true`, o atestado passa a ser exigido: ausente,
+    expirado ou de emissor não declarado bloqueia.
+
+    O achado de "desligado" é `info` de propósito. Bloquear aqui seria inverter a decisão da CP-024
+    — que reconhece a ausência da autoridade externa como risco ACEITO com data, não como
+    divergência a corrigir hoje. Elevá-lo a bloqueante tornaria o repositório vermelho por uma
+    condição que ninguém neste repositório consegue satisfazer, e vermelho permanente é como um
+    fiscal é ignorado.
+    """
+    import verify_protection as vp
+    from datetime import datetime, timezone
+
+    externo = vp.estado_da_auditoria_externa(harness_doc)
+    riscos = {r.get("id"): r for r in (risk_doc or {}).get("risks", [])}
+    risco_id = externo.get("accepted_risk")
+
+    if not externo.get("enabled"):
+        risco = riscos.get(risco_id)
+        if not risco:
+            findings.add(
+                key="EXT-AUDIT-RISCO-AUSENTE", origin="external_audit", severity="high",
+                risk="RISK-META-002", location=HARNESS_YAML,
+                summary=f"A auditoria externa está desligada e o risco aceito declarado "
+                        f"({risco_id!r}) não existe no registro — desligar a camada externa "
+                        f"precisa custar um risco datado a alguém.",
+            )
+            return
+        if not risco.get("due"):
+            findings.add(
+                key="EXT-AUDIT-RISCO-SEM-DATA", origin="external_audit", severity="high",
+                risk=risco_id, location=RISK_REGISTER,
+                summary=f"{risco_id} cobre a ausência da autoridade externa e não tem `due` — "
+                        f"risco aceito sem data é risco esquecido (princípio (g)).",
+            )
+            return
+        findings.add(
+            key="EXT-AUDIT-DESLIGADA", origin="external_audit", severity="info",
+            risk=risco_id, location=HARNESS_YAML,
+            summary=f"Autoridade externa desligada: a verificação de proteção mora no mesmo "
+                    f"repositório que fiscaliza, e um PR privilegiado remove o passo e a asserção "
+                    f"juntos. Risco aceito até {risco.get('due')}.",
+            evidence=externo.get("justification", "").strip()[:300],
+        )
+        return
+
+    # Ligada: o atestado passa a ser exigido, e ausente vale o mesmo que expirado.
+    caminho = externo.get("attestation_path", "")
+    if not hl.rel_exists(caminho):
+        findings.add(
+            key="EXT-AUDIT-SEM-ATESTADO", origin="external_audit", severity="critical",
+            risk="RISK-META-002", location=caminho,
+            summary=f"A auditoria externa está LIGADA e não há atestado em '{caminho}' — "
+                    f"ausência de atestado bloqueia release e merge em caminho protegido.",
+        )
+        return
+    try:
+        doc = hl.read_json(caminho)
+    except HarnessError as exc:
+        findings.add(
+            key="EXT-AUDIT-ATESTADO-ILEGIVEL", origin="external_audit", severity="critical",
+            risk="RISK-META-002", location=caminho, summary=str(exc),
+        )
+        return
+    for msg in hl.schema_errors(caminho, "protection-attestation.schema.json", doc):
+        findings.add(
+            key="EXT-AUDIT-ATESTADO-INVALIDO", origin="external_audit", severity="critical",
+            risk="RISK-META-002", location=caminho, summary=msg,
+        )
+        return
+    expira = (doc.get("attestation") or {}).get("expires_at")
+    try:
+        quando = datetime.fromisoformat(str(expira).replace("Z", "+00:00"))
+    except ValueError:
+        quando = None
+    if quando and quando < datetime.now(timezone.utc):
+        findings.add(
+            key="EXT-AUDIT-ATESTADO-EXPIRADO", origin="external_audit", severity="critical",
+            risk="RISK-META-002", location=caminho,
+            summary=f"Atestado de proteção expirou em {expira} — atestado sem validade seria "
+                    f"carimbo eterno sobre configuração que pode ter mudado; expirado bloqueia "
+                    f"do mesmo modo que ausente.",
+        )
+
+
 def check_risk_control_coverage(risk_doc: dict, findings: Findings) -> None:
     """Todo risco tem ao menos um controle verificável localmente.
 
@@ -1028,6 +1117,7 @@ def main(argv: list[str] | None = None) -> int:
     check_maturity_gates(findings, errors)
     check_derived_vs_source(findings)
     check_decision_chain(risk_doc, adr_index, findings, errors)
+    check_external_attestation(harness_doc, risk_doc, findings)
     check_risk_control_coverage(risk_doc, findings)
     check_protected_paths(harness_doc, findings)
     check_owners_assigned(risk_doc, project_doc, findings)

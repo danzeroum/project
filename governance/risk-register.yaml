@@ -407,4 +407,28 @@ risks:
       - kind: local_path
         ref: architecture/adr/ADR-017-parecer-sem-consumo-nao-fecha.md
 
+  - id: RISK-EXT-001
+    area: access
+    description: "Sem autoridade externa, a verificação de proteção mora no repositório fiscalizado: um PR privilegiado remove o passo e a asserção que o vigia no mesmo commit."
+    likelihood: low
+    impact: high
+    treatment: accept
+    owner: security_owner
+    status: open
+    # Risco aceito TEM DATA (princípio (g) do plano). Em 03/11/2026: ou a identidade emissora foi
+    # viabilizada e external_audit.enabled vira true, ou o risco é RE-ACEITO com data nova. Risco
+    # aceito sem data é risco esquecido, e esta é a linha que impede o esquecimento.
+    due: "2026-11-03"
+    controls:
+      - kind: local_path
+        ref: ci/verify_protection.py
+      - kind: local_path
+        ref: harness/schemas/protection-attestation.schema.json
+      - kind: local_path
+        ref: harness/policies/trava-externa.md
+      - kind: local_path
+        ref: architecture/adr/ADR-020-camada-local-nao-equivale-a-externa.md
+      - kind: branch_protection
+        ref: "main:require_pull_request_reviews"
+
 risk_exemptions: []

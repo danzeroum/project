@@ -26,6 +26,27 @@ repository:
     - CLAUDE.md
     - .claude/
 
+# CP-024 — a camada externa da trava, DECLARADA mesmo enquanto desligada.
+#
+# A camada local (ci/verify_protection.py, aplicada pelo governance.yml) confere que a proteção da
+# branch está ligada e que todo protected_path tem dono. Ela é necessária e NÃO É SUFICIENTE: mora
+# no mesmo repositório que fiscaliza, então um PR com privilégio suficiente remove o passo e a
+# asserção que o vigia no mesmo commit — o CI fica verde porque a trava saiu junto com quem
+# reclamaria dela.
+#
+# Só um ruleset administrado FORA daqui quebra essa circularidade. Enquanto ele não existir,
+# `enabled: false` faz o estado aparecer a cada execução em vez de sumir. A alternativa — não ter
+# nada — deixaria a lacuna sem lugar onde aparecer.
+external_audit:
+  enabled: false
+  accepted_risk: RISK-EXT-001   # risco aceito COM DATA (princípio (g)); `due` mora no registro
+  attestation_path: harness/state/protection-attestation.json
+  justification: >
+    Não há, hoje, identidade emissora com ruleset administrado fora deste repositório. Ligar a
+    flag sem essa raiz administrativa produziria uma autoridade decorativa: quem pode mudar o
+    workflow mudaria a exigência junto, e o atestado passaria a certificar a si mesmo. Ligar
+    exige apontar o emissor e o ruleset — não escrever código novo, que já está aqui.
+
 # Política de decisão da harness. default: deny — sem reconhecer projeto/capacidade/risco/modo,
 # não age. missing_metadata para e pede contexto em vez de inferir.
 decision_policy:

@@ -11,7 +11,8 @@
     "env_hygiene",
     "paths",
     "repository",
-    "decision_policy"
+    "decision_policy",
+    "external_audit"
   ],
   "additionalProperties": false,
   "properties": {
@@ -207,6 +208,35 @@
         },
         "requires_human_approval": {
           "type": "boolean"
+        }
+      }
+    },
+    "external_audit": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "accepted_risk",
+        "attestation_path",
+        "justification"
+      ],
+      "additionalProperties": false,
+      "description": "Camada externa da trava. DECLARADA mesmo desligada: sem este bloco, 'nao ha autoridade externa' seria um estado sem lugar onde aparecer, e uma lacuna que nao aparece nao e revisada.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "accepted_risk": {
+          "type": "string",
+          "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$",
+          "description": "Enquanto enabled e false, o risco aceito COM DATA que cobre a janela. Sem este elo, desligar a camada externa nao custaria nada a ninguem."
+        },
+        "attestation_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "justification": {
+          "type": "string",
+          "minLength": 80
         }
       }
     }

@@ -939,3 +939,64 @@ adrs:
           ausência viável (A1-A3), mais o registro escrito desta decisão — que existe para que
           "automatizar a cascata", já proposto e rejeitado duas vezes por caminhos diferentes
           (R-01, R-03), não seja proposto uma terceira sem enfrentar o motivo.
+
+  - id: ADR-020
+    title: "A camada local não equivale à externa"
+    status: accepted
+    file: architecture/adr/ADR-020-camada-local-nao-equivale-a-externa.md
+    related_risks: [RISK-META-002, RISK-EXT-001]
+    assertions:
+      - id: ADR-020-A1
+        kind: path_present
+        severity: critical
+        risk: RISK-META-002
+        description: "A camada local existe como código, e o atestado da externa tem schema pronto."
+        paths:
+          - ci/verify_protection.py
+          - harness/schemas/protection-attestation.schema.json
+      - id: ADR-020-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "O passo que verifica a proteção continua no workflow — removê-lo é o gesto exato de quem quer desligar a trava."
+        files: [".github/workflows/governance.yml"]
+        pattern: "python ci/verify_protection\\.py"
+      - id: ADR-020-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-EXT-001
+        description: "Desligar a auditoria externa continua exigindo um risco aceito declarado — sem esse elo, desligá-la não custaria nada a ninguém."
+        file: harness/schemas/harness.schema.json
+        pointer: /properties/external_audit/required
+        contains: accepted_risk
+      - id: ADR-020-A4
+        kind: schema_lock
+        severity: high
+        risk: RISK-EXT-001
+        description: "O bloco external_audit segue obrigatório na harness: sem ele, 'não há autoridade externa' seria um estado sem lugar onde aparecer."
+        file: harness/schemas/harness.schema.json
+        pointer: /required
+        contains: external_audit
+      - id: ADR-020-A5
+        kind: schema_lock
+        severity: high
+        risk: RISK-META-002
+        description: "O atestado continua exigindo emissor: atestado anônimo é indistinguível de atestado forjado, e quem mais teria motivo para forjá-lo é o próprio fiscalizado."
+        file: harness/schemas/protection-attestation.schema.json
+        pointer: /properties/attestation/required
+        contains: issuer
+      - id: ADR-020-A6
+        kind: schema_lock
+        severity: high
+        risk: RISK-META-002
+        description: "O atestado continua expirando: sem validade, ele seria carimbo eterno sobre configuração que pode ter mudado dez minutos depois."
+        file: harness/schemas/protection-attestation.schema.json
+        pointer: /properties/attestation/required
+        contains: expires_at
+      - id: ADR-020-A7
+        kind: file_matches
+        severity: high
+        risk: RISK-META-002
+        description: "A indeterminação continua tendo código próprio: 'não consegui perguntar' e 'a proteção está desligada' pedem reações opostas."
+        files: ["ci/verify_protection.py"]
+        pattern: "EXIT_UNVERIFIABLE = 3"
