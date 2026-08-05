@@ -1,0 +1,78 @@
+# Mudança proposta: change-proposal é registro do que foi decidido, não descrição do que existe.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-018
+  title: "Change-proposal deixa de ter IDs resolvidos contra o presente; a casca para de propagá-las"
+  author_kind: agent
+  created_at: "2026-08-05T06:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-CHANGE-001
+      - RISK-META-001
+    rationale: >
+      Medido ao executar o CP-000 num derivado real: fecharam 11 achados e abriram 30, dos quais
+      18 são change-proposals cujos capabilities_affected e components_affected apontam para IDs
+      que a própria execução removeu. Entre elas, o CP-000 — que se invalida ao ser cumprido.
+
+      Uma proposta que passa a reprovar por ter sido executada não é um registro com defeito; é um
+      fiscal fazendo a pergunta errada. check_change_proposals resolve os IDs contra o metadado de
+      HOJE, e uma change-proposal fala do dia em que foi escrita. As duas coisas divergem por
+      construção, e divergem exatamente quando a proposta funciona — o caso em que o repositório
+      deveria estar mais tranquilo, não menos.
+
+      É a mesma família dos CP-013, CP-015, CP-016 e CP-017, todos já mergeados: regra escrita
+      olhando para o molde, onde o metadado de exemplo nunca sai e portanto todo ID citado no
+      passado continua existindo. Num derivado, remover o exemplo é o primeiro ato — e a regra
+      quebra na primeira vez que alguém a usa para o que ela existe.
+
+      DUAS PARTES.
+
+      1. FISCAL. check_change_proposals para de resolver capabilities_affected,
+         components_affected e risk_assessment.risks contra o presente. O que ela continua
+         cobrando é o que não envelhece: o schema da proposta, os invariantes de cabeçalho e a
+         forma dos IDs — que o próprio schema já trava por pattern.
+
+      2. CASCA. O /adotar deixa de copiar harness/change-proposals/ para o derivado, salvo o
+         README e o EXAMPLE. As propostas do molde registram decisões tomadas NO MOLDE; num
+         derivado elas são história de outro repositório, e o derivado passa a ser dono da própria
+         numeração a partir do CP-000 que o /adotar cria. A lista de exclusões já existe no passo
+         3 do comando — esta é mais uma linha nela, não um mecanismo novo.
+
+      A TROCA DE GUARDA, QUE É PARTE DA DECISÃO E NÃO EFEITO COLATERAL. Hoje o fiscal pega, no
+      momento em que a proposta é escrita, um ID de capacidade ou componente digitado errado. Com
+      esta mudança ele para de pegar, e quem passa a pegar é a revisão humana do pull request —
+      que é onde a proposta é lida de qualquer forma, por alguém que precisa entender o que ela
+      afeta para aprová-la. Não é uma trava perdida em silêncio: é uma trava movida, de propósito,
+      para a única camada que consegue distinguir "ID errado" de "ID que existia quando isto foi
+      escrito". Dizer isso em voz alta é o que impede que, daqui a seis meses, alguém leia a
+      ausência da checagem como esquecimento e a reintroduza.
+
+      O QUE NÃO MUDA, E É O PONTO. A isenção vale SÓ para change-proposal. Metadado vivo —
+      capabilities, components, ADRs, threat-model, backlog, ui-surfaces — continua com resolução
+      de ID cobrada, porque ele descreve o que É, não o que foi decidido. Um ADR que aponta para
+      um componente inexistente segue sendo achado, e o teste de mordida desta proposta existe
+      justamente para provar que a isenção não vazou para além das propostas.
+
+      Risco 'high' porque remove uma checagem. O modo de falha a temer não é o de hoje — é uma
+      isenção escrita larga demais, que apague a resolução de ID de todo o metadado e deixe o
+      repositório inteiro aceitar referência pendurada em silêncio.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_derivacao_bites.py
+    - tests/governance/test_conformance_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
