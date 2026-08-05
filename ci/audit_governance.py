@@ -1033,6 +1033,27 @@ def check_external_attestation(harness_doc: dict, risk_doc: dict, findings: Find
             risk="RISK-META-002", location=caminho, summary=msg,
         )
         return
+    # EMISSOR. Achado PRÓPRIO, e sem `return`: um atestado pode estar expirado E ter sido escrito
+    # por quem não devia, e são dois problemas com duas reações. "Não consegui verificar", "isto
+    # envelheceu" e "alguém escreveu isto à mão" nunca compartilham código de saída nesta casa —
+    # colapsá-los economizaria linhas e destruiria a informação que diz para onde olhar.
+    autorizado = externo.get("authorized_issuer") or {}
+    emissor = (doc.get("attestation") or {}).get("issuer") or {}
+    if autorizado and (emissor.get("identity") != autorizado.get("identity")
+                       or emissor.get("kind") != autorizado.get("kind")):
+        findings.add(
+            key="EXT-AUDIT-EMISSOR-NAO-AUTORIZADO", origin="external_audit", severity="critical",
+            risk="RISK-META-002", location=caminho,
+            summary=f"O atestado declara ter sido emitido por "
+                    f"{emissor.get('identity')!r} ({emissor.get('kind')}) e a autoridade declarada "
+                    f"é {autorizado.get('identity')!r} ({autorizado.get('kind')}). Atestado de "
+                    f"emissor não declarado é indistinguível de atestado escrito à mão por quem "
+                    f"tem direito de merge — que é exatamente quem teria motivo para escrevê-lo.",
+            remediation="Conferir se o atestado veio da autoridade externa declarada em "
+                        "harness.yaml:external_audit.authorized_issuer. Se a autoridade mudou, a "
+                        "mudança é decisão declarada, não ajuste de campo.",
+        )
+
     expira = (doc.get("attestation") or {}).get("expires_at")
     try:
         quando = datetime.fromisoformat(str(expira).replace("Z", "+00:00"))

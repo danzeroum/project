@@ -1464,3 +1464,58 @@ adrs:
         description: "A recusa de auto-aprovação (Fraude 3) continua no código. É a asserção que mais importa: quando doze propostas `approved` parecerem trabalho inacabado, a tentação não será conseguir o revisor que falta — será apagar a checagem que o exige."
         files: ["ci/verify_approval.py"]
         pattern: "é o autor do PR"
+
+  - id: ADR-028
+    title: "A autoridade externa está ligada, e o emissor é conferido"
+    status: accepted
+    file: architecture/adr/ADR-028-a-autoridade-externa-ligada.md
+    related_risks: [RISK-EXT-001, RISK-META-002]
+    assertions:
+      - id: ADR-028-A1
+        kind: path_present
+        severity: high
+        risk: RISK-EXT-001
+        description: "A decisão de ligar a camada externa existe como ADR — inclusive o que ela deliberadamente NÃO faz (tornar o check obrigatório no ruleset da main), para que a lacuna restante não seja confundida com esquecimento."
+        paths:
+          - architecture/adr/ADR-028-a-autoridade-externa-ligada.md
+      - id: ADR-028-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-EXT-001
+        description: "A camada externa está LIGADA. A mutação canônica não apaga a linha — apagá-la produziria erro de schema, que é outro estado com outra reação. Ela escreve `false`, que é o gesto real de quem desliga a autoridade e permanece válido perante o schema."
+        files: ["harness/harness.yaml"]
+        pattern: '^external_audit:$(?:(?!\n[a-z_]+:)[\s\S])*?\n  enabled: true$'
+        mutation:
+          op: substituir_texto
+          alvo: harness/harness.yaml
+          de: "\n  enabled: true"
+          para: "\n  enabled: false"
+      - id: ADR-028-A3
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-002
+        description: "Ligada EXIGE emissor declarado. A combinação 'exijo atestado e aceito qualquer um' é pior que a camada desligada — desligada a lacuna está escrita e datada; ligada-sem-emissor ela fica escondida atrás de um JSON que quem tem direito de merge escreve à mão. O schema a torna inexpressável em vez de proibida."
+        file: harness/schemas/harness.schema.json
+        pointer: /properties/external_audit/allOf/0/then/required
+        contains: authorized_issuer
+      - id: ADR-028-A4
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "A comparação de emissor continua no fiscal, e compara IDENTIDADE contra a autoridade declarada. Sem ela, o atestado certificaria a si mesmo: qualquer arquivo com a forma certa passaria, e quem teria motivo para escrevê-lo é exatamente quem tem direito de merge."
+        files: ["ci/audit_governance.py"]
+        pattern: 'emissor\.get\("identity"\) != autorizado\.get\("identity"\)'
+      - id: ADR-028-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-002
+        description: "O achado de emissor é PRÓPRIO e não colapsa com os outros dois (princípio (h)): ausente é 'o verificador não entregou', expirado é 'ele entregou e envelheceu', emissor errado é 'alguém escreveu isto à mão'. Os dois primeiros são falha de operação; o terceiro é uma acusação, e um EXT-AUDIT-INVALIDO genérico destruiria a informação que diz qual investigar."
+        files: ["ci/audit_governance.py"]
+        pattern: "EXT-AUDIT-EMISSOR-NAO-AUTORIZADO"
+      - id: ADR-028-A6
+        kind: path_present
+        severity: critical
+        risk: RISK-EXT-001
+        description: "Com a camada ligada, o atestado está na árvore. Removê-lo não deixa o repositório em silêncio — deixa em vermelho, porque ausente vale o mesmo que expirado: é o preço declarado de depender de um cron que este repositório não controla."
+        paths:
+          - harness/state/protection-attestation.json

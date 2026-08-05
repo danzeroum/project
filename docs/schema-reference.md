@@ -393,6 +393,9 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `external_audit.accepted_risk` | string | sim | Enquanto enabled e false, o risco aceito COM DATA que cobre a janela. Sem este elo, desligar a camada externa nao custaria nada a ninguem. |
 | `external_audit.attestation_path` | string | sim |  |
 | `external_audit.justification` | string | sim |  |
+| `external_audit.authorized_issuer` | object | — | QUEM pode atestar. Sem este bloco, `issuer` no atestado seria um campo exigido pelo schema e conferido por ninguém — 'alguém atestou' passando por 'quem devia atestou'. Quem tem direito de merge escreveria o JSON à mão e o molde aceitaria. |
+| `external_audit.authorized_issuer.identity` | string | sim |  |
+| `external_audit.authorized_issuer.kind` | enum(github_app · oidc_workload · external_service) | sim |  |
 
 ## `ingest-pipeline.schema.json`
 

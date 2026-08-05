@@ -169,6 +169,17 @@ def aplicar(mut: dict, raiz: Path) -> dict[str, bytes | None]:
         # mais", e um padrão que aparece cinco vezes continua aparecendo depois de apagar uma.
         alvo.write_text(re.sub(mut["pattern"], f"# {_MARCA}", texto, flags=re.MULTILINE),
                         encoding="utf-8")
+    elif mut["op"] == "substituir_texto":
+        # O inverso de uma DECISÃO BINÁRIA declarada não é apagar a linha — é declarar o contrário.
+        # `enabled: true` sem a chave é erro de schema, um terceiro estado com outra reação; quem
+        # desliga a autoridade escreve `false` e continua válido perante o schema. Mutar para o
+        # estado que não é erro é o que prova que a asserção pega o gesto real, e não só o
+        # desleixo. Sem `de` no arquivo a mutação seria um no-op silencioso — o chamador vê
+        # `antes` vazio? Não: o arquivo existe, então devolvemos o original e o passo seguinte
+        # (a asserção continuar verde) acusa. Por isso a substituição é conferida aqui.
+        if mut["de"] not in texto:
+            return antes
+        alvo.write_text(texto.replace(mut["de"], mut["para"]), encoding="utf-8")
     elif mut["op"] == "injetar_apos":
         # Injeta DENTRO do escopo do marcador. As asserções de pureza (verify_chain,
         # verify_approval) usam padrão temperado, que só casa entre a assinatura e o próximo
