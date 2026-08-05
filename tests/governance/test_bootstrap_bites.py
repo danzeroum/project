@@ -189,3 +189,52 @@ def test_sem_dependencias_fora_de_summary_sai_2(repo_copy):
     """E nunca 0: um validador que passa por não ter conseguido rodar desliga tudo de uma vez."""
     proc = _validate_all_sem_dependencias(repo_copy, [])
     assert proc.returncode == 2, (proc.returncode, proc.stdout, proc.stderr)
+
+
+# --------------------------------------------------------------------------------------
+# CP-016: no CI, materializar e validar são passos SEPARADOS
+# --------------------------------------------------------------------------------------
+
+def _quebra_o_metadado(root: Path) -> None:
+    """Uma divergência qualquer, para distinguir 'o mundo falhou' de 'o repositório divergiu'."""
+    p = root / "business/capabilities.yaml"
+    doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+    doc["capabilities"][0]["source_paths"] = ["src/inexistente.py"]
+    p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
+def test_only_workspace_nao_roda_os_fiscais(repo_copy, run_bootstrap, alvo_sintetico):
+    """A separação que o CP-016 existe para criar, e o teste que mais importa aqui.
+
+    Se --only-workspace rodasse os fiscais, um repositório com divergência de metadado sairia
+    vermelho no passo de MATERIALIZAÇÃO — e o CI passaria a dizer "o clone falhou" quando o que
+    falhou foi a governança. Colapsar os dois ensina a ler vermelho de governança como problema
+    de rede, e o gate fica desligado por hábito, sem ninguém ter decidido desligá-lo.
+    """
+    alvo, sha = alvo_sintetico
+    host = _vira_derivado(repo_copy, alvo, sha)
+    _quebra_o_metadado(repo_copy)
+    code, laudo = run_bootstrap(repo_copy, ["--only-workspace"], host=host)
+    assert code == 0, laudo
+    assert laudo["etapas"]["workspace"]["acao"] == "materializado", laudo
+
+
+def test_only_workspace_no_molde_sai_limpo(repo_copy, run_bootstrap):
+    """No molde target_sha é null: o passo tem de sair 0 e dizer que não se aplica — nem falhar,
+    nem virar no-op mudo, que é onde a próxima regressão se esconde."""
+    code, laudo = run_bootstrap(repo_copy, ["--only-workspace"])
+    assert code == 0, laudo
+    assert laudo["etapas"]["workspace"]["acao"] == "nao-aplicavel", laudo
+
+
+def test_bootstrap_completo_ainda_reprova_divergencia(repo_copy, run_bootstrap, alvo_sintetico):
+    """O contrapeso: a separação é escolha do CI, não afrouxamento embutido.
+
+    Sem a flag, o bootstrap continua validando e continua reprovando — sem isto, --only-workspace
+    seria uma porta para nunca rodar fiscal algum.
+    """
+    alvo, sha = alvo_sintetico
+    host = _vira_derivado(repo_copy, alvo, sha)
+    _quebra_o_metadado(repo_copy)
+    code, _ = run_bootstrap(repo_copy, host=host)
+    assert code == 1

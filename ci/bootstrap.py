@@ -190,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check-drift", action="store_true",
                         help="só compara target.lock com o remoto; não materializa nem valida")
     parser.add_argument("--skip-deps", action="store_true", help="não instala dependências")
+    parser.add_argument("--only-workspace", action="store_true",
+                        help="materializa o alvo e PARA — não roda os fiscais (CP-016)")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
@@ -233,6 +235,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check_drift:  # molde: nada a comparar
         estado["resultado"] = "ok"
+        emit(estado, args.quiet)
+        return 0
+
+    if args.only_workspace:
+        # CP-016: no CI, materializar e validar são passos SEPARADOS, e é o ponto da separação.
+        # Um clone que falha por rede, credencial ausente ou SHA sumido por force-push é estado do
+        # MUNDO; uma divergência de metadado é estado do REPOSITÓRIO. Colapsar os dois num único
+        # vermelho ensina a ler "governança falhou" como "provavelmente foi a rede" — e a partir
+        # daí o gate está desligado por hábito, sem ninguém ter decidido desligá-lo. Aqui saímos
+        # antes de validate(), e quem reprova divergência é o passo seguinte do workflow.
+        estado["resultado"] = "ok"
+        estado["proximo_passo"] = "python ci/validate_all.py"
         emit(estado, args.quiet)
         return 0
 
