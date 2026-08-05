@@ -676,3 +676,65 @@ adrs:
         description: "orient.py não reprova: um orientador que também fiscaliza vira o oitavo fiscal, sem política e sem teste de mordida."
         files: ["ci/orient.py"]
         pattern: "^\\s*return 1\\b"
+
+  - id: ADR-015
+    title: "O molde é consumido por versão, como a régua"
+    status: accepted
+    file: architecture/adr/ADR-015-molde-consumido-por-versao.md
+    related_risks: [RISK-MOLD-001, RISK-DERIV-001]
+    assertions:
+      - id: ADR-015-A1
+        kind: path_present
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "As peças da ancoragem existem como código e workflow, não como intenção."
+        paths:
+          - ci/mold_release.py
+          - .github/workflows/release.yml
+          - harness/schemas/release-manifest.schema.json
+          - harness/releases
+      - id: ADR-015-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-DERIV-001
+        description: "A trava nos dois sentidos continua no schema: derivado EXIGE mold_release."
+        file: harness/schemas/target-lock.schema.json
+        pointer: /allOf/1/then/required
+        contains: mold_release
+      - id: ADR-015-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-MOLD-001
+        description: "manifest_sha segue obrigatório: sem o hash, a âncora cita uma tag móvel e nada mais."
+        file: harness/schemas/target-lock.schema.json
+        pointer: /properties/mold_release/required
+        contains: manifest_sha
+      - id: ADR-015-A4
+        kind: schema_lock
+        severity: high
+        risk: RISK-MOLD-001
+        description: "O manifesto só representa validação 'pass' — a categoria 'release com validação vermelha' continua inexistente."
+        file: harness/schemas/release-manifest.schema.json
+        pointer: /properties/release/properties/validation/properties/result/enum
+        contains: pass
+      - id: ADR-015-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "A release continua validando ANTES de publicar: o passo de validação total segue no workflow de release."
+        files: [".github/workflows/release.yml"]
+        pattern: "run:\\s*python ci/validate_all\\.py"
+      - id: ADR-015-A6
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "A verificação da cadeia continua sendo passo do workflow — publicar sem verificar seria tag sem raiz de confiança."
+        files: [".github/workflows/release.yml"]
+        pattern: "ci/mold_release\\.py --verify-tag"
+      - id: ADR-015-A7
+        kind: file_lacks
+        severity: high
+        risk: RISK-MOLD-001
+        description: "verify_chain continua sem I/O: nenhuma chamada de rede, git ou disco dentro da função pura que decide se a cadeia é íntegra. O padrão é temperado — só percorre da assinatura até o próximo 'def' de topo, senão acusaria o I/O legítimo da camada de CLI."
+        files: ["ci/mold_release.py"]
+        pattern: "def verify_chain\\((?:(?!\\ndef )[\\s\\S])*?(?:subprocess\\.|urlopen|requests\\.|\\bopen\\()"

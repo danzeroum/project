@@ -365,4 +365,26 @@ risks:
 
 # Ativos que deliberadamente não precisam de risco associado. Isenção que não casa ativo algum é
 # ela própria um achado — sem isso a lista viraria o lugar onde a cobertura é fingida com uma linha.
+  - id: RISK-MOLD-001
+    area: governance
+    description: "Derivado consome o molde sem versão ancorada, ou ancora numa tag que foi movida depois."
+    likelihood: medium
+    impact: high
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/mold_release.py
+      - kind: local_path
+        ref: .github/workflows/release.yml
+      - kind: local_path
+        ref: harness/schemas/release-manifest.schema.json
+      - kind: local_path
+        ref: harness/policies/ancoragem-do-molde.md
+      - kind: local_path
+        ref: architecture/adr/ADR-015-molde-consumido-por-versao.md
+      - kind: branch_protection
+        ref: "refs/tags/v*:disallow_force_update"
+
 risk_exemptions: []

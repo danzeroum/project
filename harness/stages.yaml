@@ -183,7 +183,14 @@ stages:
       - "harness/runs"
       - "harness/reports"
       - "harness/state"
+      - "harness/releases"
     enforced_by:
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_mold_release
+      - kind: ci_script
+        ref: ci/validate_metadata.py
+        symbol: check_release_manifests
       - kind: ci_script
         ref: ci/validate_metadata.py
         symbol: check_risk_controls

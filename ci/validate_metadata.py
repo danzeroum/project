@@ -140,6 +140,60 @@ def check_target_lock(project_doc: dict | None, lock_doc: dict | None) -> None:
             "um molde ancorado num alvo específico deixou de ser genérico")
 
 
+RELEASES_DIR = "harness/releases"
+
+
+def check_release_manifests() -> None:
+    """Todo manifesto de release é válido e o nome do arquivo deriva da tag que ele declara.
+
+    A igualdade nome↔tag é o que impede duas releases de compartilharem arquivo — e a segunda
+    venceria em silêncio, que é a forma de falha mais cara possível numa raiz de confiança. O
+    resto da cadeia (tag → commit, manifesto na árvore, o commit de release não muda mais nada)
+    exige git ou rede e por isso vive em ci/mold_release.py::verify_chain: um fiscal que faz I/O
+    confunde "a cadeia quebrou" com "não consegui olhar", e as duas conclusões pedem reações
+    opostas (princípio (h)).
+    """
+    import mold_release
+
+    releases = REPO / RELEASES_DIR
+    if not releases.exists():
+        return
+    for path in sorted(releases.glob("*.manifest.json")):
+        rel = hl.rel(path)
+        try:
+            doc = hl.read_json(rel)
+        except HarnessError as exc:
+            err(str(exc))
+            continue
+        check_header_invariants(rel, doc)
+        validate_structural(rel, "release-manifest.schema.json", doc)
+        tag = (doc or {}).get("release", {}).get("tag")
+        if tag and rel != mold_release.manifest_path_for(tag):
+            err(f"[release] {rel} declara a tag {tag!r}, cujo manifesto é "
+                f"{mold_release.manifest_path_for(tag)} — nome de arquivo que não deriva da tag "
+                f"permite duas releases no mesmo caminho")
+
+
+def check_mold_release(project_doc: dict | None, lock_doc: dict | None) -> None:
+    """A âncora do molde é coerente CONSIGO MESMA — os elos que não dependem de rede.
+
+    O schema já exige o bloco no derivado e o proíbe no molde. O que sobra para cá é a coerência
+    interna: o caminho do manifesto deriva da tag declarada. Parece redundante com o pattern do
+    schema, e não é: o schema garante a FORMA do caminho, não que ele seja o caminho DAQUELA tag.
+    Um lock declarando tag v1.2.0 e manifest_path de v9.9.9 passa no schema e mente na cadeia.
+    """
+    import mold_release
+
+    mr = (lock_doc or {}).get("mold_release")
+    if not mr:
+        return
+    tag = mr.get("tag")
+    esperado = mold_release.manifest_path_for(tag) if tag else None
+    if esperado and mr.get("manifest_path") != esperado:
+        err(f"[molde] target.lock: mold_release declara a tag {tag!r} e o manifesto "
+            f"{mr.get('manifest_path')!r} — o caminho é derivado da tag ({esperado}), nunca escolhido")
+
+
 def check_target_roots(project_doc: dict | None) -> None:
     """As raízes de código declaradas existem de fato no alvo materializado.
 
@@ -842,6 +896,8 @@ def main(argv: list[str] | None = None) -> int:
 
     check_version_single_source(loaded.get("project.yaml"))
     check_target_lock(loaded.get("project.yaml"), loaded.get("target.lock"))
+    check_mold_release(loaded.get("project.yaml"), loaded.get("target.lock"))
+    check_release_manifests()
     check_target_roots(loaded.get("project.yaml"))
     check_collection_floor(loaded, loaded.get("project.yaml"))
     check_derived_from(loaded, loaded.get("project.yaml"), loaded.get("target.lock"))
