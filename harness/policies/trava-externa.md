@@ -122,7 +122,9 @@ Dois passos de admin no GitHub, ambos fora do alcance de qualquer PR deste repos
 1. tornar o check da autoridade **obrigatório no ruleset da `main`** — é o que separa *"o CI
    reprova"* de *"o merge é impossível"*;
 2. habilitar o **auto-merge nativo** (Settings → General → Pull Requests → *Allow auto-merge*).
-   Sem ele o PR diário permanece manual, e o passo falha com essa instrução exata no log.
+   Sondado em 05/08/2026: está **desmarcado**. Enquanto estiver, o PR diário permanece manual e o
+   passo emite um `::warning::` com essa instrução — **sem** reprovar o job, porque capacidade que
+   falta no ambiente não é defeito do PR, e vermelho permanente é como um fiscal se torna ignorado.
 
 Por isso `RISK-EXT-001` está `mitigated` e não `closed`: fechar enquanto esses passos não existem
 seria carimbar a parte que falta.

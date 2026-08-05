@@ -78,9 +78,20 @@ proposal:
       investigação descobrir algo que já estava lá.
 
       CUSTO (princípio (e)). Um workflow novo, um fiscal novo de núcleo puro, e uma dependência de
-      configuração de repositório: o auto-merge nativo precisa estar habilitado em Settings. Se não
-      estiver, o passo falha com a ação de admin exata no log e o PR diário permanece manual — o
-      fallback é o estado de hoje, não um estado pior.
+      configuração de repositório: o auto-merge nativo precisa estar habilitado em Settings.
+
+      E ELE NÃO ESTÁ — sondado em 05/08/2026, e o achado mudou o desenho em vez de virar nota de
+      rodapé. A primeira versão do passo reprovava o job em qualquer erro; teria pintado de
+      vermelho TODO PR de atestado até alguém marcar uma caixa em Settings, e vermelho permanente
+      é como um fiscal se torna ignorado (ADR-019) — a mesma razão pela qual o achado de "auditoria
+      desligada" é `info`. São duas falhas com duas reações: capacidade ausente no ambiente avisa
+      alto com a ação exata e deixa o job VERDE, porque o fallback dela é o estado de ontem; e
+      qualquer outro erro reprova, porque significa que o desenho não fez o que promete. O caminho
+      não classificado termina em `exit 1`, para que um modo de falha ainda desconhecido não seja
+      engolido em silêncio.
+
+      A ação de admin fica registrada no RISK-EXT-001, que continua `mitigated` e não `closed`
+      justamente por causa dela.
 
   required_gates:
     - metadata-validation

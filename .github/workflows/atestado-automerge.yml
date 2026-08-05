@@ -68,12 +68,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh pr merge "${{ github.event.pull_request.number }}" \
-                 --repo "${{ github.repository }}" --auto --merge 2>erro.txt; then
-            cat erro.txt
-            if grep -qi "auto.merge is not allowed\|not enabled" erro.txt; then
-              echo "::error::o auto-merge nativo está DESABILITADO neste repositório. Ação de admin: Settings → General → Pull Requests → marcar 'Allow auto-merge'. Sem ela o PR diário do atestado permanece manual."
-            fi
-            exit 1
+          if gh pr merge "${{ github.event.pull_request.number }}" \
+               --repo "${{ github.repository }}" --auto --merge 2>erro.txt; then
+            echo "::notice::auto-merge habilitado — o GitHub mergeia quando os checks obrigatórios passarem."
+            exit 0
           fi
-          echo "::notice::auto-merge habilitado — o GitHub mergeia quando os checks obrigatórios passarem."
+          cat erro.txt
+
+          # DUAS FALHAS DIFERENTES, DUAS REAÇÕES (princípio (h)) — e a distinção veio de um achado
+          # real: a configuração está desabilitada HOJE neste repositório.
+          #
+          # "Allow auto-merge desmarcado" não é defeito deste PR nem deste workflow: é uma
+          # capacidade que falta no ambiente, e o fallback dela é o estado de ontem — o PR diário
+          # integrado à mão. Reprovar o job aqui pintaria de vermelho TODO PR de atestado até
+          # alguém marcar a caixa, e vermelho permanente é exatamente como um fiscal se torna
+          # ignorado (ADR-019). O aviso é alto, tem a ação exata, e o job segue verde.
+          #
+          # Qualquer outro erro é outro assunto — token sem escopo, PR em estado inesperado, API
+          # fora — e esses reprovam, porque significam que o desenho não fez o que promete.
+          if grep -qiE "auto.merge is not allowed|auto.merge is not enabled|allow auto.merge" erro.txt; then
+            echo "::warning::o auto-merge nativo está DESABILITADO neste repositório, então este PR fica para integração MANUAL — que é o comportamento anterior à CP-037, não um estado pior. Ação de admin (uma caixa): Settings → General → Pull Requests → marcar 'Allow auto-merge'."
+            exit 0
+          fi
+          echo "::error::o auto-merge não pôde ser habilitado por um motivo que NÃO é a configuração do repositório — ver o erro acima."
+          exit 1

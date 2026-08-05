@@ -89,11 +89,25 @@ garante é que ele **se destrava sozinho**: a execução seguinte abre um PR cuj
 atestado novo, os checks rodam contra o merge (que já contém o atestado novo) e passam, o
 auto-merge integra. Nenhum humano no caminho, nem para bloquear, nem para destravar.
 
-## O que esta decisão NÃO faz
+## O que esta decisão NÃO faz, e o que se descobriu ao tentar
 
-Não habilita o auto-merge nativo no repositório — isso é `Settings → General → Pull Requests →
-Allow auto-merge`, ação de admin. Se estiver desabilitado, o passo falha com essa instrução exata
-no log e o PR diário permanece manual. O fallback é o estado de ontem, nunca um estado pior.
+Não habilita o auto-merge nativo no repositório. Isso é `Settings → General → Pull Requests →
+Allow auto-merge`, uma caixa de admin, e **ela está desmarcada** — sondado em 05/08/2026, e o
+achado mudou o desenho.
+
+A primeira versão do passo reprovava o job em qualquer erro. Teria pintado de vermelho **todo** PR
+de atestado até alguém marcar a caixa. Vermelho permanente é como um fiscal se torna ignorado
+(ADR-019) — a mesma razão pela qual o achado de "auditoria desligada" é `info` e não bloqueante.
+
+Então são duas falhas com duas reações:
+
+| Falha | Reação | Por quê |
+|---|---|---|
+| `Allow auto-merge` desmarcado | `::warning::` com a ação exata, **job verde** | é capacidade que falta no ambiente, não defeito do PR; o fallback é o estado de ontem |
+| qualquer outra | `::error::`, **job vermelho** | token sem escopo, PR em estado inesperado, API fora — o desenho não fez o que promete |
+
+O caminho não classificado termina em `exit 1` de propósito: um `exit 0` no fim engoliria em
+silêncio todo modo de falha que ainda não conhecemos.
 
 Fiscalizado por: `ci/automerge_gate.py::decidir`,
 `.github/workflows/atestado-automerge.yml`, `tests/governance/test_automerge_bites.py`

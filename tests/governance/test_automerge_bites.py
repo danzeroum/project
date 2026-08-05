@@ -277,6 +277,34 @@ def test_o_passo_que_habilita_vem_DEPOIS_do_que_decide_e_depende_dele():
     assert "steps.portao.outputs.liberar == 'true'" in habilita["if"], habilita.get("if")
 
 
+def test_capacidade_ausente_no_ambiente_AVISA_e_nao_reprova():
+    """Duas falhas diferentes, duas reações — e esta distinção veio de um achado real.
+
+    Sondado em 05/08/2026: `Allow auto-merge` está DESMARCADO neste repositório. Isso não é
+    defeito deste PR nem deste workflow; é uma capacidade que falta no ambiente, e o fallback dela
+    é o estado anterior à CP-037 — o PR diário integrado à mão.
+
+    A primeira versão deste passo reprovava o job em qualquer erro. Teria pintado de vermelho TODO
+    PR de atestado até alguém marcar uma caixa em Settings, e vermelho permanente é como um fiscal
+    se torna ignorado (ADR-019) — o mesmo motivo pelo qual o achado de 'auditoria desligada' é
+    `info`.
+
+    Qualquer OUTRO erro continua reprovando: token sem escopo, PR em estado inesperado, API fora.
+    Esses significam que o desenho não fez o que promete, e aí o vermelho é a informação certa.
+    """
+    texto = WORKFLOW.read_text(encoding="utf-8")
+    habilita = texto[texto.index("Habilitar o auto-merge NATIVO"):]
+
+    aviso = habilita.index("::warning::")
+    erro = habilita.index("::error::")
+    assert aviso < erro, "a capacidade ausente avisa; o resto reprova — nessa ordem"
+    assert "Allow auto-merge" in habilita, "o aviso precisa carregar a ação de admin exata"
+    assert re.search(r"::warning::[\s\S]*?exit 0", habilita), \
+        "o caminho da capacidade ausente tem de sair 0 — o fallback é manual, não quebrado"
+    assert habilita.rstrip().endswith("exit 1"), \
+        "o caminho não classificado tem de reprovar; um `exit 0` no fim engoliria todo erro novo"
+
+
 def test_o_workflow_usa_o_auto_merge_NATIVO_e_nao_mergeia_por_conta_propria():
     """`--auto` entrega o julgamento dos checks a quem tem a resposta. Uma chamada à API de merge,
     ou um `--admin`, faria este workflow decidir sobre um estado que ainda vai mudar."""
