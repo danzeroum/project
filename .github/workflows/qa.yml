@@ -133,18 +133,23 @@ jobs:
             exit 2
           }
 
-      - name: Rodar testes de unidade (alvo do inventário é código real)
+      # CP-031 — num derivado, "testes de unidade" são os DESTA harness.
+      #
+      # Rodar os do alvo (workspace/target/<test_roots>) foi extensão minha na CP-016 e não
+      # funciona: o pytest adota o pyproject.toml do ALVO como inifile e ali há addopts exigindo
+      # pytest-cov e cobertura mínima — o job morre antes de coletar um teste. Instalar o
+      # requirements.txt do alvo consertaria o sintoma e criaria um problema maior: o derivado
+      # passaria a reproduzir o runtime do governado e a quebrar a cada mudança de dependência
+      # dele. O trabalho do derivado é DESCREVER o alvo, não construí-lo, e essa fronteira é o
+      # que mantém a governança barata e estável.
+      #
+      # Os testes do alvo são responsabilidade do CI do alvo. O que este repositório tem para
+      # exercer são os testes de mordida dos próprios fiscais.
+      - name: Rodar os testes de unidade deste repositório
         run: |
           if [ "$kind" = "derived" ]; then
-            raiz=$(python - <<'PY'
-          import re, pathlib
-          t = pathlib.Path("project.yaml").read_text(encoding="utf-8")
-          m = re.search(r'^\s*test_roots:\s*\[([^\]]*)\]', t, re.M)
-          print((m.group(1).split(",")[0].strip().strip('"\'') if m and m.group(1).strip() else ""))
-          PY
-          )
-            [ -n "$raiz" ] || { echo "test_roots vazio: o alvo declara não ter testes."; exit 0; }
-            pytest "workspace/target/$raiz"
+            echo "derivado: testes do alvo são do CI do alvo; aqui rodam os fiscais."
+            pytest tests/governance -q
           else
             pytest tests/unit
           fi

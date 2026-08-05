@@ -127,7 +127,7 @@ stages:
     enforced_by:
       - kind: workflow_step
         ref: .github/workflows/qa.yml
-        step: "Rodar testes de unidade (alvo do inventário é código real)"
+        step: "Rodar os testes de unidade deste repositório"
       - kind: external_standard
         ref: "webqa inventario"
         standard: webqa-suite
@@ -143,7 +143,7 @@ stages:
     enforced_by:
       - kind: workflow_step
         ref: .github/workflows/qa.yml
-        step: "Rodar testes de unidade (alvo do inventário é código real)"
+        step: "Rodar os testes de unidade deste repositório"
       - kind: workflow_step
         ref: .github/workflows/governance.yml
         step: "Testes dos fiscais"
