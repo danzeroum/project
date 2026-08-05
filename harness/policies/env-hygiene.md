@@ -30,6 +30,21 @@ configuração em evento auditável.
 
 Os modos 3 e 4 só existem em jobs separados, disparados por pessoa, com o ambiente montado ali.
 
+## O hook precisa se achar de qualquer diretório (CP-020)
+
+O comando do hook resolve a raiz do repositório **antes** de chamar o interpretador: prefere
+`$CLAUDE_PROJECT_DIR` e, sem ela, sobe diretórios a partir do cwd até encontrar `ci/hooks`.
+
+Não é detalhe de invocação. Com caminho relativo, a trava passava a depender do diretório de onde
+o agente chama — e o cwd é a única coisa que ele inevitavelmente muda ao inspecionar o alvo que
+governa. Um `cd workspace/target`, que a ingestão obriga, bastava para o hook não achar o próprio
+arquivo: ele falhava fechado (correto), o `PreToolUse` recusava o comando, e o Bash — única
+ferramenta capaz de devolver o cwd — ficava inutilizável. A sessão travava.
+
+Fora de qualquer repositório a subida chega em `/` e a falha **permanece fechada**, que é o
+comportamento certo: ali não há repositório para fiscalizar, e inventar uma raiz transformaria os
+hooks em no-op silencioso — passariam sempre, e a camada que avisa cedo viraria verde constante.
+
 ---
 
 Fiscalizado por: `.github/workflows/qa.yml` — o job automático define `env:` só com as variáveis

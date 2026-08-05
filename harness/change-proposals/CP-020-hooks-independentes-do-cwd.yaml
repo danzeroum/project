@@ -1,0 +1,75 @@
+# Mudança proposta: os hooks deixam de depender do diretório de onde o agente chama.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-020
+  title: "Hooks resolvidos por caminho relativo travam a sessão quando o agente entra no alvo materializado"
+  author_kind: agent
+  created_at: "2026-08-05T09:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-SEC-001
+      - RISK-INGEST-001
+    rationale: >
+      Medido ao iniciar a ingestão num derivado real, e é o primeiro achado desta série que
+      IMPEDE o trabalho de continuar em vez de apenas reprovar.
+
+      Os cinco hooks de .claude/settings.json são invocados por caminho relativo — 'python
+      ci/hooks/pre_bash_env_hygiene.py' e semelhantes — e o caminho é resolvido a partir do
+      diretório de onde o shell chama. Um único `cd workspace/target`, que a ingestão praticamente
+      obriga porque é onde o código do alvo está, deixa o cwd num diretório sem ci/. O hook falha,
+      o PreToolUse recusa o comando, e o Bash fica inutilizável — sendo que só o Bash conseguiria
+      devolver o cwd. A sessão trava, e a recuperação exige escrever um arquivo dentro do alvo
+      materializado, que é precisamente o que o derivado promete nunca fazer.
+
+      Falhar fechado está CERTO e não é o que esta proposta muda: um hook de higiene de ambiente
+      que passasse por não ter conseguido rodar seria a trava que o vigiado desliga sem tocar em
+      nada. O defeito é o caminho relativo, que faz a trava depender do cwd — e o cwd é a única
+      coisa que um agente inevitavelmente muda ao inspecionar o alvo que ele governa.
+
+      Não são dois hooks, são cinco. PreToolUse e PostToolUse foram os que quebraram na prática,
+      mas SessionStart (adoption_status, validate_all --summary) e Stop (validate_all --hook) têm
+      exatamente a mesma forma. O molde nunca expôs isso porque nele não existe workspace/target
+      para entrar: mais uma regra escrita olhando para um repositório que não governa alvo algum.
+
+      A CORREÇÃO. Cada comando passa a resolver a raiz antes de chamar o interpretador,
+      preferindo $CLAUDE_PROJECT_DIR quando definida e caindo, quando não, numa subida de
+      diretórios a partir do cwd até achar ci/hooks. Medido: a subida devolve a raiz correta a
+      partir de workspace/target, e devolve '/' fora do repositório — onde não há repositório para
+      fiscalizar e a falha permanece fechada, como deve. $CLAUDE_PROJECT_DIR entra primeiro
+      porque é o contrato do Claude Code para isto; a subida entra porque, medido neste ambiente,
+      a variável não está definida, e um hook que depende de variável ausente é o mesmo defeito
+      com outra roupa.
+
+      harness_lib já resolve a raiz de forma robusta (HARNESS_REPO_ROOT com fallback para a
+      localização do próprio arquivo), então nada muda dentro dos scripts: o problema é anterior,
+      é o interpretador não achar o arquivo para executar.
+
+      PROVA. Um teste extrai os comandos de .claude/settings.json, executa cada um a partir de um
+      diretório aninhado e exige que nenhum falhe por arquivo não encontrado. Ele lê os comandos do
+      próprio settings.json em vez de repeti-los, para não virar a segunda cópia que deriva em
+      silêncio — e assim um hook novo, acrescentado depois, já nasce coberto.
+
+      Risco 'high' porque a mudança é em .claude/, caminho protegido, e porque um resolvedor
+      errado transformaria os cinco hooks em no-op silencioso: eles passariam sempre, e a camada
+      de ergonomia que hoje avisa cedo viraria um verde constante que ninguém desconfia. O teste
+      cobre o modo de falha oposto ao que motivou a proposta, e é por isso que ele é obrigatório
+      aqui.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_seguranca_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
