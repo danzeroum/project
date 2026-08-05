@@ -23,7 +23,7 @@ fazem: **o que ficou de fora?**
 
 | Área | Total | Abertos |
 |---|---|---|
-| access | 2 | 0 |
+| access | 3 | 1 |
 | data | 2 | 0 |
 | dependencies | 1 | 0 |
 | governance | 13 | 0 |

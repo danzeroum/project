@@ -1,0 +1,83 @@
+# Mudança proposta: a trava que o vigiado não desliga — verificação da proteção em duas camadas.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-024
+  title: "Verificação da trava externa em duas camadas (camada local entregue; CP deferred até haver identidade emissora)"
+  author_kind: agent
+  created_at: "2026-08-05T16:00:00Z"
+  # DEFERRED, e é o ponto desta CP. A camada local está entregue e mordendo; a camada externa
+  # depende de uma raiz administrativa que não existe ainda. Declarar 'approved' faria a CP passar
+  # por pronta — e a §7 do plano é explícita: a camada local NÃO equivale à externa.
+  status: deferred
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - ci/verify_protection.py
+    - .github/workflows/governance.yml
+    - harness/harness.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-META-002
+      - RISK-EXT-001
+    rationale: >
+      A FRASE QUE ESTA CP EXISTE PARA HONRAR. "Uma trava que o vigiado pode desligar em silêncio
+      não é uma trava" está no CLAUDE.md como doutrina, e hoje ela é parcialmente falsa neste
+      repositório: `harness.yaml` declara que o fiscal real de `protected_paths` é CODEOWNERS mais
+      branch protection, e nenhum fiscal confere que essa proteção está de fato ligada. A
+      declaração existe; a verificação, não.
+
+      A CAMADA LOCAL (núcleo, entregue aqui). Um passo do `governance.yml` consulta a API com o
+      token do workflow e reprova se a proteção da `main` estiver desligada, ou se um
+      `protected_path` não estiver coberto por CODEOWNERS. Em fork, ou com token sem permissão,
+      emite `protection_unverifiable` — indeterminação auditável, nunca verde (princípio (h)).
+
+      E ELA NÃO BASTA, o que é a razão de esta CP não se declarar implementada. O passo local mora
+      no mesmo repositório que ele fiscaliza: um PR com privilégio suficiente remove o passo e a
+      asserção que o vigia no MESMO commit, e o CI fica verde porque a trava saiu junto com quem
+      reclamaria dela. É circular por construção, e nenhuma quantidade de código local resolve.
+
+      A CAMADA EXTERNA (o que completaria a CP). Um check com nome estável e identidade emissora
+      identificável, cuja obrigatoriedade é configurada em ruleset administrado FORA do repositório
+      fiscalizado — imodificável por workflow, por `GITHUB_TOKEN` ou por PR deste repositório. Sem
+      essa raiz administrativa independente, a "autoridade externa" é decorativa: quem pode mudar o
+      workflow muda a exigência junto.
+
+      O atestado contém `repository`, `branch`, `checked_at`, `expires_at`, `ruleset_id`, versão do
+      verificador e digest da configuração avaliada. Ausência, expiração ou indeterminação bloqueiam
+      release e merge em caminho protegido.
+
+      O QUE ESTE PR ENTREGA, PRECISAMENTE. A camada local completa e mordendo; o schema do atestado;
+      o verificador que o consome; e a declaração `external_audit.enabled: false` em `harness.yaml`,
+      que faz o estado "sem autoridade externa" ser VISÍVEL em vez de silencioso. Ligar a camada
+      externa passa a ser trocar uma flag declarada e apontar o emissor — não escrever código novo.
+
+      POR QUE A FLAG É MELHOR QUE NÃO TER O CÓDIGO. A alternativa seria adiar tudo até a identidade
+      existir. Isso deixaria o repositório sem NENHUMA verificação de proteção por tempo
+      indeterminado, e sem lugar onde a lacuna aparecesse. Com a flag, `validate_all.py` reporta a
+      cada execução que a autoridade externa está desligada, citando o risco datado. A lacuna passa
+      a ser barulhenta.
+
+      RISCO ACEITO COM DATA (princípio (g)). Enquanto a camada externa não existir, permanece a
+      janela em que um PR privilegiado remove o passo local e sua asserção juntos. `RISK-EXT-001`
+      registra isso com `due` em 90 dias: ou a identidade externa foi viabilizada, ou o risco é
+      re-aceito com data nova. Risco aceito sem data é risco esquecido.
+
+      CUSTO (princípio (e)). Uma chamada de API por run do `governance.yml`, e só quando há
+      credencial. O verificador é função pura; o custo de teste é zero rede.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_protecao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

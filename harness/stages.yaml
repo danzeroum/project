@@ -187,6 +187,9 @@ stages:
     enforced_by:
       - kind: ci_script
         ref: ci/audit_governance.py
+        symbol: check_external_attestation
+      - kind: ci_script
+        ref: ci/audit_governance.py
         symbol: check_cp_lifecycle
       - kind: ci_script
         ref: ci/audit_governance.py

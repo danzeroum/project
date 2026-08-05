@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/protection-attestation.schema.json",
+  "title": "Atestado de proteção — a camada externa da trava",
+  "description": "A camada LOCAL de verificação mora no mesmo repositório que fiscaliza: um PR com privilégio suficiente remove o passo e a asserção que o vigia no mesmo commit, e o CI fica verde porque a trava saiu junto com quem reclamaria dela. Este atestado é o que quebra a circularidade — emitido por identidade externa, com obrigatoriedade configurada em ruleset administrado FORA do repositório fiscalizado. Sem essa raiz administrativa independente, a 'autoridade externa' é decorativa: quem pode mudar o workflow muda a exigência junto.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "attestation"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "attestation": {
+      "type": "object",
+      "required": ["repository", "branch", "checked_at", "expires_at", "ruleset_ref",
+                   "issuer", "verifier_version", "config_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "branch": { "type": "string", "minLength": 1 },
+        "checked_at": { "type": "string", "format": "date-time" },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Atestado sem validade seria carimbo eterno: ele afirmaria sobre uma configuração que pode ter mudado dez minutos depois. Expirado bloqueia, do mesmo modo que ausente."
+        },
+        "ruleset_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identificação do ruleset avaliado. Referência, não cópia: o conteúdo é do lado de fora, e replicá-lo aqui criaria uma segunda versão que deriva."
+        },
+        "issuer": {
+          "type": "object",
+          "required": ["identity", "kind"],
+          "additionalProperties": false,
+          "description": "QUEM atestou. Um atestado anônimo é indistinguível de um atestado forjado — e é o próprio repositório fiscalizado que teria mais motivo para forjá-lo.",
+          "properties": {
+            "identity": { "type": "string", "minLength": 1 },
+            "kind": { "enum": ["github_app", "oidc_workload", "external_service"] }
+          }
+        },
+        "verifier_version": { "type": "string", "minLength": 1 },
+        "config_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Digest da configuração avaliada. É o que permite dizer 'foi ESTA regra que passou', em vez de 'passou alguma regra num momento qualquer'."
+        }
+      }
+    }
+  }
+}

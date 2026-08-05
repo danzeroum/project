@@ -92,6 +92,29 @@ jobs:
           fi
           exit "$codigo"
 
+      # CP-024 — camada LOCAL da trava externa. exit 1 (proteção desligada ou caminho sem dono)
+      # derruba o job; exit 3 (protection_unverifiable — fork, token sem escopo) vira aviso.
+      # A API responde 404 tanto para "sem proteção" quanto para "sem permissão de ver", e os dois
+      # são indistinguíveis de fora: escolher a conclusão mais grave produziria alarme de fraude
+      # toda vez que o token não tivesse escopo.
+      #
+      # ESTE PASSO NÃO BASTA, e está escrito aqui para que ninguém o leia como se bastasse: ele
+      # mora no repositório que fiscaliza. Um PR privilegiado remove este passo e a asserção que o
+      # vigia no mesmo commit. A camada externa é o que fecharia — ver ADR-020, CP-024 (deferred).
+      - name: Proteção da branch (camada local)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python ci/verify_protection.py
+          codigo=$?
+          set -e
+          if [ "$codigo" = "3" ]; then
+            echo "::warning::protection_unverifiable — indeterminação auditável, nunca 'protegido' por ausência de prova."
+            exit 0
+          fi
+          exit "$codigo"
+
       # CP-022/Adendo A2 — atrito é medido e entregue ao comitê. NUNCA é gate: um medidor de
       # custo que reprovasse criaria o incentivo de não declarar propostas para manter o número
       # baixo, destruindo o registro de onde ele tira o sinal.

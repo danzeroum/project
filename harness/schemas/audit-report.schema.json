@@ -173,7 +173,8 @@
               "conformance_review",
               "cp_lifecycle",
               "decision_chain",
-              "change_buffer"
+              "change_buffer",
+              "external_audit"
             ]
           },
           "severity": {
