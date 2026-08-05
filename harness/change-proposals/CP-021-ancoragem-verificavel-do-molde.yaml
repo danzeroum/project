@@ -1,0 +1,90 @@
+# Mudança proposta: o molde passa a ser consumível POR VERSÃO, com raiz de confiança verificável.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-021
+  title: "O molde é consumido por versão, e a versão tem raiz de confiança na árvore Git"
+  author_kind: agent
+  created_at: "2026-08-05T12:00:00Z"
+  capabilities_affected: []
+  components_affected: []
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-MOLD-001
+      - RISK-DERIV-001
+    rationale: >
+      BASELINE DA FASE 0, ancorado neste HEAD (22467c8, merge do PR #30/CP-016), para servir de
+      âncora de não-regressão desta série: `python ci/validate_all.py` sai 0 com os seis fiscais
+      verdes (metadados, grafo, conformidade, alinhamento, conformidade-continua, lgpd);
+      `pytest tests/governance` passa 144 testes; `ci/orient.py` reporta papel `mold`, cobertura
+      de código 3/3 com dono, adapter python sobre 5 arquivos. Nenhum número deste parágrafo pode
+      regredir por causa desta série — e cada CP posterior só acrescenta.
+
+      O PROBLEMA. Um derivado hoje declara QUAL alvo governa (project.yaml:target) e em que SHA
+      (target.lock), mas não declara nada sobre a versão do MOLDE de que ele nasceu. A carcaça
+      chega por cópia, num momento indeterminado, e a partir daí as duas árvores divergem sem que
+      exista qualquer ponto de comparação. "Este derivado está atrasado em relação ao molde" é
+      hoje uma frase que ninguém consegue avaliar — que é exatamente a classe de silêncio que o
+      target.lock resolveu uma camada abaixo, pela mesma razão e com a mesma forma.
+
+      POR QUE TAG NÃO BASTA. A resposta ingênua é "guarde a tag do molde no derivado". Tag é
+      ponteiro móvel: quem tem permissão de escrita reescreve `v1.2.0` para outro commit e todo
+      derivado que a cita passa a afirmar ter nascido de um conteúdo que nunca existiu, sem que
+      nenhum fiscal veja diferença. A raiz de confiança precisa ser IMÓVEL, e a única coisa imóvel
+      em Git é conteúdo endereçado por hash. Daí o manifesto: ele mora na ÁRVORE do commit de
+      release, e o derivado guarda o sha256 do manifesto além da tag. Mover a tag deixa de ser
+      invisível — o hash do manifesto no destino não confere, e a cadeia quebra alto e claro.
+
+      A CADEIA, e o que cada elo impede. (1) tag → commit: a tag resolve para um commit concreto.
+      (2) manifesto na árvore desse commit: manifesto publicado como release asset ficaria FORA
+      da árvore, e um asset é editável sem deixar rastro no histórico — por isso "manifesto fora
+      da árvore = ausência de release", nunca "release aproximada". (3) hash confere: o sha256 dos
+      bytes do manifesto casa com `mold_release.manifest_sha` do lock. (4) commit_sha interno
+      coincide com o do lock: o manifesto e o consumidor concordam sobre QUAL conteúdo foi
+      validado. (5) o commit de release não muda nada além do manifesto: sem este elo, o commit
+      de release poderia carregar código não validado sob a bandeira de uma validação que rodou
+      no pai.
+
+      A AUTORREFERÊNCIA, resolvida sem truque. Um arquivo não pode conter o hash do commit que o
+      contém. O manifesto declara portanto o commit do CONTEÚDO validado — o primeiro pai do
+      commit de release —, e o elo (5) garante que a diferença entre os dois é só o próprio
+      manifesto. É a formulação honesta; a alternativa (declarar o hash do próprio commit) exigiria
+      um campo que ninguém consegue preencher corretamente e que, por isso, seria preenchido com
+      qualquer coisa.
+
+      O QUE O FISCAL LOCAL PODE E O QUE NÃO PODE. Dentro do molde, `check_release_manifests`
+      confere todo manifesto contra o schema e contra o próprio nome do arquivo. Dentro de um
+      derivado, `check_mold_release` confere a FORMA e a COERÊNCIA INTERNA do bloco — os elos que
+      não dependem de rede. Os elos (1), (2) e (5) exigem consultar o repositório do molde, e por
+      isso vivem em `ci/mold_release.py::verify_chain`, que é função pura alimentada por quem tem
+      a rede: o workflow de release e o comando `/atualizar-carcaca`. Separá-los é o princípio (h)
+      aplicado antes de existir uma violação: ausência de rede é indeterminação, e indeterminação
+      dentro de `validate_all.py` viraria ou um verde falso ou um vermelho por estar offline.
+
+      CUSTO (princípio (e)). Dois fiscais novos de dezenas de linhas, um schema, um workflow que
+      só roda em push de tag, e um comando. Nenhum deles roda em caminho quente: o custo por PR é
+      a validação de um schema a mais e um glob sobre um diretório com poucos arquivos. O ganho é
+      a única coisa que torna o molde um PRODUTO em vez de um ponto de partida: consumidores
+      ancorados numa versão, e a possibilidade de perguntar "quanto este derivado está atrasado?"
+      com resposta verificável.
+
+      RISCO 'high' porque toca .github/, harness/, ci/ e .claude/ — quatro caminhos protegidos —
+      e porque um verificador de cadeia mal escrito é pior que nenhum: ele diz "ancorado" sobre um
+      derivado que não está. Daí as mordidas exigirem que cada elo reprove isoladamente, e não só
+      que a cadeia íntegra passe.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_ancoragem_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

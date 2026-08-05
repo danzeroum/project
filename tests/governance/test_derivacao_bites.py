@@ -100,6 +100,17 @@ def test_molde_com_sha_no_lock_reprova(repo_copy, run_metadata):
 
 ANCORA = ("papel do repositório", "lock_source", "target.lock", "code_roots")
 
+# CP-021: um derivado bem formado ancora DUAS coisas — o alvo que governa (target_sha) e a versão
+# do molde de que nasceu (mold_release). O caso legítimo passa a incluir a segunda âncora; sem
+# isso, este teste positivo estaria afirmando que "bem formado" é o estado que o schema recusa.
+MOLD_RELEASE_VALIDO = {
+    "repository": "danzeroum/project",
+    "tag": "v1.0.0",
+    "commit_sha": "1" * 40,
+    "manifest_path": "harness/releases/v1.0.0.manifest.json",
+    "manifest_sha": "2" * 64,
+}
+
 
 def test_derivado_bem_formado_nao_gera_achado_de_ancora(repo_copy, run_metadata):
     """A trava tem que deixar passar o caso legítimo — senão ela não é trava, é obstáculo.
@@ -112,7 +123,9 @@ def test_derivado_bem_formado_nao_gera_achado_de_ancora(repo_copy, run_metadata)
     afirmar exit 1 esconderia a regressão que importa atrás de erros de outro fiscal.
     """
     _edit_yaml(repo_copy, "project.yaml", _vira_derivado)
-    _edit_yaml(repo_copy, "target.lock", lambda d: d.update(kind="derived", target_sha=SHA_FICTICIO))
+    _edit_yaml(repo_copy, "target.lock",
+               lambda d: d.update(kind="derived", target_sha=SHA_FICTICIO,
+                                  mold_release=MOLD_RELEASE_VALIDO))
     _, errors = run_metadata(repo_copy)
     ancora = [e for e in errors if any(t in e for t in ANCORA)]
     assert not ancora, ancora

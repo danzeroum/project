@@ -21,3 +21,4 @@ onde ela é **efetivamente** aplicada — um gate da suíte externa, um passo do
 | [`change-proposals.md`](change-proposals.md) | proposta afeta só IDs reais; risco alto exige aval | schema + `ci/validate_metadata.py` |
 | [`conformance.md`](conformance.md) | ADR declara asserção executável; toda etapa tem fiscal | `ci/audit_governance.py` + schema |
 | [`lgpd.md`](lgpd.md) | inventário de dado pessoal; julgamento existe e não venceu | `ci/audit_lgpd.py` + schema |
+| [`ancoragem-do-molde.md`](ancoragem-do-molde.md) | derivado declara de qual versão do molde nasceu; a âncora é o hash do manifesto | `ci/mold_release.py` + `ci/validate_metadata.py` + workflow de release |

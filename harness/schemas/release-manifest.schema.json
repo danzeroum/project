@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/release-manifest.schema.json",
+  "title": "harness/releases/vX.Y.Z.manifest.json — a raiz de confiança de uma versão do molde",
+  "description": "Um derivado consome o molde POR VERSÃO, do mesmo modo que consome a régua por pin exato. Para que 'versão' signifique algo verificável, ela precisa de uma raiz de confiança que não seja a própria tag: tag é ponteiro móvel, e ponteiro móvel não ancora nada. O manifesto mora na ÁRVORE GIT do commit de release — quem move a tag não move o manifesto, e a divergência aparece. Manifesto fora da árvore, ou tag que aponta para commit sem manifesto, é ausência de release, nunca release aproximada.",
+  "type": "object",
+  "required": ["schema_version", "metadata_version", "source_of_truth", "release"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "release": {
+      "type": "object",
+      "required": ["repository", "tag", "commit_sha", "released_at", "validation", "artifact_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "description": "owner/repo do MOLDE. Nome de alvo nunca entra aqui: este é o repositório que publica, não o que é governado."
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "A tag desta release. O nome do arquivo é derivado dela e a igualdade é cobrada por ci/validate_metadata.py::check_release_manifests."
+        },
+        "commit_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "O commit CUJO CONTEÚDO foi validado — o primeiro pai do commit de release. Um arquivo não pode conter o hash do commit que o contém; declarar o pai é a única forma honesta de fechar a cadeia, e o commit de release existe só para acrescentar este manifesto (ci/mold_release.py::verify_chain cobra que ele não mude mais nada)."
+        },
+        "released_at": { "type": "string", "format": "date-time" },
+        "validation": {
+          "type": "object",
+          "required": ["command", "result", "run_id"],
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "const": "python ci/validate_all.py",
+              "description": "Um único significado de 'validado' (princípio (c) do plano). Const para que uma release não possa declarar ter sido validada por um comando mais fraco."
+            },
+            "result": {
+              "enum": ["pass"],
+              "description": "Só 'pass' é representável. Um enum com 'fail' criaria a categoria 'release publicada com validação vermelha' — categoria que, existindo, será usada."
+            },
+            "run_id": { "type": "string", "minLength": 1 },
+            "run_url": { "type": "string", "minLength": 1 }
+          }
+        },
+        "artifact_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Digest do conteúdo versionado do commit validado (git archive canônico). É o que permite dizer 'esta árvore é aquela árvore' sem confiar na tag."
+        }
+      }
+    }
+  }
+}

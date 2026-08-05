@@ -27,6 +27,12 @@
       "if": { "properties": { "kind": { "const": "derived" } }, "required": ["kind"] },
       "then": { "properties": { "target_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" } } },
       "else": { "properties": { "target_sha": { "type": "null" } } }
+    },
+    {
+      "comment": "A mesma trava nos dois sentidos, uma camada acima: derivado EXIGE mold_release e molde o PROÍBE. Derivado sem âncora de molde é a carcaça chegada por cópia num momento indeterminado, e 'este derivado está atrasado' vira frase que ninguém consegue avaliar. Molde com mold_release seria o molde declarando ter nascido de si mesmo.",
+      "if": { "properties": { "kind": { "const": "derived" } }, "required": ["kind"] },
+      "then": { "required": ["mold_release"] },
+      "else": { "properties": { "mold_release": { "type": "null" } } }
     }
   ],
   "properties": {
@@ -41,6 +47,31 @@
     "target_sha": {
       "type": ["string", "null"],
       "description": "Commit exato do alvo ingerido. null no molde, que não governa alvo algum."
+    },
+    "mold_release": {
+      "type": ["object", "null"],
+      "description": "De QUAL versão do molde este derivado nasceu. Simétrico a target_sha uma camada acima: aquele ancora o alvo governado, este ancora a carcaça que governa. A tag sozinha não bastaria — tag é ponteiro móvel, e um consumidor que cita só a tag afirma ter nascido de um conteúdo que pode ter sido reescrito depois. manifest_sha é o que torna isso detectável.",
+      "required": ["repository", "tag", "commit_sha", "manifest_path", "manifest_sha"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "tag": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "commit_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "O commit do molde cujo conteúdo foi validado; igual ao release.commit_sha do manifesto, e ci/mold_release.py::verify_chain cobra a igualdade."
+        },
+        "manifest_path": {
+          "type": "string",
+          "pattern": "^harness/releases/v[0-9]+\\.[0-9]+\\.[0-9]+\\.manifest\\.json$",
+          "description": "Derivado da tag, nunca escolhido: caminho livre permitiria duas releases no mesmo arquivo, e a segunda venceria em silêncio."
+        },
+        "manifest_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 dos BYTES canônicos do manifesto. É o elo que detecta tag movida: o hash do manifesto no novo destino não confere com o que foi consumido."
+        }
+      }
     }
   }
 }
