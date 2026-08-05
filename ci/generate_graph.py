@@ -200,9 +200,12 @@ def build_mermaid() -> str:
 
 def render_doc() -> str:
     return (
+        # Cabeçalho CANÔNICO (CP-029). Um formato só para os dois geradores: duas convenções
+        # para a mesma promessa é como a terceira nasce sem nenhuma.
+        "<!-- GENERATED: não editar; rodar ci/generate_graph.py -->\n"
         "# Mapa de relacionamento dos metadados\n\n"
-        "> **Gerado** por `ci/generate_graph.py` a partir dos metadados reais. Não editar à mão —\n"
-        "> regenerar com `python ci/generate_graph.py`. É um artefato derivado, não fonte de verdade.\n\n"
+        "> Artefato DERIVADO dos metadados reais, não fonte de verdade. Editar aqui é trabalho\n"
+        "> perdido: o `--check` do CI contradiz a edição na hora mais cara.\n\n"
         "Legenda: azul-escuro = projeto · azul = capacidade (`CAP-`) · ciano = componente (`CMP-`) ·\n"
         "roxo = interface (`IFC-`) · verde = regra (`RULE-`) · rosa = superfície de UI (`UI-`) ·\n"
         "amarelo = ADR · vermelho = risco (`RISK-`).\n\n"

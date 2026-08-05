@@ -885,3 +885,57 @@ adrs:
         description: "A exceção continua exigindo contexto: exceção sem contexto vale em toda parte, e vale-em-toda-parte é a entrada removida da lista com outro nome."
         files: ["ci/env_guard.py"]
         pattern: "e\\.get\\(\"context\"\\) == contexto"
+
+  - id: ADR-019
+    title: "O vermelho durante mudança declarada é mapa, não defeito"
+    status: accepted
+    file: architecture/adr/ADR-019-vermelho-durante-mudanca-e-mapa.md
+    related_risks: [RISK-META-001, RISK-CONF-001]
+    assertions:
+      - id: ADR-019-A1
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "Amortecedor (i): a asserção genérica de referência por ID continua existindo — sem ela, arestas por caminho voltam a passar em silêncio."
+        files: ["ci/audit_governance.py"]
+        pattern: "def check_references_by_id\\("
+      - id: ADR-019-A2
+        kind: file_matches
+        severity: high
+        risk: RISK-CONF-001
+        description: "Amortecedor (ii): o gate genérico de maturidade continua existindo — é o que permite a transição honesta que torna um pivô fatiável."
+        files: ["ci/audit_governance.py"]
+        pattern: "def check_maturity_gates\\("
+      - id: ADR-019-A3
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "Amortecedor (iii): a fronteira fonte/derivado continua fiscalizada."
+        files: ["ci/audit_governance.py"]
+        pattern: "def check_derived_vs_source\\("
+      - id: ADR-019-A4
+        kind: file_matches
+        severity: medium
+        risk: RISK-META-001
+        description: "Os dois artefatos derivados carregam o cabeçalho CANÔNICO, e é o mesmo nos dois: duas convenções para a mesma promessa é como a terceira nasce sem nenhuma."
+        files: ["docs/metadata-graph.md", "docs/alignment.md"]
+        pattern: "^<!-- GENERATED: não editar; rodar ci/[a-z_]+\\.py -->"
+      - id: ADR-019-A5
+        kind: file_lacks
+        severity: high
+        risk: RISK-META-001
+        description: "O fiscal continua sugerindo o comando sem executá-lo (fronteira do R-01): nenhuma chamada de subprocesso no fiscal de conformidade."
+        files: ["ci/audit_governance.py"]
+        pattern: "subprocess\\.(run|call|Popen)"
+      - id: ADR-019-A6
+        kind: manual
+        severity: medium
+        risk: RISK-META-001
+        description: "A ausência de propagação automática de cascata."
+        justification: >
+          Não se verifica por máquina que algo NÃO foi construído: qualquer padrão que tentasse
+          provar a ausência de um propagador seria satisfeito por vacuidade no dia em que ele
+          fosse escrito com outro nome. O que se verifica são os três amortecedores que tornam a
+          ausência viável (A1-A3), mais o registro escrito desta decisão — que existe para que
+          "automatizar a cascata", já proposto e rejeitado duas vezes por caminhos diferentes
+          (R-01, R-03), não seja proposto uma terceira sem enfrentar o motivo.

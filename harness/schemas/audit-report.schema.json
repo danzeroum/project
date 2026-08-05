@@ -172,7 +172,8 @@
               "alignment_orphan",
               "conformance_review",
               "cp_lifecycle",
-              "decision_chain"
+              "decision_chain",
+              "change_buffer"
             ]
           },
           "severity": {

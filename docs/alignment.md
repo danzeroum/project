@@ -1,5 +1,5 @@
-<!-- DERIVADO de ci/alignment_report.py. NÃO EDITE À MÃO: regere com
-     python ci/alignment_report.py — o --check do CI contradiz qualquer edição manual. -->
+<!-- GENERATED: não editar; rodar ci/alignment_report.py -->
+<!-- O --check do CI contradiz qualquer edição manual: edita-se a FONTE, não o derivado. -->
 # Alinhamento entre departamentos
 
 Matriz derivada do metadado declarado. Ela responde a pergunta que os demais fiscais não
