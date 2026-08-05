@@ -109,14 +109,22 @@ def test_file_matches_morde(repo_copy, run_auditor):
 
 
 def test_schema_lock_morde_quando_valor_muda(repo_copy, run_auditor):
+    """A mutação é ESTRUTURAL, não textual, e a distinção custou um vermelho para aparecer.
+
+    Antes, este teste trocava a string '"human_approval_required": { "const": true }' pela versão
+    com false. Funcionava enquanto o schema estivesse formatado exatamente assim — e no dia em que
+    o arquivo foi reindentado, o replace virou no-op silencioso: a mutação não acontecia, o fiscal
+    passava, e o teste declarava que a trava mordia sem nunca a ter testado. Um teste de mordida
+    que depende de formatação é um teste que deixa de morder sem falhar, que é o pior modo de
+    falha possível nesta suíte.
+    """
+    import json
+
     p = repo_copy / "harness/schemas/change-proposal.schema.json"
-    p.write_text(
-        p.read_text(encoding="utf-8").replace(
-            '"human_approval_required": { "const": true }',
-            '"human_approval_required": { "const": false }',
-        ),
-        encoding="utf-8",
-    )
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    alvo = doc["allOf"][0]["then"]["properties"]["proposal"]["properties"]
+    alvo["human_approval_required"]["const"] = False
+    p.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
     code, findings = run_auditor("audit_governance", repo_copy)
     assert code == 1
     assert "FIND-ADR-004-A1" in ids_of(findings)

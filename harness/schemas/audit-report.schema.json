@@ -170,7 +170,9 @@
               "ingest_pipeline",
               "alignment_risk",
               "alignment_orphan",
-              "conformance_review"
+              "conformance_review",
+              "cp_lifecycle",
+              "decision_chain"
             ]
           },
           "severity": {

@@ -12,7 +12,7 @@ generated_from: null
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: "sha256:f43cb3bb76ab68e41f13dfcb4c482cc44c77259714344892119a0270389ba02d"
+  scope_fingerprint: "sha256:94ee24ce52846e159e0909e7b9ba29fe06070e317c0a5f1e97c661434d89598b"
 
   findings:
     - id: CONF-001
@@ -63,6 +63,11 @@ review:
         vazamento por traceback e a mitigação aceita aqui não vale lá.
       disposition: risk_entry
       ref: RISK-SEC-001
+      # CP-023: o `ref` acima era texto livre que ninguém resolvia. consumed_by é o mesmo destino
+      # numa forma que check_decision_chain confere contra o registro real.
+      consumed_by:
+        kind: risk
+        ref: RISK-SEC-001
       rationale: >
         Registrada como herança explícita em vez de resolvida: mitigar aqui exigiria inventar um
         log de produção que não existe, e uma mitigação de fachada é pior que a herança declarada.

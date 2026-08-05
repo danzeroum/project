@@ -738,3 +738,92 @@ adrs:
         description: "verify_chain continua sem I/O: nenhuma chamada de rede, git ou disco dentro da função pura que decide se a cadeia é íntegra. O padrão é temperado — só percorre da assinatura até o próximo 'def' de topo, senão acusaria o I/O legítimo da camada de CLI."
         files: ["ci/mold_release.py"]
         pattern: "def verify_chain\\((?:(?!\\ndef )[\\s\\S])*?(?:subprocess\\.|urlopen|requests\\.|\\bopen\\()"
+
+  - id: ADR-016
+    title: "Aprovação vale para o conteúdo integrado, não para o pedido"
+    status: accepted
+    file: architecture/adr/ADR-016-aprovacao-vale-para-o-conteudo-integrado.md
+    related_risks: [RISK-CHANGE-001, RISK-META-001]
+    assertions:
+      - id: ADR-016-A1
+        kind: path_present
+        severity: critical
+        risk: RISK-CHANGE-001
+        description: "O verificador de aprovação e o fiscal de ciclo existem como código."
+        paths:
+          - ci/verify_approval.py
+          - ci/audit_friction.py
+      - id: ADR-016-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-CHANGE-001
+        description: "Executada com risco alto continua exigindo aprovador nomeado."
+        file: harness/schemas/change-proposal.schema.json
+        pointer: /allOf/3/then/properties/proposal/required
+        contains: approved_by
+      - id: ADR-016-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-CHANGE-001
+        description: "Executada continua exigindo onde: sem executed_in, a decisão não tem rastro."
+        file: harness/schemas/change-proposal.schema.json
+        pointer: /allOf/2/then/properties/proposal/required
+        contains: executed_in
+      - id: ADR-016-A4
+        kind: file_matches
+        severity: critical
+        risk: RISK-CHANGE-001
+        description: "A recusa de aprovação anterior ao último push continua no verificador — é o modo de fraude que sobrevive a um 'APPROVED' legítimo da API."
+        files: ["ci/verify_approval.py"]
+        pattern: "aprovação anterior ao último push"
+      - id: ADR-016-A5
+        kind: file_matches
+        severity: high
+        risk: RISK-CHANGE-001
+        description: "approval_unverifiable continua com código próprio: indeterminação e fraude não podem colapsar no mesmo vermelho."
+        files: ["ci/verify_approval.py"]
+        pattern: "EXIT_UNVERIFIABLE = 3"
+      - id: ADR-016-A6
+        kind: file_lacks
+        severity: high
+        risk: RISK-CHANGE-001
+        description: "verify_approval continua sem I/O: a conclusão que só a rede sustenta não pode nascer dentro da função pura."
+        files: ["ci/verify_approval.py"]
+        pattern: "def verify_approval\\((?:(?!\\ndef )[\\s\\S])*?(?:urlopen|_api\\(|requests\\.|\\bopen\\()"
+      - id: ADR-016-A7
+        kind: file_lacks
+        severity: medium
+        risk: RISK-META-001
+        description: "O fiscal de atrito não reprova: um medidor de custo que virasse gate criaria o incentivo de não declarar propostas, destruindo o registro de onde ele tira o sinal."
+        files: ["ci/audit_friction.py"]
+        pattern: "^\\s*return 1\\b"
+
+  - id: ADR-017
+    title: "Parecer sem consumo não fecha"
+    status: accepted
+    file: architecture/adr/ADR-017-parecer-sem-consumo-nao-fecha.md
+    related_risks: [RISK-DECISION-001, RISK-CONF-001]
+    assertions:
+      - id: ADR-017-A1
+        kind: file_matches
+        severity: high
+        risk: RISK-DECISION-001
+        description: "O fiscal da cadeia de decisão continua existindo com esse nome — renomeá-lo em silêncio deixaria a etapa sem fiscal."
+        files: ["ci/audit_governance.py"]
+        pattern: "def check_decision_chain\\("
+      - id: ADR-017-A2
+        kind: schema_lock
+        severity: high
+        risk: RISK-DECISION-001
+        description: "consumed_by continua exigindo destino tipado: kind sem ref seria de novo texto livre."
+        file: harness/schemas/conformance-review.schema.json
+        pointer: /properties/review/properties/findings/items/properties/consumed_by/required
+        contains: ref
+      - id: ADR-017-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-DECISION-001
+        description: "A trava if/then que exige consumo em achado encaminhado segue no schema."
+        file: harness/schemas/conformance-review.schema.json
+        pointer: /properties/review/properties/findings/items/allOf/1/then/required
+        contains: consumed_by

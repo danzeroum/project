@@ -387,4 +387,22 @@ risks:
       - kind: branch_protection
         ref: "refs/tags/v*:disallow_force_update"
 
+  - id: RISK-DECISION-001
+    area: governance
+    description: "Achado de parecer é encaminhado para um destino que não existe, e some com aparência de tratado."
+    likelihood: medium
+    impact: medium
+    treatment: prevent
+    owner: technical_owner
+    status: mitigated
+    controls:
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: harness/schemas/conformance-review.schema.json
+      - kind: local_path
+        ref: harness/policies/cadeia-de-decisao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-017-parecer-sem-consumo-nao-fecha.md
+
 risk_exemptions: []

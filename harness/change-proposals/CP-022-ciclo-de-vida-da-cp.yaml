@@ -1,0 +1,89 @@
+# Mudança proposta: a change-proposal ganha ciclo de vida, e "aprovado" passa a significar
+# "aprovado para ESTE conteúdo". Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-022
+  title: "Ciclo de vida da change-proposal, com aprovação provada no conteúdo integrado"
+  author_kind: agent
+  created_at: "2026-08-05T13:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - harness/schemas/change-proposal.schema.json
+    - ci/verify_approval.py
+    - ci/audit_governance.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-CHANGE-001
+      - RISK-META-001
+    rationale: >
+      O QUE HOJE NÃO EXISTE. A change-proposal declara risco e exige `human_approval_required`
+      quando o risco é alto — e para aí. Não há como saber, olhando o repositório, se uma proposta
+      foi executada, se foi rejeitada, ou se está esperando; nem QUEM aprovou; nem se a aprovação
+      declarada corresponde a algum review que de fato aconteceu. `human_approval_required: true`
+      é um campo que o próprio autor preenche: ele declara que aval é necessário, jamais que aval
+      houve. A distância entre as duas frases é o buraco inteiro.
+
+      OS CAMPOS. `status` (draft|approved|executed|rejected|superseded|deferred) diz em que ponto
+      do ciclo a proposta está. `executed_in` diz onde ela foi integrada. `approved_by` diz quem
+      aprovou, e com qual review. Nada disso é retroativo: os campos só existem para
+      `schema_version: "1.1"`, e as vinte propostas anteriores continuam válidas na 1.0. Retroagir
+      exigiria reescrever registro histórico — e registro que se reescreve para satisfazer fiscal
+      novo deixa de ser registro.
+
+      O ENDURECIMENTO, que é o ponto desta CP. Não basta `approved_by.login`: um login é texto que
+      o autor digita. `approved_by` carrega `{login, review_id, pr_number, approved_at}` e é
+      RESOLVIDO contra a API. Reprova se o review não existir, se não estiver `APPROVED`, se
+      pertencer ao autor da proposta (auto-aprovação com passo extra continua sendo
+      auto-aprovação), ou se não corresponder ao merge declarado.
+
+      E reprova, sobretudo, se o review for ANTERIOR AO ÚLTIMO PUSH. Dependendo da configuração de
+      dismissal, o estado `APPROVED` sobrevive a commits novos: alguém aprova o diff A, empurra o
+      diff B, e a API continua respondendo `APPROVED`. "Aprovado" precisa significar "aprovado para
+      este conteúdo", senão o aval humano vira carimbo que se obtém uma vez e se reusa. O fiscal
+      compara o `commit_id` do review com o `head_sha` que será integrado, e recusa a aprovação
+      velha ainda que a API a exponha como válida.
+
+      `executed_in` de proposta `high` aceita **somente merge commit resolvível**, nunca apenas o
+      número do PR. Número de PR é ponteiro para uma conversa; merge commit é o conteúdo. A mesma
+      distinção da CP-021 uma camada acima, e pela mesma razão.
+
+      FRAUDE E INDETERMINAÇÃO SÃO ESTADOS DISTINTOS (princípio (h)). Aprovação forjada reprova com
+      código de violação. Execução local sem credencial produz `approval_unverifiable`, com exit
+      próprio — nunca verde, nunca vermelho de fraude. Colapsar os dois tornaria "estou sem token"
+      e "alguém forjou um aval" indistinguíveis, e a leitura barata venceria: 'deve ser o token'.
+
+      ARQUITETURA, herdada do CP-021 porque o problema é o mesmo. `verify_approval` é função pura:
+      recebe a proposta, os dados do PR e a lista de reviews já buscados, e devolve violações. Quem
+      tem a rede é o CLI. É o que permite testar cada modo de fraude sem mock de API — e o que
+      impede o fiscal de confundir falha de rede com violação.
+
+      A AUTORREFERÊNCIA, de novo, e resolvida do mesmo jeito. Uma proposta não pode declarar dentro
+      do próprio PR o merge commit que ainda não existe, nem o review que ainda não aconteceu. Daí a
+      regra: os campos de prova (`executed_in`, `approved_by`) são exigidos quando — e só quando —
+      `status: executed`. A proposta entra no PR como `approved`, e o PR seguinte a fecha com o SHA
+      real do merge. Exigir a prova antes de o fato existir produziria um campo que ninguém consegue
+      preencher corretamente e que, por isso, seria preenchido com qualquer coisa: exatamente o modo
+      de falha que esta CP existe para eliminar.
+
+      CUSTO (princípio (e)). Uma chamada de API por proposta `high` executada, só no CI e só quando
+      há credencial. O ganho é a diferença entre "o schema exige que alguém aprove" e "alguém
+      aprovou, e foi este conteúdo".
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_ciclo_cp_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

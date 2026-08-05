@@ -65,6 +65,33 @@ jobs:
       - name: Testes dos fiscais
         run: pytest tests/governance -q
 
+      # CP-022 — o aval declarado é RESOLVIDO contra a API, não aceito como texto.
+      #
+      # continue-on-error é ERRADO aqui e não está sendo usado: fraude reprova. O que este passo
+      # faz é distinguir os dois estados que o princípio (h) separa — exit 1 (violação) derruba o
+      # job; exit 3 (approval_unverifiable, sem credencial) vira aviso auditável. Sem essa
+      # distinção, "estou sem token" e "alguém forjou um aval" produziriam o mesmo vermelho, e a
+      # leitura barata venceria por hábito.
+      - name: Aprovação provada no conteúdo integrado
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python ci/verify_approval.py
+          codigo=$?
+          set -e
+          if [ "$codigo" = "3" ]; then
+            echo "::warning::approval_unverifiable — indeterminação auditável, nunca aprovação por ausência de prova."
+            exit 0
+          fi
+          exit "$codigo"
+
+      # CP-022/Adendo A2 — atrito é medido e entregue ao comitê. NUNCA é gate: um medidor de
+      # custo que reprovasse criaria o incentivo de não declarar propostas para manter o número
+      # baixo, destruindo o registro de onde ele tira o sinal.
+      - name: Medir atrito (informativo)
+        run: python ci/audit_friction.py --snapshot
+
       # ------------------------------------------------------------------------------------
       # Passos negativos: o passo PASSA quando a detecção dispara e FALHA quando não dispara.
       # Mesmo idioma do WEBQA_LEAK=1 em qa.yml. Cada um muta uma CÓPIA em $RUNNER_TEMP, então

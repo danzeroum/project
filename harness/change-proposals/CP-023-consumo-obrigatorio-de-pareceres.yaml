@@ -1,0 +1,68 @@
+# Mudança proposta: um parecer não fecha enquanto seus achados não forem consumidos.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-023
+  title: "Consumo obrigatório de pareceres: achado encaminhado aponta para o artefato que o consumiu"
+  author_kind: agent
+  created_at: "2026-08-05T13:10:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - harness/schemas/conformance-review.schema.json
+    - harness/schemas/privacy-review.schema.json
+    - ci/audit_governance.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-DECISION-001
+      - RISK-CONF-001
+    rationale: >
+      A INTENÇÃO, aprovada na primeira rodada de revisão (R-02) depois de a FORMA original ser
+      rejeitada. A proposta era "tipos lineares em runtime": um parecer seria um valor que precisa
+      ser consumido exatamente uma vez, e deixá-lo cair seria erro de tipo. A forma foi rejeitada —
+      não há runtime aqui, e inventar um para carregar a metáfora seria a inversão que o R-03 já
+      recusou. A intenção sobrevive numa tradução declarativa: o parecer declara PARA ONDE cada
+      achado foi, e o fiscal resolve o destino.
+
+      O BURACO QUE ISTO FECHA. Hoje um achado de conformidade declara `disposition`
+      (change_proposal | risk_entry | accepted) e um `ref` opcional de texto livre. "Este achado
+      virou uma change-proposal" é portanto uma afirmação que ninguém confere: o `ref` pode citar
+      uma CP que não existe, ou não citar nada. Um achado encaminhado para o vazio é
+      indistinguível de um achado tratado — e a diferença entre os dois é a única coisa que o
+      parecer produz.
+
+      A TRADUÇÃO. `consumed_by = {kind, ref}` passa a ser exigido quando a disposição declara
+      encaminhamento (`change_proposal`, `risk_entry`), e `check_decision_chain` resolve o destino
+      contra o artefato real: a CP existe como arquivo, o RISK existe no registro, o ADR existe no
+      índice, o requisito existe no backlog. Destino que não resolve é achado — pela mesma lógica
+      do `assertion_unresolvable` do ADR-006: uma trava que não encontra o que vigia está quebrada,
+      não satisfeita.
+
+      `accepted` continua sendo saída legítima, e continua exigindo `rationale`. Aceitar é uma
+      decisão; o que esta CP recusa é o achado que sai do parecer sem NENHUMA decisão — nem
+      encaminhado, nem aceito, apenas escrito.
+
+      O MESMO VALE PARA A PRIVACIDADE. Um issue P0/P1 do julgamento de LGPD já exige um `RISK-*`
+      do registro. O que faltava era o simétrico: dizer para onde a REMEDIAÇÃO foi. Um issue P0
+      com risco declarado e nenhum consumo é um risco registrado e um trabalho que não existe.
+
+      CUSTO (princípio (e)). Uma resolução de ID por achado encaminhado, sobre coleções que já
+      estão carregadas na memória do fiscal. Custo desprezível; o ganho é que "achado tratado"
+      deixa de ser afirmação de quem escreveu o parecer.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_ciclo_cp_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
