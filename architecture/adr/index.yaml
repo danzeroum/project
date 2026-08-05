@@ -49,6 +49,10 @@ adrs:
         files: ["requirements-qa.txt"]
         pattern: "^\\s*webqa-suite\\s*[<>~!]="
 
+        mutation:
+          op: injetar_texto
+          alvo: requirements-qa.txt
+          texto: "webqa-suite>=1.0.0  # faixa em vez de pin exato"
   - id: ADR-002
     title: "Enforcement mora em schema, CI e gates — não em markdown"
     status: accepted
@@ -125,6 +129,10 @@ adrs:
         files: ["project.yaml"]
         pattern: "\\b[0-9]+\\.[0-9]+\\.[0-9]+\\b"
 
+        mutation:
+          op: injetar_texto
+          alvo: project.yaml
+          texto: "# versao restatada indevidamente: 1.2.3"
   - id: ADR-004
     title: "Toda mudança proposta é declarada e validada antes de executada"
     status: accepted
@@ -372,6 +380,10 @@ adrs:
         description: "SHA de commit do alvo fora de target.lock: segunda cópia de uma versão deriva e a comparação passa a mentir."
         files: ["project.yaml"]
         pattern: "\\b[0-9a-f]{40}\\b"
+        mutation:
+          op: injetar_texto
+          alvo: project.yaml
+          texto: "# sha vazado para fora do lock: 0123456789abcdef0123456789abcdef01234567"
       - id: ADR-008-A6
         kind: file_matches
         severity: critical
@@ -387,6 +399,10 @@ adrs:
         files: ["ci/**/*.py", "harness/**/*.yaml", "harness/**/*.json", "harness/**/*.md"]
         pattern: "github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
 
+        mutation:
+          op: injetar_texto
+          alvo: ci/audit_governance.py
+          texto: "# alvo cravado no fiscal: github.com/exemplo/alvo-especifico"
   - id: ADR-009
     title: "Código sem metadado não existe, e ignorância de linguagem é declarada"
     status: accepted
@@ -426,6 +442,10 @@ adrs:
         description: "O prefixo src/ não volta a ser literal no fiscal: convenção cravada torna o molde específico de um alvo."
         files: ["ci/validate_metadata.py"]
         pattern: 'startswith\("src/"\)'
+        mutation:
+          op: injetar_texto
+          alvo: ci/validate_metadata.py
+          texto: "_ = \"\".startswith(\"src/\")  # raiz cravada"
       - id: ADR-009-A6
         kind: file_matches
         severity: critical
@@ -669,6 +689,10 @@ adrs:
         description: "Nenhum id de etapa escrito à mão na skill: enumerar é o que transforma orientação em segunda descrição que deriva."
         files: [".claude/skills/desenvolver/SKILL.md"]
         pattern: "STAGE-[A-Z]"
+        mutation:
+          op: injetar_texto
+          alvo: .claude/skills/desenvolver/SKILL.md
+          texto: "A etapa STAGE-CODE é onde o código mora."
       - id: ADR-014-A4
         kind: file_lacks
         severity: medium
@@ -739,6 +763,11 @@ adrs:
         files: ["ci/mold_release.py"]
         pattern: "def verify_chain\\((?:(?!\\ndef )[\\s\\S])*?(?:subprocess\\.|urlopen|requests\\.|\\bopen\\()"
 
+        mutation:
+          op: injetar_apos
+          alvo: ci/mold_release.py
+          marcador: "def verify_chain("
+          texto: "    urlopen('http://exemplo')  # I/O dentro da função pura"
   - id: ADR-016
     title: "Aprovação vale para o conteúdo integrado, não para o pedido"
     status: accepted
@@ -790,6 +819,11 @@ adrs:
         description: "verify_approval continua sem I/O: a conclusão que só a rede sustenta não pode nascer dentro da função pura."
         files: ["ci/verify_approval.py"]
         pattern: "def verify_approval\\((?:(?!\\ndef )[\\s\\S])*?(?:urlopen|_api\\(|requests\\.|\\bopen\\()"
+        mutation:
+          op: injetar_apos
+          alvo: ci/verify_approval.py
+          marcador: "def verify_approval("
+          texto: "    urlopen('http://exemplo')  # I/O dentro da função pura"
       - id: ADR-016-A7
         kind: file_lacks
         severity: medium
@@ -927,6 +961,10 @@ adrs:
         description: "O fiscal continua sugerindo o comando sem executá-lo (fronteira do R-01): nenhuma chamada de subprocesso no fiscal de conformidade."
         files: ["ci/audit_governance.py"]
         pattern: "subprocess\\.(run|call|Popen)"
+        mutation:
+          op: injetar_texto
+          alvo: ci/audit_governance.py
+          texto: "def _mutacao_canonica():\n    subprocess.run([\"true\"])"
       - id: ADR-019-A6
         kind: manual
         severity: medium
@@ -1159,6 +1197,10 @@ adrs:
         description: "Nenhum threshold de duração voltou como gate (R-12): o workflow não compara tempo de execução com número algum."
         files: [".github/workflows/governance.yml"]
         pattern: "(duration|elapsed|SECONDS).*(-lt|-gt|<|>)\\s*[0-9]+"
+        mutation:
+          op: injetar_texto
+          alvo: .github/workflows/governance.yml
+          texto: "          # if [ \"$SECONDS\" -gt 300 ]; then exit 1; fi"
       - id: ADR-023-A8
         kind: file_lacks
         severity: medium
@@ -1166,3 +1208,58 @@ adrs:
         description: "O checklist de PR continua fora da validação total: ele é ergonomia, não o nono fiscal."
         files: ["ci/validate_all.py"]
         pattern: "pr_checklist"
+
+  - id: ADR-024
+    title: "Toda trava prova que morde"
+    status: accepted
+    file: architecture/adr/ADR-024-toda-trava-prova-que-morde.md
+    related_risks: [RISK-CONF-001, RISK-DEP-001]
+    assertions:
+      - id: ADR-024-A1
+        kind: path_present
+        severity: critical
+        risk: RISK-CONF-001
+        description: "A prova de mutação e o fiscal de conflito de dependências existem como código."
+        paths:
+          - ci/audit_mutations.py
+          - ci/check_dependency_conflict.py
+      - id: ADR-024-A2
+        kind: file_matches
+        severity: critical
+        risk: RISK-CONF-001
+        description: "A prova continua sendo passo do CI — sem ela, uma asserção pode virar decorativa sem que nada acuse."
+        files: [".github/workflows/governance.yml"]
+        pattern: "python ci/audit_mutations\\.py"
+      - id: ADR-024-A3
+        kind: file_matches
+        severity: high
+        risk: RISK-CONF-001
+        description: "A mutação continua sendo VERIFICADA, não assumida: o fiscal exige que a asserção fique vermelha depois de aplicá-la."
+        files: ["ci/audit_mutations.py"]
+        pattern: "nao_morde"
+      - id: ADR-024-A4
+        kind: schema_lock
+        severity: high
+        risk: RISK-CONF-001
+        description: "O escape declarado continua no schema: sem ele, as dez asserções de regex expressiva não teriam como provar que mordem."
+        file: harness/schemas/adr-index.schema.json
+        pointer: /$defs/assertion/properties/mutation/required
+        contains: op
+      - id: ADR-024-A5
+        kind: file_lacks
+        severity: high
+        risk: RISK-CONF-001
+        description: "A prova continua FORA da validação total: um fiscal que torna o loop de trabalho insuportável é desligado, não obedecido."
+        files: ["ci/validate_all.py"]
+        pattern: "audit_mutations"
+        mutation:
+          op: injetar_texto
+          alvo: ci/validate_all.py
+          texto: "# import audit_mutations  # mutação canônica"
+      - id: ADR-024-A6
+        kind: file_matches
+        severity: high
+        risk: RISK-DEP-001
+        description: "O fiscal de conflito só acusa == contra ==: um >=8 no pyproject com um ==9.1.1 no lock não se contradizem, e acusá-los seria reprovar o funcionamento normal de um lockfile."
+        files: ["ci/check_dependency_conflict.py"]
+        pattern: "op == \"==\""

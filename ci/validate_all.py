@@ -33,6 +33,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
     import alignment_report
     import audit_conformance
     import audit_ledger
+    import check_dependency_conflict
     import audit_governance
     import audit_lgpd
     import generate_graph
@@ -48,6 +49,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
         ("conformidade-continua", audit_conformance.main, []),
         ("lgpd", audit_lgpd.main, []),
         ("ledger", audit_ledger.main, []),
+        ("dependências", check_dependency_conflict.main, []),
     ]
 
 

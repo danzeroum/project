@@ -247,6 +247,9 @@ stages:
       - kind: ci_script
         ref: ci/validate_metadata.py
         symbol: check_dependency_inventory
+      - kind: ci_script
+        ref: ci/check_dependency_conflict.py
+        symbol: conflitos
     privacy_lens:
       scan: true
       question: "Alguma ameaça expõe dado pessoal? A mitigação declarada cobre o vazamento, ou só o acesso?"
@@ -268,6 +271,9 @@ stages:
       - kind: ci_script
         ref: ci/validate_all.py
         symbol: main
+      - kind: ci_script
+        ref: ci/audit_mutations.py
+        symbol: provar
       - kind: workflow_step
         ref: .github/workflows/governance.yml
         step: "Validação total do projeto"
