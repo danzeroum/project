@@ -5,6 +5,11 @@ harness/state/*
 !harness/runs/.gitkeep
 !harness/reports/.gitkeep
 !harness/state/.gitkeep
+# EXCEÇÃO DECLARADA (CP-026 / ADR-021, e o item 5 do RIPD foi atualizado no mesmo PR): o ledger é
+# versionado porque evidência durável é o ponto dele. A medida de proteção não sumiu — mudou de
+# lugar, do .gitignore para o schema: ledger.schema.json não tem campo textual livre, então não
+# existe onde escrever dado pessoal. Minimização estrutural, não promessa.
+!harness/state/ledger.jsonl
 
 # Código do ALVO materializado por ci/bootstrap.py no SHA de target.lock. Não é versionado
 # porque o derivado DECLARA o alvo e nunca o copia (ADR-008): uma cópia versionada derivaria do

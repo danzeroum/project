@@ -63,8 +63,25 @@ criptografia é segunda linha para dado já minimizado, não a primeira resposta
    `tests/qa/campanha.yaml`, **e `retention-days: 90` nos dois uploads de artifact**. A
    igualdade entre os três é fiscalizada — divergência silenciosa
    entre duas declarações de retenção seria uma mentira de retenção.
-5. **Não versionar.** `harness/runs/`, `harness/reports/` e `harness/state/` são gitignored: a
-   evidência não entra no histórico do Git, de onde não se apaga.
+5. **Não versionar — com uma exceção declarada e minimizada por construção (CP-026/ADR-021).**
+   `harness/runs/`, `harness/reports/` e `harness/state/` continuam gitignored: a evidência bruta
+   não entra no histórico do Git, de onde não se apaga.
+
+   A **única** exceção é `harness/state/ledger.jsonl`, versionado a partir do CP-026. A medida de
+   proteção não foi afrouxada; ela foi transferida do `.gitignore` para o **schema**. O
+   `ledger.schema.json` não possui nenhuma propriedade textual livre (`additionalProperties: false`;
+   cada campo é hash, SHA, ID opaco de run, enum, timestamp, ID de CP ou referência canônica de
+   artefato). Não existe campo onde nome, e-mail, login, URL de perfil, texto de prompt ou conteúdo
+   de laudo caibam — a minimização é **estrutural**, não uma promessa de quem escreve.
+
+   Atribuição humana, quando indispensável, usa `actor_ref` **pseudonimizado**
+   (`^anon:[0-9a-f]{16}$`), com a tabela de reidentificação **fora deste repositório**, sob
+   controle separado. Versioná-la aqui recriaria o problema que a pseudonimização resolve.
+
+   O ledger é deliberadamente **mais estrito** que `business.stakeholders`, que aceita handle. A
+   razão está nesta mesma frase: o ledger é append-only e versionado — *de onde não se apaga*.
+   Minimização suficiente num arquivo editável vira exposição **permanente** num histórico
+   imutável.
 6. **Minimizar identificação de colaborador.** `business.stakeholders` usa identificador de
    conta (handle) em vez de nome civil e e-mail pessoal. Um handle já satisfaz a finalidade
    (saber a quem escalar), e coletar menos é sempre a primeira opção.

@@ -1000,3 +1000,56 @@ adrs:
         description: "A indeterminação continua tendo código próprio: 'não consegui perguntar' e 'a proteção está desligada' pedem reações opostas."
         files: ["ci/verify_protection.py"]
         pattern: "EXIT_UNVERIFIABLE = 3"
+
+  - id: ADR-021
+    title: "O ledger é versionado, e a minimização mudou de lugar"
+    status: accepted
+    file: architecture/adr/ADR-021-ledger-versionado-com-minimizacao-estrutural.md
+    related_risks: [RISK-PRIV-001, RISK-META-001]
+    assertions:
+      - id: ADR-021-A1
+        kind: path_present
+        severity: high
+        risk: RISK-PRIV-001
+        description: "O fiscal do ledger e seu schema existem como código, não como intenção."
+        paths:
+          - ci/audit_ledger.py
+          - harness/schemas/ledger.schema.json
+      - id: ADR-021-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-PRIV-001
+        description: "additionalProperties:false é o que torna a minimização ESTRUTURAL: sem ele, qualquer campo novo entra, e o campo novo é onde o texto livre volta."
+        file: harness/schemas/ledger.schema.json
+        pointer: /additionalProperties
+        expected: false
+      - id: ADR-021-A3
+        kind: schema_lock
+        severity: critical
+        risk: RISK-PRIV-001
+        description: "actor_ref continua pseudonimizado por pattern — o prefixo e o tamanho fixo tornam impossível escrever um login."
+        file: harness/schemas/ledger.schema.json
+        pointer: /properties/actor_ref/pattern
+        expected: "^anon:[0-9a-f]{16}$"
+      - id: ADR-021-A4
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "A verificação append-only continua existindo — um ledger reescrevível não registra nada."
+        files: ["ci/audit_ledger.py"]
+        pattern: "def check_append_only\\("
+      - id: ADR-021-A5
+        kind: file_matches
+        severity: critical
+        risk: RISK-PRIV-001
+        description: "O item 5 do RIPD registra a exceção do ledger: mudar uma medida de proteção declarada sem tocar no documento que a declara é o que este repositório recusa em toda parte."
+        files: ["governance/ripd.md"]
+        pattern: "ledger\\.jsonl.*versionado|versionado a partir do CP-026"
+        dotall: true
+      - id: ADR-021-A6
+        kind: file_matches
+        severity: high
+        risk: RISK-PRIV-001
+        description: "A exceção do .gitignore é de UM arquivo, e continua comentada com o motivo."
+        files: [".gitignore"]
+        pattern: "^!harness/state/ledger\\.jsonl$"

@@ -186,6 +186,9 @@ stages:
       - "harness/releases"
     enforced_by:
       - kind: ci_script
+        ref: ci/audit_ledger.py
+        symbol: check_append_only
+      - kind: ci_script
         ref: ci/audit_governance.py
         symbol: check_external_attestation
       - kind: ci_script
