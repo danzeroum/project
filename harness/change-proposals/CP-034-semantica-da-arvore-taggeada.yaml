@@ -26,6 +26,8 @@ proposal:
     - harness/policies/ancoragem-do-molde.md
     - harness/releases/README.md
     - tests/governance/test_release_publicacao.py
+    # Derivados: o grafo ganha o ADR novo e o fingerprint da revisão semântica é recalculado.
+    - docs/metadata-graph.md
     - governance/conformance-review.yaml
 
   risk_assessment:
