@@ -4,21 +4,37 @@
   "title": "change-proposal — a ponte entre metadado estático e execução agentic",
   "description": "Toda mudança proposta (por agente, humano ou CI) declara o que afeta, o risco, os gates exigidos e se precisa de aval humano. É o que a harness lê para rotear, bloquear ou escalar.",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "proposal"],
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "proposal"
+  ],
   "additionalProperties": false,
   "oneOf": [
     {
       "properties": {
-        "source_of_truth": { "const": true },
-        "generated_from": { "const": null }
+        "source_of_truth": {
+          "const": true
+        },
+        "generated_from": {
+          "const": null
+        }
       }
     },
     {
       "properties": {
-        "source_of_truth": { "const": false },
-        "generated_from": { "type": "string", "minLength": 1 }
+        "source_of_truth": {
+          "const": false
+        },
+        "generated_from": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["generated_from"]
+      "required": [
+        "generated_from"
+      ]
     }
   ],
   "allOf": [
@@ -29,74 +45,336 @@
           "proposal": {
             "properties": {
               "risk_assessment": {
-                "properties": { "level": { "enum": ["high", "critical"] } },
-                "required": ["level"]
+                "properties": {
+                  "level": {
+                    "enum": [
+                      "high",
+                      "critical"
+                    ]
+                  }
+                },
+                "required": [
+                  "level"
+                ]
               }
             },
-            "required": ["risk_assessment"]
+            "required": [
+              "risk_assessment"
+            ]
           }
         },
-        "required": ["proposal"]
+        "required": [
+          "proposal"
+        ]
       },
       "then": {
         "properties": {
           "proposal": {
-            "properties": { "human_approval_required": { "const": true } },
-            "required": ["human_approval_required"]
+            "properties": {
+              "human_approval_required": {
+                "const": true
+              }
+            },
+            "required": [
+              "human_approval_required"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "comment": "CICLO DE VIDA, e a NÃO-RETROATIVIDADE é parte da decisão (CP-022). Os campos de ciclo só existem a partir de schema_version 1.1; as propostas 1.0 continuam válidas como estão. Retroagir exigiria reescrever registro histórico — e registro que se reescreve para satisfazer fiscal novo deixa de ser registro.",
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "1.1"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "proposal": {
+            "required": [
+              "id",
+              "title",
+              "status",
+              "paths_affected"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "comment": "A prova é exigida quando o fato existe, nunca antes. Uma proposta não pode declarar dentro do próprio PR o merge commit que ainda não existe nem o review que ainda não aconteceu — exigir isso produziria campos preenchidos com qualquer coisa. Declarar 'executed' é que passa a obrigar a prova de onde foi executada.",
+      "if": {
+        "properties": {
+          "proposal": {
+            "properties": {
+              "status": {
+                "const": "executed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "proposal"
+        ]
+      },
+      "then": {
+        "properties": {
+          "proposal": {
+            "required": [
+              "executed_in"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "comment": "Executada + risco alto ⇒ o aprovador é NOMEADO e resolvível. `human_approval_required: true` diz que aval era necessário; jamais que aval houve. Sem approved_by, a diferença entre as duas frases é todo o buraco.",
+      "if": {
+        "properties": {
+          "proposal": {
+            "properties": {
+              "status": {
+                "const": "executed"
+              },
+              "risk_assessment": {
+                "properties": {
+                  "level": {
+                    "enum": [
+                      "high",
+                      "critical"
+                    ]
+                  }
+                },
+                "required": [
+                  "level"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "risk_assessment"
+            ]
+          }
+        },
+        "required": [
+          "proposal"
+        ]
+      },
+      "then": {
+        "properties": {
+          "proposal": {
+            "required": [
+              "approved_by"
+            ],
+            "properties": {
+              "executed_in": {
+                "required": [
+                  "merge_commit_sha"
+                ]
+              }
+            }
           }
         }
       }
     }
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "source_of_truth": { "type": "boolean" },
-    "generated_from": { "type": ["string", "null"] },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "metadata_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "source_of_truth": {
+      "type": "boolean"
+    },
+    "generated_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "proposal": {
       "type": "object",
       "required": [
-        "id", "title", "author_kind", "created_at",
-        "capabilities_affected", "components_affected",
-        "risk_assessment", "required_gates", "tests_required",
-        "human_approval_required", "change_mode"
+        "id",
+        "title",
+        "author_kind",
+        "created_at",
+        "capabilities_affected",
+        "components_affected",
+        "risk_assessment",
+        "required_gates",
+        "tests_required",
+        "human_approval_required",
+        "change_mode"
       ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^CP-[0-9]{3,}$" },
-        "title": { "type": "string" },
-        "author_kind": { "enum": ["agent", "human", "ci"] },
-        "created_at": { "type": "string", "format": "date-time" },
+        "id": {
+          "type": "string",
+          "pattern": "^CP-[0-9]{3,}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author_kind": {
+          "enum": [
+            "agent",
+            "human",
+            "ci"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
         "capabilities_affected": {
           "type": "array",
-          "items": { "type": "string", "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$" }
+          "items": {
+            "type": "string",
+            "pattern": "^CAP-[A-Z0-9]+(-[A-Z0-9]+)*$"
+          }
         },
         "components_affected": {
           "type": "array",
-          "items": { "type": "string", "pattern": "^CMP-[A-Z0-9]+(-[A-Z0-9]+)*$" }
+          "items": {
+            "type": "string",
+            "pattern": "^CMP-[A-Z0-9]+(-[A-Z0-9]+)*$"
+          }
         },
         "risk_assessment": {
           "type": "object",
-          "required": ["level", "rationale"],
+          "required": [
+            "level",
+            "rationale"
+          ],
           "additionalProperties": false,
           "properties": {
-            "level": { "enum": ["low", "medium", "high", "critical"] },
+            "level": {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ]
+            },
             "risks": {
               "type": "array",
-              "items": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" }
+              "items": {
+                "type": "string",
+                "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$"
+              }
             },
-            "rationale": { "type": "string" }
+            "rationale": {
+              "type": "string"
+            }
           }
         },
         "required_gates": {
           "type": "array",
           "minItems": 1,
-          "items": { "enum": ["inventory", "passive", "load", "active_discovery", "unit-tests", "metadata-validation"] },
+          "items": {
+            "enum": [
+              "inventory",
+              "passive",
+              "load",
+              "active_discovery",
+              "unit-tests",
+              "metadata-validation"
+            ]
+          },
           "uniqueItems": true
         },
-        "tests_required": { "type": "array", "items": { "type": "string" } },
-        "human_approval_required": { "type": "boolean" },
-        "change_mode": { "const": "pull_request" }
+        "tests_required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "human_approval_required": {
+          "type": "boolean"
+        },
+        "change_mode": {
+          "const": "pull_request"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "approved",
+            "executed",
+            "rejected",
+            "superseded",
+            "deferred"
+          ],
+          "description": "Onde a proposta está no ciclo. 'deferred' é estado de primeira classe: uma CP que depende de condição externa (identidade emissora, ADR de exceção) não conta como implementada, e sem este valor ela ficaria eternamente 'approved' passando por pronta."
+        },
+        "paths_affected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Caminhos que a proposta toca. Diferente de capabilities/components: aqueles descrevem o NEGÓCIO afetado, este descreve a SUPERFÍCIE editada — e é o que permite ao fiscal de atrito perguntar se o mesmo lugar está sendo reproposto sem parar."
+        },
+        "executed_in": {
+          "type": "object",
+          "required": [
+            "pr_number"
+          ],
+          "additionalProperties": false,
+          "description": "Onde a proposta foi integrada. Para risco alto, merge_commit_sha é obrigatório: número de PR é ponteiro para uma conversa, merge commit é o conteúdo.",
+          "properties": {
+            "pr_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "merge_commit_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            }
+          }
+        },
+        "approved_by": {
+          "type": "object",
+          "required": [
+            "login",
+            "review_id",
+            "pr_number",
+            "approved_at"
+          ],
+          "additionalProperties": false,
+          "description": "Quem aprovou, e com QUAL review. O login sozinho é texto que o autor digita; o review_id é o que ci/verify_approval.py resolve contra a API — inclusive para recusar aprovação anterior ao último push.",
+          "properties": {
+            "login": {
+              "type": "string",
+              "minLength": 1
+            },
+            "review_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pr_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "approved_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
       }
     }
   }

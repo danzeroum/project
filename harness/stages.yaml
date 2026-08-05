@@ -186,6 +186,12 @@ stages:
       - "harness/releases"
     enforced_by:
       - kind: ci_script
+        ref: ci/audit_governance.py
+        symbol: check_cp_lifecycle
+      - kind: ci_script
+        ref: ci/audit_governance.py
+        symbol: check_decision_chain
+      - kind: ci_script
         ref: ci/validate_metadata.py
         symbol: check_mold_release
       - kind: ci_script

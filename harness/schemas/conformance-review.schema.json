@@ -4,35 +4,77 @@
   "title": "governance/conformance-review.yaml — registro tipado da VALIDAÇÃO semântica",
   "description": "Irmão de privacy-review.yaml, e pela mesma razão: separar o julgamento (prosa, feita por agente) do registro (tipado, fiscalizável) é o que permite conferir sem tentar conferir prosa. O fiscal determinístico não julga se a descrição de um componente ainda condiz com o código — ele confere que alguém julgou, e que o julgamento cobre ESTE estado, incluindo o SHA do alvo. Verificação e validação são coisas distintas: verificar é 'está conforme o declarado?' (fiscal); validar é 'ainda faz o que deveria?' (agente).",
   "type": "object",
-  "required": ["schema_version", "metadata_version", "source_of_truth", "review"],
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "review"
+  ],
   "additionalProperties": false,
   "oneOf": [
     {
       "properties": {
-        "source_of_truth": { "const": true },
-        "generated_from": { "const": null }
+        "source_of_truth": {
+          "const": true
+        },
+        "generated_from": {
+          "const": null
+        }
       }
     },
     {
       "properties": {
-        "source_of_truth": { "const": false },
-        "generated_from": { "type": "string", "minLength": 1 }
+        "source_of_truth": {
+          "const": false
+        },
+        "generated_from": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["generated_from"]
+      "required": [
+        "generated_from"
+      ]
     }
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-    "source_of_truth": { "type": "boolean" },
-    "generated_from": { "type": ["string", "null"] },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "metadata_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "source_of_truth": {
+      "type": "boolean"
+    },
+    "generated_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "review": {
       "type": "object",
-      "required": ["produced_by", "agent", "scope_fingerprint", "findings", "not_assessed"],
+      "required": [
+        "produced_by",
+        "agent",
+        "scope_fingerprint",
+        "findings",
+        "not_assessed"
+      ],
       "additionalProperties": false,
       "properties": {
-        "produced_by": { "enum": ["agent", "human"] },
-        "agent": { "const": "conformance" },
+        "produced_by": {
+          "enum": [
+            "agent",
+            "human"
+          ]
+        },
+        "agent": {
+          "const": "conformance"
+        },
         "scope_fingerprint": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$",
@@ -43,31 +85,118 @@
           "description": "O que o agente achou. Cada achado vira change-proposal ou entrada de risco — NUNCA correção direta: um agente que conserta o que ele mesmo julga é juiz e parte.",
           "items": {
             "type": "object",
-            "required": ["id", "severity", "summary", "disposition"],
+            "required": [
+              "id",
+              "severity",
+              "summary",
+              "disposition"
+            ],
             "additionalProperties": false,
             "properties": {
-              "id": { "type": "string", "pattern": "^CONF-[0-9]{3}$" },
-              "severity": { "enum": ["low", "medium", "high", "critical"] },
-              "summary": { "type": "string", "minLength": 10 },
+              "id": {
+                "type": "string",
+                "pattern": "^CONF-[0-9]{3}$"
+              },
+              "severity": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "critical"
+                ]
+              },
+              "summary": {
+                "type": "string",
+                "minLength": 10
+              },
               "disposition": {
-                "enum": ["change_proposal", "risk_entry", "accepted"],
+                "enum": [
+                  "change_proposal",
+                  "risk_entry",
+                  "accepted"
+                ],
                 "description": "Para onde o achado foi encaminhado. 'accepted' exige rationale — aceitar em silêncio é como um achado morre."
               },
-              "ref": { "type": "string", "minLength": 1 },
-              "rationale": { "type": "string", "minLength": 40 }
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 40
+              },
+              "consumed_by": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "ref"
+                ],
+                "additionalProperties": false,
+                "description": "Para qual artefato REAL o achado foi. Traducao declarativa dos tipos lineares (R-02): a forma em runtime foi rejeitada, a intencao sobreviveu como destino resolvivel. ci/audit_governance.py::check_decision_chain resolve o ref.",
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "change_proposal",
+                      "risk",
+                      "adr"
+                    ]
+                  },
+                  "ref": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
             },
             "allOf": [
               {
                 "comment": "Aceitar um achado é uma decisão, e decisão sem razão registrada é achado esquecido com outro nome.",
-                "if": { "properties": { "disposition": { "const": "accepted" } }, "required": ["disposition"] },
-                "then": { "required": ["rationale"] }
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "const": "accepted"
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "rationale"
+                  ]
+                }
+              },
+              {
+                "comment": "Encaminhar exige dizer PARA ONDE. Um achado encaminhado para o vazio e indistinguivel de um achado tratado, e a diferenca entre os dois e a unica coisa que o parecer produz.",
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "enum": [
+                        "change_proposal",
+                        "risk_entry"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "consumed_by"
+                  ]
+                }
               }
             ]
           }
         },
         "not_assessed": {
           "type": "array",
-          "items": { "type": "string", "minLength": 5 },
+          "items": {
+            "type": "string",
+            "minLength": 5
+          },
           "description": "O que a revisão NÃO olhou. Registrar isto é requisito: 'sem achados' numa categoria que ninguém examinou é a forma mais silenciosa de laudo falso."
         }
       }

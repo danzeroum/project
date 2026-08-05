@@ -523,6 +523,177 @@ def check_policy_pointers(findings: Findings) -> None:
                 )
 
 
+PROPOSALS_DIR = "harness/change-proposals"
+CONFORMANCE_REVIEW = "governance/conformance-review.yaml"
+PRIVACY_REVIEW = "governance/privacy-review.yaml"
+
+
+def check_cp_lifecycle(findings: Findings, errors: Errors) -> None:
+    """O ciclo de vida declarado é coerente com o que o repositório mostra (CP-022).
+
+    O que este fiscal NÃO faz: resolver `capabilities_affected` contra o metadado de hoje. Essa
+    isenção é do CP-018 e continua valendo — uma proposta fala do dia em que foi escrita. O que
+    entra aqui é o que NÃO envelhece: a coerência entre `status` e os campos de prova, que descreve
+    a própria proposta e não o mundo em volta dela.
+
+    A resolução do review contra a API é de ci/verify_approval.py, e a separação é a de sempre:
+    aqui não há rede, então aqui não pode haver a conclusão que só a rede sustenta.
+    """
+    d = hl.REPO / PROPOSALS_DIR
+    if not d.exists():
+        return
+    for path in sorted(d.glob("*.yaml")):
+        rel = hl.rel(path)
+        try:
+            doc = hl.read_yaml(rel) or {}
+        except HarnessError as exc:
+            errors.err(str(exc))
+            continue
+        proposta = doc.get("proposal") or {}
+        if doc.get("schema_version") != "1.1":
+            continue  # não-retroatividade: as 1.0 não têm ciclo, e reescrevê-las apagaria registro
+        cid = proposta.get("id", "?")
+        status = proposta.get("status")
+        alto = (proposta.get("risk_assessment") or {}).get("level") in ("high", "critical")
+
+        if status == "executed" and not (proposta.get("executed_in") or {}).get("pr_number"):
+            findings.add(
+                key=f"{cid}-EXECUTED-SEM-PR", origin="cp_lifecycle", severity="high",
+                risk="RISK-CHANGE-001", location=rel,
+                summary=f"{cid} declara 'executed' sem executed_in.pr_number — uma proposta "
+                        f"executada em lugar nenhum é uma decisão sem rastro.",
+            )
+        if status == "executed" and alto:
+            if not (proposta.get("executed_in") or {}).get("merge_commit_sha"):
+                findings.add(
+                    key=f"{cid}-EXECUTED-SEM-MERGE", origin="cp_lifecycle", severity="high",
+                    risk="RISK-CHANGE-001", location=rel,
+                    summary=f"{cid} é de risco alto e declara execução sem merge commit — número "
+                            f"de PR é ponteiro para uma conversa, merge commit é o conteúdo.",
+                )
+            if not proposta.get("approved_by"):
+                findings.add(
+                    key=f"{cid}-SEM-APROVADOR", origin="cp_lifecycle", severity="critical",
+                    risk="RISK-CHANGE-001", location=rel,
+                    summary=f"{cid} executou mudança de risco alto sem nomear aprovador — "
+                            f"'aval necessário' não é 'aval houve'.",
+                )
+        aprovacao = proposta.get("approved_by") or {}
+        executado = proposta.get("executed_in") or {}
+        if aprovacao and executado and aprovacao.get("pr_number") != executado.get("pr_number"):
+            findings.add(
+                key=f"{cid}-APROVACAO-DE-OUTRO-PR", origin="cp_lifecycle", severity="critical",
+                risk="RISK-CHANGE-001", location=rel,
+                summary=f"{cid}: o aval cita o PR #{aprovacao.get('pr_number')} e a execução cita "
+                        f"o PR #{executado.get('pr_number')} — o aval precisa ser DESTE merge.",
+            )
+        if aprovacao and not alto:
+            continue
+        if status in ("draft", "approved") and executado:
+            findings.add(
+                key=f"{cid}-NAO-EXECUTADA-COM-MERGE", origin="cp_lifecycle", severity="medium",
+                risk="RISK-CHANGE-001", location=rel,
+                summary=f"{cid} declara execução em '{status}' — ou a proposta foi executada e o "
+                        f"status mente, ou o campo foi preenchido antes do fato.",
+            )
+
+
+def _alvos_de_consumo(risk_doc: dict, adr_doc: dict) -> dict[str, set[str]]:
+    """Os destinos possíveis de um achado, lidos dos artefatos REAIS — nunca de lista duplicada."""
+    cps = set()
+    d = hl.REPO / PROPOSALS_DIR
+    if d.exists():
+        for path in d.glob("*.yaml"):
+            try:
+                p = (hl.read_yaml(hl.rel(path)) or {}).get("proposal") or {}
+            except HarnessError:
+                continue
+            if p.get("id"):
+                cps.add(p["id"])
+    return {
+        "change_proposal": cps,
+        "risk": {r.get("id") for r in (risk_doc or {}).get("risks", [])},
+        "adr": {a.get("id") for a in (adr_doc or {}).get("adrs", [])},
+    }
+
+
+def check_decision_chain(risk_doc: dict, adr_doc: dict, findings: Findings, errors: Errors) -> None:
+    """Achado encaminhado aponta para o artefato que de fato o consumiu (CP-023).
+
+    É a tradução declarativa dos "tipos lineares" cuja FORMA foi rejeitada na primeira rodada
+    (R-02) e cuja INTENÇÃO foi aprovada: um parecer não some sem deixar consequência. Hoje um
+    achado declara `disposition: change_proposal` e um `ref` de texto livre — "isto virou uma
+    proposta" é uma afirmação que ninguém confere, e um achado encaminhado para o vazio é
+    indistinguível de um achado tratado.
+
+    `accepted` continua sendo saída legítima (e continua exigindo rationale, pelo schema). O que
+    se recusa é o achado que sai do parecer sem NENHUMA decisão resolvível.
+    """
+    alvos = _alvos_de_consumo(risk_doc, adr_doc)
+
+    def resolve(consumo: dict, origem: str, ident: str, arquivo: str) -> None:
+        kind, ref = consumo.get("kind"), consumo.get("ref")
+        conhecidos = alvos.get(kind)
+        if conhecidos is None:
+            findings.add(
+                key=f"CHAIN-{ident}-KIND", origin="decision_chain", severity="high",
+                risk="RISK-DECISION-001", location=arquivo,
+                summary=f"{ident}: consumed_by.kind '{kind}' não é um destino que este fiscal "
+                        f"saiba resolver.",
+            )
+            return
+        if ref not in conhecidos:
+            findings.add(
+                key=f"CHAIN-{ident}", origin="decision_chain", severity="high",
+                risk="RISK-DECISION-001", location=arquivo,
+                summary=f"{ident} declara ter sido consumido por {ref}, que não existe entre os "
+                        f"{kind} do repositório — encaminhar para o vazio é indistinguível de "
+                        f"tratar, e é como um achado morre.",
+                remediation=f"Criar o {kind} que consome o achado, ou mudar a disposição para "
+                            f"'accepted' com rationale.",
+            )
+
+    try:
+        conformidade = hl.read_yaml(CONFORMANCE_REVIEW) if hl.rel_exists(CONFORMANCE_REVIEW) else {}
+        privacidade = hl.read_yaml(PRIVACY_REVIEW) if hl.rel_exists(PRIVACY_REVIEW) else {}
+    except HarnessError as exc:
+        errors.err(str(exc))
+        return
+
+    for achado in ((conformidade or {}).get("review") or {}).get("findings", []) or []:
+        ident = achado.get("id", "?")
+        if achado.get("disposition") in ("change_proposal", "risk_entry"):
+            consumo = achado.get("consumed_by")
+            if not consumo:
+                findings.add(
+                    key=f"CHAIN-{ident}-VAZIO", origin="decision_chain", severity="high",
+                    risk="RISK-DECISION-001", location=CONFORMANCE_REVIEW,
+                    summary=f"{ident} foi encaminhado ({achado.get('disposition')}) e não diz para "
+                            f"onde — achado encaminhado sem destino é achado esquecido com outro nome.",
+                )
+            else:
+                resolve(consumo, "conformance", ident, CONFORMANCE_REVIEW)
+
+    for issue in ((privacidade or {}).get("review") or {}).get("issues", []) or []:
+        ident = issue.get("id", "?")
+        consumo = issue.get("consumed_by")
+        # 'accepted' é decisão declarada (e o schema já exige risco em P0/P1); o que se cobra aqui
+        # é o issue crítico que segue aberto ou mitigado sem dizer QUAL trabalho o resolve.
+        if issue.get("severity") in ("P0", "P1") and issue.get("status") != "accepted":
+            if not consumo:
+                findings.add(
+                    key=f"CHAIN-{ident}-VAZIO", origin="decision_chain", severity="high",
+                    risk="RISK-DECISION-001", location=PRIVACY_REVIEW,
+                    summary=f"{ident} é {issue.get('severity')} e não declara consumo — um issue "
+                            f"crítico com risco registrado e nenhum trabalho é um risco gerido "
+                            f"apenas no papel.",
+                )
+            else:
+                resolve(consumo, "privacy", ident, PRIVACY_REVIEW)
+        elif consumo:
+            resolve(consumo, "privacy", ident, PRIVACY_REVIEW)
+
+
 def check_risk_control_coverage(risk_doc: dict, findings: Findings) -> None:
     """Todo risco tem ao menos um controle verificável localmente.
 
@@ -615,6 +786,8 @@ def main(argv: list[str] | None = None) -> int:
     check_repo_partition(stages_doc, findings)
     check_ingest_pipeline(findings, errors)
     check_policy_pointers(findings)
+    check_cp_lifecycle(findings, errors)
+    check_decision_chain(risk_doc, adr_index, findings, errors)
     check_risk_control_coverage(risk_doc, findings)
     check_protected_paths(harness_doc, findings)
     check_owners_assigned(risk_doc, project_doc, findings)
