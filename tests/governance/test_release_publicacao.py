@@ -218,6 +218,27 @@ def test_ordem_dos_passos_do_job_de_publicar(wf, antes, depois):
     assert _indice(passos, antes) < _indice(passos, depois)
 
 
+def test_o_registro_nasce_do_validado_e_cita_o_taggeado(wf):
+    """Dentro DO PASSO do ledger — e a distinção é a razão de este teste existir separado.
+
+    A busca "existe um detach antes do append?" acha o detach do passo que monta o commit de
+    release, que vem antes de tudo isto, e passaria mesmo com o do ledger removido. É o mesmo
+    alçapão que a asserção ADR-025-A14 evita ancorando no nome do passo — e o teste ingênuo caiu
+    nele antes de virar este.
+    """
+    passo = next(p for p in wf["jobs"]["publicar"]["steps"]
+                 if p.get("name") == "Registrar a release no ledger")
+    script = passo["run"]
+    assert script.index('git switch --detach "${VALIDADO}"') < script.index("--append release")
+    assert '--commit-sha "${RELEASE_COMMIT}"' in script
+
+
+def test_o_registro_vem_depois_da_ref(wf):
+    """Registrar antes de publicar seria registrar o que ainda pode não acontecer."""
+    passos = _passos(wf, "publicar")
+    assert _indice(passos, "Publicar a ref") < _indice(passos, "Registrar a release no ledger")
+
+
 def test_nenhum_push_com_force(wf_texto):
     """Criar e mover são operações distintas, e a assimetria entre elas é toda a resposta à
     objeção do auto-atestado do CP-021."""
@@ -481,6 +502,59 @@ def test_no_molde_a_ancora_independente_nao_existe_e_isso_e_deliberado(repo_publ
 
     fonte = (REPO / "ci/mold_release.py").read_text(encoding="utf-8")
     assert "lock = {\"mold_release\": lock_block(" in fonte
+
+
+def test_a_evidencia_nasce_do_validado_e_mergeia_limpa(tmp_path, monkeypatch):
+    """A simulação do fluxo inteiro (CP-033), sobre um repositório git de verdade.
+
+    Reproduz a sequência do job `publicar`: valida em P, monta R com o manifesto, tagueia, volta a
+    P e só então grava o registro. O que se prova é o que custou um PR manual na v1.0.0 — a branch
+    de evidência precisa ser a main MAIS UM COMMIT que muda um arquivo.
+    """
+    import audit_ledger as al
+
+    repo = tmp_path / "molde"
+    (repo / "harness/releases").mkdir(parents=True)
+    (repo / "harness/state").mkdir(parents=True)
+    (repo / "harness/state/ledger.jsonl").write_text("", encoding="utf-8")
+    _git(repo.parent, "init", "--quiet", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "--quiet", "-m", "P")
+    validado = _git(repo, "rev-parse", "HEAD")
+
+    manifest = mr.build_manifest(repository="o/r", tag="v1.0.0", commit_sha=validado, run_id="1",
+                                 artifact_digest="sha256:" + "c" * 64)
+    (repo / mr.manifest_path_for("v1.0.0")).write_bytes(mr.canonical_bytes(manifest))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "--quiet", "-m", "release(v1.0.0): manifesto")
+    taggeado = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "tag", "-a", "v1.0.0", "-m", "r")
+
+    # O passo da CP-033: volta ao VALIDADO antes do append.
+    _git(repo, "switch", "--detach", validado)
+    monkeypatch.setattr(hl, "REPO", repo)
+    monkeypatch.setattr(al.hl, "REPO", repo)
+    al.append("release", commit_sha=taggeado, fiscal="ci/mold_release.py",
+              artifact_ref="harness/releases/v1.0.0.manifest.json")
+    _git(repo, "add", "harness/state/ledger.jsonl")
+    _git(repo, "commit", "--quiet", "-m", "release(v1.0.0): registro no ledger")
+    evidencia = _git(repo, "rev-parse", "HEAD")
+
+    # VERIFICAÇÃO — o diff da evidência contra a main contém só o ledger.
+    assert _git(repo, "diff", "--name-only", f"{validado}..{evidencia}").splitlines() == [
+        "harness/state/ledger.jsonl"]
+    assert _git(repo, "rev-list", "--parents", "-n", "1", evidencia).split()[1] == validado
+
+    # ...e o registro cita o commit TAGGEADO, que não é seu pai. Citar e descender são coisas
+    # diferentes, e confundi-las foi o defeito.
+    linha = json.loads((repo / "harness/state/ledger.jsonl").read_text(encoding="utf-8").strip())
+    assert linha["commit_sha"] == taggeado != validado
+
+    # VALIDAÇÃO — o merge na main é direto, e não traz o manifesto junto.
+    _git(repo, "switch", "--quiet", "--detach", validado)
+    _git(repo, "merge", "--no-edit", "--quiet", evidencia)
+    assert not (repo / mr.manifest_path_for("v1.0.0")).exists()
+    assert _git(repo, "rev-list", "-n", "1", "v1.0.0") == taggeado  # a tag não se mexeu
 
 
 def test_ledger_registra_a_release_apontando_para_o_commit_taggeado(tmp_path, monkeypatch):

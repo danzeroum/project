@@ -1365,3 +1365,10 @@ adrs:
         description: "A recusa rápida vem ANTES do checkout — a posição é a decisão. Um caminho que faz três minutos de trabalho antes de olhar para o que o operador digitou ensina o operador a esperar."
         files: [".github/workflows/release.yml"]
         pattern: 'Recusar entrada malformada[\s\S]*?uses: actions/checkout'
+      - id: ADR-025-A14
+        kind: file_matches
+        severity: critical
+        risk: RISK-MOLD-001
+        description: "O registro NASCE do commit validado e REFERENCIA o taggeado. Ancorada no NOME do passo de propósito: o mesmo detach aparece antes, ao montar o commit de release, e uma asserção que só procurasse o comando casaria com aquele e continuaria verde depois de removido este — decorativa no sentido exato do ADR-024."
+        files: [".github/workflows/release.yml"]
+        pattern: 'Registrar a release no ledger[\s\S]*?git switch --detach "\$\{VALIDADO\}"[\s\S]*?--commit-sha "\$\{RELEASE_COMMIT\}"'
