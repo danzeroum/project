@@ -1,0 +1,18 @@
+{
+  "generated_from": null,
+  "metadata_version": "1.0",
+  "release": {
+    "artifact_digest": "sha256:25e14a506cabc033a6970ac728a014eb914c62be49c7f9e9b4b277a8775a46b1",
+    "commit_sha": "5eff98bceb4150d329f528288c87d02fba4656f9",
+    "released_at": "2026-08-06T02:44:43+00:00",
+    "repository": "danzeroum/project",
+    "tag": "v1.1.0",
+    "validation": {
+      "command": "python ci/validate_all.py",
+      "result": "pass",
+      "run_id": "31066352222"
+    }
+  },
+  "schema_version": "1.0",
+  "source_of_truth": true
+}
