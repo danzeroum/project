@@ -40,7 +40,7 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 |---|---|---|---|
 | `schema_version` | const(1.0) | sim |  |
 | `provenance` | object | sim | Quem produziu o laudo, sobre qual estado do repositório. |
-| `provenance.auditor` | enum(ci/audit_governance.py · ci/audit_lgpd.py · ci/alignment_report.py · ci/audit_conformance.py · ci/audit_ledger.py · ci/check_dependency_conflict.py) | sim |  |
+| `provenance.auditor` | enum(ci/audit_governance.py · ci/audit_lgpd.py · ci/alignment_report.py · ci/audit_conformance.py · ci/audit_ledger.py · ci/check_dependency_conflict.py · ci/audit_suites.py) | sim |  |
 | `provenance.auditor_version` | string | sim |  |
 | `provenance.repository` | string | sim |  |
 | `provenance.commit` | string | sim |  |
@@ -53,7 +53,7 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `summary.by_severity` | object | sim |  |
 | `findings` | array<object> | sim | Divergências entre o declarado e o real. severity é TRIAGEM, não gate: com fail-closed qualquer achado derruba o CI. |
 | `findings[].id` | string | sim |  |
-| `findings[].origin` | enum(adr_assertion · adr_meta · assertion_self_match · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing · dependency_conflict) | sim |  |
+| `findings[].origin` | enum(adr_assertion · adr_meta · assertion_self_match · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing · dependency_conflict · suite_contract) | sim |  |
 | `findings[].severity` | enum(info · low · medium · high · critical) | sim |  |
 | `findings[].summary` | string | sim |  |
 | `findings[].adr` | string | — |  |
@@ -634,11 +634,13 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 
 **Envelope do laudo**
 
-> Envolve a procedência, o resultado e os achados. A procedência é obrigatória em qualquer comparação.
+> Envolve a procedência, o resultado e os achados. A procedência é obrigatória em qualquer comparação. Desde o CP-041 este é também o envelope da CLÁUSULA 3 do Contrato de Régua: o veredito de três estados entra aqui, aditivamente, em vez de num schema irmão que duplicaria `result` e `findings`.
 
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
 | `result` | enum(ok · findings · suite_not_installed · error) | sim | ok = sem achados; findings = achados presentes; suite_not_installed = stub tolerante; error = falha. |
+| `verdict` | enum(conforme · nao_conforme · inconclusivo) | — | Os TRÊS estados da cláusula 3. conforme = mediu e passou; nao_conforme = mediu e reprovou; inconclusivo = NÃO MEDIU. O terceiro existe porque a ausência dele é o modo de falha mais caro deste sistema: um verde que significa 'não olhei' encerra a investigação com a convicção de quem olhou. |
+| `verdict_reason` | string | — | Por que este veredito. O fiscal o exige quando verdict != conforme — um inconclusivo sem razão declarada não diz o que faltou medir, que é exatamente o que alguém precisa saber para consertar. |
 | `findings` | array<object> | sim | Achados já sanitizados pela suíte. Vazio quando result != findings. |
 | `findings[].id` | string | sim |  |
 | `findings[].severity` | enum(low · medium · high · critical) | sim |  |
@@ -706,6 +708,80 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `ungoverned` | array<object> | sim | Arquivos deliberadamente fora de qualquer etapa. A isenção é declarada com motivo, nunca tácita — e uma isenção que não casa nada é isenção morta. |
 | `ungoverned[].path` | — | sim |  |
 | `ungoverned[].justification` | string | sim |  |
+
+## `suite-contract-manifest.schema.json`
+
+**Manifesto do Contrato de Régua — o que fecha uma versão do contrato**
+
+> UM CONTRATO DE RASTREABILIDADE NÃO-RASTREÁVEL SERIA A IRONIA QUE ESTE MOLDE JÁ FOI até o ADR-015. Por isso a v1 nasce fechada: cada arquivo do contrato entra aqui com seu sha256, e o fiscal confere. A âncora é o DIGEST, não o nome da pasta — mesma razão pela qual target-lock.schema.json guarda manifest_sha além da tag: tag é ponteiro móvel, digest não é. O contrato viaja dentro da release vX.Y.Z do molde, cujo artifact_digest já cobre a árvore inteira; o que este manifesto acrescenta é a capacidade de detectar edição de UM arquivo do contrato sem release nova.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `schema_version` | string | sim |  |
+| `contract` | object | sim |  |
+| `contract.version` | enum(v1) | sim | Casa com o enum de suite-registry.schema.json:contract_version e com o nome do diretório. As três formas de dizer a mesma coisa são conferidas entre si pelo fiscal — restatar sem conferir seria a deriva que este repositório combate. |
+| `contract.released_at` | string | sim |  |
+| `contract.files` | array<object> | sim | Todo arquivo que É o contrato, com seu digest. Um arquivo do contrato fora desta lista é um arquivo que pode mudar sem que nada acuse — e o fiscal cobra a partição nos dois sentidos: item que não existe no disco, e arquivo no disco que não está aqui. |
+| `contract.files[].path` | string | sim |  |
+| `contract.files[].sha256` | string | sim |  |
+| `contract.files[].role` | enum(contract-text · schema · engine) | — | engine = o motor de mutação compartilhado, consumido POR PIN e nunca copiado. É o que permite a uma suíte provar as próprias travas com o mesmo motor que o molde usa, sem que exista uma segunda cópia onde um operador possa ter sido enfraquecido. |
+| `contract.clauses` | array<object> | sim | As cinco cláusulas. minItems e maxItems iguais a 5 porque o conjunto é FECHADO nesta versão: acrescentar uma sexta é a v2, não uma edição da v1. Sem a trava, o contrato mudaria de conteúdo sem mudar de nome, e uma ficha que declara `contract_version: v1` passaria a prometer outra coisa. |
+| `contract.clauses[].id` | enum(pin-fonte-unica · release-com-manifesto · envelope-com-3-estados · fingerprint · autoprova-de-mordida) | sim |  |
+| `contract.clauses[].titulo` | string | sim |  |
+| `contract.clauses[].assertion` | string | sim | O símbolo que COBRA esta cláusula, resolvido por AST contra o arquivo real — a mesma mecânica de enforced_by/symbol em stages.yaml. Cláusula cujo fiscal não existe é prosa, e a política desta casa chama isso de lembrete, nunca garantia. |
+| `contract.clauses[].canonical_mutation` | object | sim | CLÁUSULA 5 APLICADA A SI MESMA. Cada cláusula declara como negá-la e qual achado isso deve produzir. ci/audit_suites.py aplica, exige o achado, e REPROVA A SI MESMO se qualquer cláusula chegar aqui sem mutação declarada — o padrão do CP-030, agora sobre o contrato. Um fiscal que não sabe como seria negado não sabe se está funcionando. |
+| `contract.clauses[].canonical_mutation.op` | enum(remover_caminho · criar_caminho · apagar_linha · apagar_padrao · substituir_texto · injetar_apos · injetar_texto · quebrar_ponteiro) | sim | Restrito aos operadores que o motor compartilhado implementa. O fiscal confere este enum contra mutation_engine.OPERADORES em vez de confiar nele: um enum que promete um operador inexistente faria a autoprova falhar por engano de escrita, e o achado mandaria consertar o lugar errado. |
+| `contract.clauses[].canonical_mutation.alvo` | string | sim |  |
+| `contract.clauses[].canonical_mutation.de` | string | — |  |
+| `contract.clauses[].canonical_mutation.para` | string | — |  |
+| `contract.clauses[].canonical_mutation.texto` | string | — |  |
+| `contract.clauses[].canonical_mutation.pointer` | string | — |  |
+| `contract.clauses[].canonical_mutation.pattern` | string | — |  |
+| `contract.clauses[].canonical_mutation.exclude` | array<string> | — |  |
+| `contract.clauses[].canonical_mutation.contendo` | string | — |  |
+| `contract.clauses[].canonical_mutation.marcador` | string | — |  |
+| `contract.clauses[].canonical_mutation.espera_achado` | string | sim | Fragmento do ID do achado que a mutação deve produzir. Exigir o achado ESPECÍFICO, e não apenas 'algum vermelho', é o que impede a autoprova de ser satisfeita por um erro não relacionado — o modo de falha que a política prova-de-mutacao.md descreve como o acordo entre a mutação e a asserção que não é sobre o mundo. |
+
+## `suite-registry.schema.json`
+
+**Ficha de suite — como uma régua entra neste projeto**
+
+> UMA RÉGUA ENTRA POR FICHA, NUNCA POR CÓDIGO. Antes do CP-041 a qa-suite era consumida por gestos cravados um a um — pin, perfil, dois passos de workflow, uma linha de denylist — e nenhum deles sabia ser instância de uma classe. Uma segunda régua exigiria repetir os cinco à mão, e a segunda cópia derivaria da primeira. Esta ficha é o que torna a classe expressável: o projeto DECLARA qual régua consome e sob quais termos; o contrato (harness/suite-contract/contract-v1) fornece as cláusulas e o fiscal genérico as cobra.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `schema_version` | string | sim |  |
+| `metadata_version` | string | sim |  |
+| `source_of_truth` | boolean | sim |  |
+| `generated_from` | string | null | — |  |
+| `suite` | object | sim |  |
+| `suite.nome` | string | sim | Nome da suite. Casa com o nome do arquivo da ficha, e o fiscal confere: ficha cujo nome interno diverge do arquivo faria duas fichas se referirem à mesma régua sem que nada acusasse. |
+| `suite.status` | enum(active · planned · retired) | sim | active = consumida hoje; planned = declarada antes de existir (a denylist já a cobre); retired = saiu de uso, e a ficha fica para que o env_prefix continue negado. |
+| `suite.contract_version` | enum(v1) | sim | Enum FECHADO, nunca string livre. Uma ficha que declarasse 'v9' apontaria para um contrato inexistente e o fiscal teria de descobrir isso lendo o disco — descoberta que falha em silêncio quando o diretório some. Fechar o enum torna o erro inexpressável em vez de detectável. |
+| `suite.pin_source` | string | sim | CAMINHO onde a versão exata mora — jamais a versão. É a cláusula 1 do contrato e a mesma regra do ADR-003: fonte única. O pattern proíbe URL de propósito; um endereço aqui restataria a origem da régua num arquivo sob harness/, que o ADR-008-A5 já recusa. |
+| `suite.entrypoint` | string | — | Comando que invoca a suite, sem argumentos de modo (o runner os acrescenta a partir de modes[]). |
+| `suite.plan_ref` | string | — | Para status: planned — onde o plano da suite vive. Uma suite planejada sem plano declarado é intenção, não pendência. |
+| `suite.perfil_path` | string | — | O perfil de execução do consumidor (para a qa-suite, tests/qa/config.yaml). A ficha APONTA para o que já existe; não o substitui. |
+| `suite.modes` | array<object> | — | Os modos que esta suite oferece. Cruzados com harness.yaml:execution_modes pelo fiscal — modo que a ficha oferece e a harness não enumera é modo sem natureza de risco declarada. |
+| `suite.modes[].nome` | enum(inventory · passive · load · active_discovery) | sim |  |
+| `suite.modes[].requires_gate` | boolean | sim | true = o modo só roda atrás de gate humano. Espelha agent_may_trigger de harness.yaml, e o fiscal confere a coerência: um modo que a harness marca human_only e a ficha diz requires_gate:false é a autorização se afrouxando pela porta lateral. |
+| `suite.laudo` | object | — | Onde o laudo cai e qual envelope ele promete cumprir. |
+| `suite.laudo.path` | string | sim |  |
+| `suite.laudo.schema` | string | sim | Restrito a harness/schemas/ porque é o único diretório varrido por validate_all_schemas_are_valid() e pelo --check de generate_schema_docs.py — e o único que schema_lock consegue travar por ponteiro. |
+| `suite.env_prefix` | string | sim | OBRIGATÓRIO, e é a cláusula de higiene. Este prefixo entra AUTOMATICAMENTE na denylist efetiva lida por ci/env_guard.py — não há segunda lista a atualizar, que é o ponto: a variável nasce coberta. Ficha sem env_prefix reprova aqui, no schema, antes de qualquer fiscal rodar. |
+| `suite.ledger_event_kind` | enum(validation · release · adoption · ingestion · sync · attestation) | sim | Espelha o enum de ledger.schema.json. Restatado por necessidade — JSON Schema não referencia enum de outro arquivo sem $ref ao arquivo inteiro — e por isso o fiscal confere a igualdade das duas listas em vez de confiar nela. |
+| `suite.release` | object | sim | Cláusula 2: a régua publica release com manifesto? Generaliza o que ci/mold_release.py faz para o molde. |
+| `suite.release.anchored` | boolean | sim | false é resposta LEGÍTIMA e cara: exige um gap aberto cobrindo a cláusula release-com-manifesto. Sem o gap, o fiscal reprova — 'ainda não' declarado é dívida; 'ainda não' calado é a lacuna que ninguém volta a olhar. |
+| `suite.release.manifest_path` | string | — |  |
+| `suite.release.manifest_sha` | string | — | Digest do manifesto. Tag é ponteiro móvel; isto não é (mesma razão de target-lock.schema.json:mold_release.manifest_sha). |
+| `suite.fingerprint_fields` | array<enum(name · version · commit · catalog_hash · schema_version)> | — | Cláusula 4: os campos que identificam COM O QUE um laudo é comparável. Ausente, o fiscal cobra o conjunto canônico da contract-v1. |
+| `suite.gaps` | array<object> | — | O que esta suite AINDA NÃO cumpre do contrato, com data. Um gap declarado é dívida que alguém pode contestar numa revisão; um gap não declarado é indistinguível de conformidade — e essa indistinguibilidade é o que o contrato inteiro existe para desfazer. |
+| `suite.gaps[].id` | string | sim |  |
+| `suite.gaps[].clause` | enum(pin-fonte-unica · release-com-manifesto · envelope-com-3-estados · fingerprint · autoprova-de-mordida) | sim | Enum fechado sobre as cinco cláusulas: um gap que não aponta para cláusula alguma é reclamação, não dívida. |
+| `suite.gaps[].description` | string | sim |  |
+| `suite.gaps[].declared_at` | string | sim |  |
+| `suite.gaps[].due` | string | sim | Data em que a dívida vence. Vencida, vira achado bloqueante — não para punir o atraso, mas para forçar RE-DECISÃO: ou a suite cumpriu, ou o prazo é renegociado por alguém, com nome e data. Prazo que passa sem nada acontecer é prazo decorativo. |
+| `suite.gaps[].risk` | string | — |  |
 
 ## `target-lock.schema.json`
 

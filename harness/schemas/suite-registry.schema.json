@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/suite-registry.schema.json",
+  "title": "Ficha de suite — como uma régua entra neste projeto",
+  "description": "UMA RÉGUA ENTRA POR FICHA, NUNCA POR CÓDIGO. Antes do CP-041 a qa-suite era consumida por gestos cravados um a um — pin, perfil, dois passos de workflow, uma linha de denylist — e nenhum deles sabia ser instância de uma classe. Uma segunda régua exigiria repetir os cinco à mão, e a segunda cópia derivaria da primeira. Esta ficha é o que torna a classe expressável: o projeto DECLARA qual régua consome e sob quais termos; o contrato (harness/suite-contract/contract-v1) fornece as cláusulas e o fiscal genérico as cobra.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "suite"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "metadata_version": { "type": "string" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "suite": {
+      "type": "object",
+      "required": [
+        "nome",
+        "status",
+        "contract_version",
+        "pin_source",
+        "env_prefix",
+        "ledger_event_kind",
+        "release"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "comment": "Suite ATIVA precisa das quatro coisas que só existem quando há consumo real. Uma ficha 'active' sem entrypoint declararia consumir uma régua que não sabe invocar — e ficaria assim para sempre, porque nenhum fiscal reprova o meio-termo. Mesma trava bidirecional de target-lock.schema.json:kind/target_sha.",
+          "if": {
+            "properties": { "status": { "const": "active" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["entrypoint", "perfil_path", "laudo", "modes"]
+          }
+        },
+        {
+          "comment": "Suite PLANEJADA exige plan_ref e PROÍBE entrypoint. Sem a proibição, 'planned' viraria o rótulo confortável de quem já consome sem declarar consumo — o estado que dura para sempre porque passa por pronto.",
+          "if": {
+            "properties": { "status": { "const": "planned" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["plan_ref"],
+            "not": { "required": ["entrypoint"] }
+          }
+        },
+        {
+          "comment": "Ancorada EXIGE o caminho do manifesto; não-ancorada o PROÍBE. Declarar manifest_path com anchored:false seria afirmar uma âncora que ninguém confere.",
+          "if": {
+            "properties": {
+              "release": {
+                "properties": { "anchored": { "const": true } },
+                "required": ["anchored"]
+              }
+            },
+            "required": ["release"]
+          },
+          "then": {
+            "properties": {
+              "release": { "required": ["manifest_path"] }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "nome": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Nome da suite. Casa com o nome do arquivo da ficha, e o fiscal confere: ficha cujo nome interno diverge do arquivo faria duas fichas se referirem à mesma régua sem que nada acusasse."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "planned", "retired"],
+          "description": "active = consumida hoje; planned = declarada antes de existir (a denylist já a cobre); retired = saiu de uso, e a ficha fica para que o env_prefix continue negado."
+        },
+        "contract_version": {
+          "type": "string",
+          "enum": ["v1"],
+          "description": "Enum FECHADO, nunca string livre. Uma ficha que declarasse 'v9' apontaria para um contrato inexistente e o fiscal teria de descobrir isso lendo o disco — descoberta que falha em silêncio quando o diretório some. Fechar o enum torna o erro inexpressável em vez de detectável."
+        },
+        "pin_source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$",
+          "description": "CAMINHO onde a versão exata mora — jamais a versão. É a cláusula 1 do contrato e a mesma regra do ADR-003: fonte única. O pattern proíbe URL de propósito; um endereço aqui restataria a origem da régua num arquivo sob harness/, que o ADR-008-A5 já recusa."
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Comando que invoca a suite, sem argumentos de modo (o runner os acrescenta a partir de modes[])."
+        },
+        "plan_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Para status: planned — onde o plano da suite vive. Uma suite planejada sem plano declarado é intenção, não pendência."
+        },
+        "perfil_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "O perfil de execução do consumidor (para a qa-suite, tests/qa/config.yaml). A ficha APONTA para o que já existe; não o substitui."
+        },
+        "modes": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Os modos que esta suite oferece. Cruzados com harness.yaml:execution_modes pelo fiscal — modo que a ficha oferece e a harness não enumera é modo sem natureza de risco declarada.",
+          "items": {
+            "type": "object",
+            "required": ["nome", "requires_gate"],
+            "additionalProperties": false,
+            "properties": {
+              "nome": {
+                "type": "string",
+                "enum": ["inventory", "passive", "load", "active_discovery"]
+              },
+              "requires_gate": {
+                "type": "boolean",
+                "description": "true = o modo só roda atrás de gate humano. Espelha agent_may_trigger de harness.yaml, e o fiscal confere a coerência: um modo que a harness marca human_only e a ficha diz requires_gate:false é a autorização se afrouxando pela porta lateral."
+              }
+            }
+          }
+        },
+        "laudo": {
+          "type": "object",
+          "required": ["path", "schema"],
+          "additionalProperties": false,
+          "description": "Onde o laudo cai e qual envelope ele promete cumprir.",
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "pattern": "^harness/schemas/.*\\.json$",
+              "description": "Restrito a harness/schemas/ porque é o único diretório varrido por validate_all_schemas_are_valid() e pelo --check de generate_schema_docs.py — e o único que schema_lock consegue travar por ponteiro."
+            }
+          }
+        },
+        "env_prefix": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*_$",
+          "description": "OBRIGATÓRIO, e é a cláusula de higiene. Este prefixo entra AUTOMATICAMENTE na denylist efetiva lida por ci/env_guard.py — não há segunda lista a atualizar, que é o ponto: a variável nasce coberta. Ficha sem env_prefix reprova aqui, no schema, antes de qualquer fiscal rodar."
+        },
+        "ledger_event_kind": {
+          "type": "string",
+          "enum": ["validation", "release", "adoption", "ingestion", "sync", "attestation"],
+          "description": "Espelha o enum de ledger.schema.json. Restatado por necessidade — JSON Schema não referencia enum de outro arquivo sem $ref ao arquivo inteiro — e por isso o fiscal confere a igualdade das duas listas em vez de confiar nela."
+        },
+        "release": {
+          "type": "object",
+          "required": ["anchored"],
+          "additionalProperties": false,
+          "description": "Cláusula 2: a régua publica release com manifesto? Generaliza o que ci/mold_release.py faz para o molde.",
+          "properties": {
+            "anchored": {
+              "type": "boolean",
+              "description": "false é resposta LEGÍTIMA e cara: exige um gap aberto cobrindo a cláusula release-com-manifesto. Sem o gap, o fiscal reprova — 'ainda não' declarado é dívida; 'ainda não' calado é a lacuna que ninguém volta a olhar."
+            },
+            "manifest_path": { "type": "string", "minLength": 1 },
+            "manifest_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "Digest do manifesto. Tag é ponteiro móvel; isto não é (mesma razão de target-lock.schema.json:mold_release.manifest_sha)."
+            }
+          }
+        },
+        "fingerprint_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Cláusula 4: os campos que identificam COM O QUE um laudo é comparável. Ausente, o fiscal cobra o conjunto canônico da contract-v1.",
+          "items": {
+            "type": "string",
+            "enum": ["name", "version", "commit", "catalog_hash", "schema_version"]
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "description": "O que esta suite AINDA NÃO cumpre do contrato, com data. Um gap declarado é dívida que alguém pode contestar numa revisão; um gap não declarado é indistinguível de conformidade — e essa indistinguibilidade é o que o contrato inteiro existe para desfazer.",
+          "items": {
+            "type": "object",
+            "required": ["id", "clause", "description", "declared_at", "due"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^GAP-[A-Z0-9]+(-[A-Z0-9]+)*$" },
+              "clause": {
+                "type": "string",
+                "enum": [
+                  "pin-fonte-unica",
+                  "release-com-manifesto",
+                  "envelope-com-3-estados",
+                  "fingerprint",
+                  "autoprova-de-mordida"
+                ],
+                "description": "Enum fechado sobre as cinco cláusulas: um gap que não aponta para cláusula alguma é reclamação, não dívida."
+              },
+              "description": { "type": "string", "minLength": 20 },
+              "declared_at": { "type": "string", "format": "date" },
+              "due": {
+                "type": "string",
+                "format": "date",
+                "description": "Data em que a dívida vence. Vencida, vira achado bloqueante — não para punir o atraso, mas para forçar RE-DECISÃO: ou a suite cumpriu, ou o prazo é renegociado por alguém, com nome e data. Prazo que passa sem nada acontecer é prazo decorativo."
+              },
+              "risk": { "type": "string", "pattern": "^RISK-[A-Z0-9]+(-[0-9]{3})?$" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

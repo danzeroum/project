@@ -654,7 +654,8 @@ def test_a_mutacao_de_dir_allowlist_poe_algo_no_diretorio():
     `v*.manifest.json`, `rel_exists` o encontraria, e a prova de mutação certificaria uma trava
     que nunca mordeu um manifesto de verdade. Um fiscal de fiscais enganado produz um selo.
     """
-    import audit_mutations as am
+    sys.path.insert(0, str(REPO / "harness/suite-contract/mutation-engine"))
+    import mutation_engine as am
 
     m = am.derivar_mutacao({"kind": "dir_allowlist", "dir": "harness/releases",
                             "allow": ["README.md"]})

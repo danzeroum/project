@@ -396,7 +396,12 @@ adrs:
         severity: high
         risk: RISK-DERIV-002
         description: "Alvo cravado no molde: URL de repositório em ci/ ou harness/ faz o molde servir a um alvo e falhar calado nos outros."
-        files: ["ci/**/*.py", "harness/**/*.yaml", "harness/**/*.json", "harness/**/*.md"]
+        # harness/**/*.py entrou no CP-041, e a razão é um buraco que a extração abriu: o motor de
+        # mutação saiu de ci/ para harness/suite-contract/, e Python sob harness/ não era coberto
+        # por nenhum dos quatro globs. Mover código de um diretório vigiado para um não-vigiado é
+        # exatamente o gesto que esta asserção existe para impedir — e ela quase deixou de ver o
+        # arquivo que a mudança criou.
+        files: ["ci/**/*.py", "harness/**/*.py", "harness/**/*.yaml", "harness/**/*.json", "harness/**/*.md"]
         pattern: "github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
 
         mutation:
@@ -1591,3 +1596,87 @@ adrs:
         description: "O portão não faz checkout do head do PR. Ler metadado da API é seguro; trazer o head para o runner de um job com `contents: write` é o modo de falha clássico do `pull_request_target`."
         files: [".github/workflows/atestado-automerge.yml"]
         pattern: "github\\.event\\.pull_request\\.head\\.sha"
+
+  - id: ADR-030
+    title: "Uma régua entra por ficha, nunca por código"
+    status: accepted
+    file: architecture/adr/ADR-030-a-regua-entra-por-ficha.md
+    related_risks: [RISK-WEBQA-001, RISK-CONF-001, RISK-SEC-001]
+    assertions:
+      - id: ADR-030-A1
+        kind: path_present
+        severity: critical
+        risk: RISK-WEBQA-001
+        description: "O contrato, o registro, o fiscal genérico e o motor compartilhado existem como código — não como intenção."
+        paths:
+          - harness/suite-contract/contract-v1/SUITE_CONTRACT.md
+          - harness/suite-contract/contract-v1/contract-manifest.json
+          - harness/suite-contract/mutation-engine/mutation_engine.py
+          - harness/suites/qa-suite.yaml
+          - harness/suites/privacy-suite.yaml
+          - ci/audit_suites.py
+      - id: ADR-030-A2
+        kind: schema_lock
+        severity: critical
+        risk: RISK-SEC-001
+        description: "env_prefix continua OBRIGATÓRIO na ficha: sem ele, os gates fail-closed de uma régua ficam alcançáveis pelo ambiente, e a ficha passaria sem que nada acusasse."
+        file: harness/schemas/suite-registry.schema.json
+        pointer: /properties/suite/required
+        contains: env_prefix
+      - id: ADR-030-A3
+        kind: schema_lock
+        severity: high
+        risk: RISK-META-001
+        description: "contract_version continua sendo enum FECHADO: um contrato inexistente tem de ser inexpressável, não apenas detectável."
+        file: harness/schemas/suite-registry.schema.json
+        pointer: /properties/suite/properties/contract_version/enum
+        contains: v1
+      - id: ADR-030-A4
+        kind: schema_lock
+        severity: critical
+        risk: RISK-WEBQA-001
+        description: "O terceiro estado do laudo continua representável — sem `inconclusivo`, 'não consegui medir' volta a sair com a cor de 'medi e está bom'."
+        file: harness/schemas/report.schema.json
+        pointer: /properties/verdict/enum
+        contains: inconclusivo
+      - id: ADR-030-A5
+        kind: schema_lock
+        severity: high
+        risk: RISK-CONF-001
+        description: "O conjunto de cláusulas da v1 continua fechado em cinco: acrescentar uma sexta é a v2, nunca uma edição da v1 — senão o contrato muda de conteúdo sem mudar de nome."
+        file: harness/schemas/suite-contract-manifest.schema.json
+        pointer: /properties/contract/properties/clauses/maxItems
+        expected: 5
+      - id: ADR-030-A6
+        kind: file_matches
+        severity: critical
+        risk: RISK-SEC-001
+        description: "A denylist de ambiente continua DERIVANDO do registro de suites: sem isso, o prefixo de cada régua nova voltaria a depender de alguém lembrar de editar uma lista."
+        files: ["ci/env_guard.py", "ci/hooks/pre_bash_env_hygiene.py"]
+        pattern: "harness / \"suites\"|harness/suites/"
+      - id: ADR-030-A7
+        kind: file_lacks
+        severity: high
+        risk: RISK-DEP-001
+        description: "harness.yaml não restata o prefixo de régua alguma: ele mora na ficha, e a segunda cópia derivaria da primeira."
+        files: ["harness/harness.yaml"]
+        pattern: "env_denylist_prefix: \\[[^]]*WEBQA_"
+        mutation:
+          op: substituir_texto
+          alvo: harness/harness.yaml
+          de: "env_denylist_prefix: []"
+          para: "env_denylist_prefix: [\"WEBQA_\"]"
+      - id: ADR-030-A8
+        kind: file_matches
+        severity: critical
+        risk: RISK-CONF-001
+        description: "O fiscal continua reprovando A SI MESMO quando uma cláusula chega sem mutação canônica — um fiscal que não sabe como seria negado não sabe se está funcionando."
+        files: ["ci/audit_suites.py"]
+        pattern: "FISCAL-SEM-AUTOPROVA"
+      - id: ADR-030-A9
+        kind: import_forbidden
+        severity: critical
+        risk: RISK-WEBQA-001
+        description: "O motor compartilhado não importa harness_lib: a fronteira é de DADOS, e é o que permite a um segundo consumidor usá-lo sem receber meio molde junto."
+        module_glob: "harness/suite-contract/mutation-engine/mutation_engine.py"
+        symbols: ["harness_lib.Findings"]

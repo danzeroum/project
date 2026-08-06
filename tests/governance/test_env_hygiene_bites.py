@@ -169,7 +169,23 @@ def test_hook_do_agente_deixa_passar_comando_limpo():
 # Os TRÊS estados da política (CP-040) — chave ausente não é lista vazia
 # --------------------------------------------------------------------------------------
 
-def _hook_isolado(tmp_path: Path, harness_doc: dict) -> Path:
+def _ficha_minima(raiz: Path, prefixo: str = "WEBQA_") -> None:
+    """O registro de suites, que desde o CP-041 é de onde os prefixos derivam.
+
+    Um repositório sintético sem ele não é um repositório sintético mais simples — é um que a
+    trava recusa, e com razão: some o registro, some a denylist derivada. Os testes abaixo querem
+    exercer as DUAS famílias da denylist, então o registro precisa existir para que a ausência
+    dele não seja a coisa medida. Quem mede a ausência é o teste próprio, logo abaixo.
+    """
+    (raiz / "harness/suites").mkdir(parents=True, exist_ok=True)
+    (raiz / "harness/suites/qa-suite.yaml").write_text(
+        yaml.safe_dump({"schema_version": "1.0", "metadata_version": "1.0",
+                        "source_of_truth": True, "generated_from": None,
+                        "suite": {"nome": "qa-suite", "env_prefix": prefixo}},
+                       allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
+def _hook_isolado(tmp_path: Path, harness_doc: dict, com_registro: bool = True) -> Path:
     """Uma cópia do hook num repositório sintético, com o harness.yaml que o teste quiser.
 
     O hook resolve a raiz a partir do PRÓPRIO arquivo (`__file__`), e é justamente por isso que a
@@ -185,6 +201,8 @@ def _hook_isolado(tmp_path: Path, harness_doc: dict) -> Path:
         (REPO / "ci/hooks/pre_bash_env_hygiene.py").read_bytes())
     (raiz / "harness/harness.yaml").write_text(
         yaml.safe_dump(harness_doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    if com_registro:
+        _ficha_minima(raiz)
     return raiz / "ci/hooks/pre_bash_env_hygiene.py"
 
 
@@ -238,6 +256,35 @@ def test_o_prefixo_tambem_morde_com_a_politica_completa(tmp_path: Path):
     proc = _rodar(_hook_isolado(tmp_path, doc), "WEBQA_LOAD_AUTHORIZED=1 python x.py")
     assert proc.returncode == 2
     assert "DENIED_ENV" in proc.stderr, proc.stderr
+
+
+def test_prefixo_derivado_da_ficha_morde_sem_estar_no_harness_yaml(tmp_path: Path):
+    """CP-041: o prefixo da régua vem do REGISTRO, e `harness.yaml` não o restata.
+
+    O par positivo da derivação: `env_denylist_prefix` vazio, e mesmo assim `PRIVSUITE_*` é
+    negado — porque uma ficha o declara. É a diferença entre uma denylist que cresce à mão e uma
+    que nasce coberta.
+    """
+    doc = {"env_hygiene": {"env_denylist_prefix": [], "env_denylist_exact": ["PYTHONPATH"]}}
+    hook = _hook_isolado(tmp_path, doc, com_registro=False)
+    _ficha_minima(hook.parent.parent.parent, prefixo="PRIVSUITE_")
+    proc = _rodar(hook, "PRIVSUITE_SCAN_AUTHORIZED=1 python x.py")
+    assert proc.returncode == 2
+    assert "DENIED_ENV" in proc.stderr, proc.stderr
+
+
+def test_registro_ausente_e_indeterminacao_no_hook(tmp_path: Path):
+    """E o fail-closed do outro lado: sem registro, o hook não decide — ele para.
+
+    Devolver o que conseguiu ler faria o hook liberar `WEBQA_*` em silêncio no dia em que o
+    registro sumisse ou um YAML quebrasse. É a mesma lição da chave ausente, um nível acima: agora
+    a fonte da lista é que pode faltar.
+    """
+    doc = {"env_hygiene": {"env_denylist_prefix": [], "env_denylist_exact": ["PYTHONPATH"]}}
+    proc = _rodar(_hook_isolado(tmp_path, doc, com_registro=False), "python x.py")
+    assert proc.returncode == 2
+    assert "FISCAL_CEGO" in proc.stderr
+    assert "harness/suites" in proc.stderr
 
 
 def test_politica_incompleta_nao_produz_veredito_parcial(tmp_path: Path):

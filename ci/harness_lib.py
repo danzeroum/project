@@ -466,6 +466,9 @@ REMEDIACAO_POR_ORIGEM = {
                      "python ci/audit_lgpd.py --print-fingerprint",
     "dependency_conflict": "Igualar as versões, ou deixar UMA fonte fixar e as outras "
                            "referenciarem — a mesma regra da versão da régua (ADR-003).",
+    "suite_contract": "Corrigir a ficha em harness/suites/, ou — se a régua ainda não cumpre a "
+                      "cláusula — declarar um gap com `clause` e `due`. Gap é dívida com data; "
+                      "cláusula violada sem gap é dívida calada.",
 }
 
 @dataclass

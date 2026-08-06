@@ -1,0 +1,95 @@
+{
+  "contract": {
+    "clauses": [
+      {
+        "assertion": "ci/audit_suites.py::check_clausula_pin",
+        "canonical_mutation": {
+          "alvo": "harness/suites/qa-suite.yaml",
+          "de": "  pin_source: requirements-qa.txt",
+          "espera_achado": "SUITE-QA-SUITE-PIN-INEXISTENTE",
+          "op": "substituir_texto",
+          "para": "  pin_source: nao-existe.txt"
+        },
+        "id": "pin-fonte-unica",
+        "titulo": "A versão mora num lugar só, e a ficha diz onde — nunca qual"
+      },
+      {
+        "assertion": "ci/audit_suites.py::check_clausula_release",
+        "canonical_mutation": {
+          "alvo": "harness/suites/qa-suite.yaml",
+          "de": "      clause: release-com-manifesto",
+          "espera_achado": "SUITE-QA-SUITE-RELEASE-SEM-GAP",
+          "op": "substituir_texto",
+          "para": "      clause: fingerprint"
+        },
+        "id": "release-com-manifesto",
+        "titulo": "A régua publica versões ancoráveis, ou declara um gap com data"
+      },
+      {
+        "assertion": "ci/audit_suites.py::check_clausula_envelope",
+        "canonical_mutation": {
+          "alvo": "harness/schemas/report.schema.json",
+          "espera_achado": "SUITE-QA-SUITE-ENVELOPE-SEM-ESTADO",
+          "op": "quebrar_ponteiro",
+          "pointer": "/properties/verdict/enum"
+        },
+        "id": "envelope-com-3-estados",
+        "titulo": "O laudo declara conforme, nao_conforme ou inconclusivo"
+      },
+      {
+        "assertion": "ci/audit_suites.py::check_clausula_fingerprint",
+        "canonical_mutation": {
+          "alvo": "harness/suites/qa-suite.yaml",
+          "de": "  fingerprint_fields: [name, version, commit, catalog_hash, schema_version]",
+          "espera_achado": "SUITE-QA-SUITE-FINGERPRINT-INCOMPLETO",
+          "op": "substituir_texto",
+          "para": "  fingerprint_fields: [name, version]"
+        },
+        "id": "fingerprint",
+        "titulo": "Todo laudo carrega os cinco campos que dizem com o que é comparável"
+      },
+      {
+        "assertion": "ci/audit_suites.py::check_contrato",
+        "canonical_mutation": {
+          "alvo": "harness/suite-contract/contract-v1/contract-manifest.json",
+          "de": "\"id\": \"autoprova-de-mordida\"",
+          "espera_achado": "FISCAL-SEM-AUTOPROVA",
+          "op": "substituir_texto",
+          "para": "\"id\": \"fingerprint\""
+        },
+        "id": "autoprova-de-mordida",
+        "titulo": "Cada cláusula declara como seria negada, e o fiscal reprova a si mesmo sem isso"
+      }
+    ],
+    "files": [
+      {
+        "path": "harness/suite-contract/contract-v1/SUITE_CONTRACT.md",
+        "role": "contract-text",
+        "sha256": "4a807e183a8023e0458ddb4c771bd5f55b024506bad1d8993f2dc88c9e8a3657"
+      },
+      {
+        "path": "harness/suite-contract/mutation-engine/mutation_engine.py",
+        "role": "engine",
+        "sha256": "72a369c20da5e76b20526c27821fd706bd776e140f89ed5e37591be04836fa17"
+      },
+      {
+        "path": "harness/schemas/suite-registry.schema.json",
+        "role": "schema",
+        "sha256": "5f70b7ca2a869abcf474b66d9ea9f6667e4a8f601257ad7069cbf2825a099e0b"
+      },
+      {
+        "path": "harness/schemas/suite-contract-manifest.schema.json",
+        "role": "schema",
+        "sha256": "ba8b18ebb19ab58c50f23983653348a33dbca2e5cf821c93a68f9a3a195680db"
+      },
+      {
+        "path": "harness/schemas/report.schema.json",
+        "role": "schema",
+        "sha256": "769e500dfd3d21ae1715fd5c4452ef9d29373b8957fc54c1ee648da235d0cd27"
+      }
+    ],
+    "released_at": "2026-08-06",
+    "version": "v1"
+  },
+  "schema_version": "1.0"
+}

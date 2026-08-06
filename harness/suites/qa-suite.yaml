@@ -1,0 +1,105 @@
+# Ficha da qa-suite (WebQA Suite) — como esta régua entra neste projeto.
+# Schema: ../schemas/suite-registry.schema.json · Contrato: ../suite-contract/contract-v1/
+#
+# ESTA FICHA NÃO SUBSTITUI NADA. O WEBQA_CONSUMER_CONTRACT.md segue normativo, tests/qa/ segue
+# sendo o perfil real e requirements-qa.txt segue sendo a fonte única da versão. O contrato os
+# ENVOLVE: a ficha aponta para eles e acrescenta o que faltava — o outro lado da promessa, e um
+# lugar onde os defeitos da régua aparecem como achado em vez de como silêncio.
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+suite:
+  nome: qa-suite
+  status: active
+  contract_version: v1
+
+  # ONDE a versão mora — nunca QUAL (cláusula 1, ADR-003). O schema proíbe URL neste campo.
+  pin_source: requirements-qa.txt
+
+  entrypoint: webqa
+  perfil_path: tests/qa/config.yaml
+
+  # Cruzados com harness.yaml:execution_modes pelo fiscal. load e active_discovery estão AUSENTES
+  # de propósito, como em tests/qa/campanha.yaml: um modo que a campanha não autoriza não deve
+  # aparecer aqui como se estivesse disponível.
+  modes:
+    - nome: inventory
+      requires_gate: false
+    - nome: passive
+      requires_gate: false
+
+  laudo:
+    path: harness/reports/qa-report.json
+    schema: harness/schemas/report.schema.json
+
+  # Entra AUTOMATICAMENTE na denylist efetiva lida por ci/env_guard.py. Saiu de harness.yaml no
+  # CP-041 para não existir em dois lugares: a segunda cópia derivaria, e a primeira entrada a
+  # divergir seria exatamente a que alguém removeu.
+  env_prefix: WEBQA_
+
+  ledger_event_kind: validation
+
+  fingerprint_fields: [name, version, commit, catalog_hash, schema_version]
+
+  release:
+    anchored: false   # ver GAP-QA-TAG
+
+  # O QUE ESTA RÉGUA AINDA NÃO CUMPRE DO CONTRATO, com data.
+  #
+  # Cinco gaps, todos vencendo em 2026-11-03 — a mesma data do RISK-EXT-001, e não por acaso: é o
+  # horizonte em que este repositório já se comprometeu a reavaliar suas dependências externas.
+  # Um gap declarado é dívida que alguém pode contestar numa revisão. Um gap não declarado é
+  # indistinguível de conformidade, e essa indistinguibilidade é o que o contrato existe para
+  # desfazer.
+  gaps:
+    - id: GAP-QA-TAG
+      clause: release-com-manifesto
+      description: >
+        A qa-suite não publica release com manifesto ancorável: o consumo é por
+        `git+...@v1.0.0`, e uma tag sozinha é ponteiro móvel. O consumidor não tem digest para
+        guardar, então "continua sendo o que eu instalei" é hoje indemonstrável.
+      declared_at: "2026-08-06"
+      due: "2026-11-03"
+      risk: RISK-WEBQA-001
+
+    - id: GAP-QA-EXIT-ZERO
+      clause: envelope-com-3-estados
+      description: >
+        Suíte ausente produz ::warning:: e exit 0. "Não consegui medir" sai com a mesma cor de
+        "medi e está bom", e a cor mais barata vence por hábito. O runner da CP-B traduz
+        inconclusivo para não-conforme; enquanto este gap vigora, com aviso e sem reprovar.
+      declared_at: "2026-08-06"
+      due: "2026-11-03"
+      risk: RISK-WEBQA-001
+
+    - id: GAP-QA-ENVELOPE
+      clause: envelope-com-3-estados
+      description: >
+        O laudo emitido é schema_version 1.0 e não carrega `verdict`. A versão 1.3 do envelope é
+        aditiva justamente para que isto siga válido enquanto a suíte não emite o campo — mas
+        sem o campo o veredito precisa ser INFERIDO pelo consumidor, e inferência não é laudo.
+      declared_at: "2026-08-06"
+      due: "2026-11-03"
+      risk: RISK-WEBQA-001
+
+    - id: GAP-QA-MORDIDA
+      clause: autoprova-de-mordida
+      description: >
+        A qa-suite não prova que as próprias travas mordem. O motor de mutação está disponível
+        por pin em harness/suite-contract/mutation-engine/, mas a régua ainda não o consome —
+        e uma régua verde com travas que não mordem é indistinguível de uma régua verde.
+      declared_at: "2026-08-06"
+      due: "2026-11-03"
+      risk: RISK-CONF-001
+
+    - id: GAP-QA-FONTE-UNICA
+      clause: pin-fonte-unica
+      description: >
+        A versão é espelhada em tests/qa/config.yaml:standard_version. O espelho é conferido por
+        igualdade (I3), o que o torna tolerável e não correto: continuam existindo dois lugares
+        onde a versão aparece, e a conferência é o que impede a deriva — não a estrutura.
+      declared_at: "2026-08-06"
+      due: "2026-11-03"
+      risk: RISK-DEP-001

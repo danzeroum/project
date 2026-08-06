@@ -12,7 +12,7 @@ generated_from: null
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: "sha256:7c735126101dfe78808e0ea6d67b4b8f57a45d593b3b016989af3a662e5f613e"
+  scope_fingerprint: "sha256:12c2c04478f8e16e8560b272b3fe771036411f4f737e1b13fdaf4c3220e6f530"
 
   findings:
     - id: CONF-001
@@ -101,6 +101,32 @@ review:
         origem: um molde não descobre sozinho o que só quebra quando alguém o usa até o fim, e é
         por isso que a prova de fogo com derivado real vale mais que teste sintético.
 
+    - id: CONF-006
+      severity: medium
+      summary: >
+        O ENVELOPE DE LAUDO NUNCA VALIDOU NADA, E NINGUÉM PODIA TER PERCEBIDO. Ao escrever a
+        cláusula 3 do Contrato de Régua (CP-041) descobriu-se que `report.schema.json` recusava
+        QUALQUER documento, inclusive o mais correto possível: o `additionalProperties: false` de
+        `provenance.schema.json`, composto por `$ref` dentro de um `allOf`, rejeitava `result` e
+        `findings` — as duas propriedades que o próprio `report` acrescenta.
+        A trava passou despercebida porque nada era validado contra ela: o laudo é produzido pela
+        suíte externa, que não está instalada, e `harness/reports/` é gitignored. É o caso extremo
+        do que este repositório chama de decorativa — não uma trava que deixou de morder, mas uma
+        que teria recusado tudo e nunca foi exercida.
+      disposition: change_proposal
+      ref: harness/change-proposals/CP-041-contrato-de-regua.yaml
+      consumed_by:
+        kind: change_proposal
+        ref: CP-041
+      rationale: >
+        Corrigido na CP-041 pelo idioma que a versão 2020-12 prevê: mixin não fecha objeto — quem
+        fecha é o envelope CONCRETO, com `unevaluatedProperties: false`, que enxerga as anotações
+        dos subschemas irmãos. A correção veio acompanhada de prova: onze casos que exercem os três
+        estados, as duas direções do bump e o fechamento do objeto.
+        A LIÇÃO É SOBRE COBERTURA, NÃO SOBRE JSON SCHEMA. Um schema que nenhum documento exercita
+        é indistinguível de um schema correto, e o repositório não tinha como saber a diferença.
+        Fica em `not_assessed` o que segue sem exercício: os demais schemas cujo produtor é externo.
+
   # O que esta revisão NÃO olhou. "Sem achados" numa categoria que ninguém examinou é a forma
   # mais silenciosa de laudo falso.
   not_assessed:
@@ -108,3 +134,4 @@ review:
     - "Adequação das fronteiras de componente propostas pelo cartographer (sem ingestão executada)"
     - "Eficácia real dos controles em produção (não há ambiente de produção)"
     - "Se os prazos de tratamento de risco são razoáveis (nenhum risco está open)"
+    - "Schemas cujo produtor é externo e não está instalado: nenhum documento real os exercita, e a CP-041 mostrou que isso esconde defeito (CONF-006)"

@@ -58,7 +58,40 @@ def _exigida(politica: dict, chave: str) -> list[str]:
 
 
 def denied_prefixes(politica: dict) -> list[str]:
-    return _exigida(politica, "env_denylist_prefix")
+    """Os prefixos de harness.yaml MAIS os derivados das fichas de suite (CP-041).
+
+    O hook deriva pela mesma razão que `ci/env_guard.py` deriva, e a simetria é obrigatória: se
+    só o guard do CI soubesse dos prefixos das réguas, a sessão do agente — onde ele tem shell —
+    ficaria justamente com o vão que a trava existe para fechar. Duas denylists diferentes é a
+    segunda cópia com outro nome.
+
+    FAIL-CLOSED como as demais leituras deste arquivo: registro ausente ou ficha ilegível levanta
+    `PoliticaAusente`, que o chamador traduz em exit 2. Devolver o que conseguiu ler faria o hook
+    liberar `WEBQA_*` em silêncio no dia em que um YAML quebrasse.
+    """
+    declarados = list(_exigida(politica, "env_denylist_prefix"))
+
+    suites = REPO / "harness" / "suites"
+    if not suites.is_dir():
+        raise PoliticaAusente(
+            "harness/suites/ não existe, e é de lá que os prefixos das réguas derivam desde o "
+            "CP-041. Registro ausente é 'não consegui fiscalizar', jamais 'nada a proibir'.")
+
+    import yaml
+
+    derivados: list[str] = []
+    for caminho in sorted(suites.glob("*.yaml")):
+        try:
+            doc = yaml.safe_load(caminho.read_text(encoding="utf-8")) or {}
+        except Exception as exc:  # noqa: BLE001 - YAML ilegível é indeterminação, não silêncio
+            raise PoliticaAusente(f"ficha de suite ilegível ({caminho.name}): {exc}") from exc
+        prefixo = (doc.get("suite") or {}).get("env_prefix")
+        if not prefixo:
+            raise PoliticaAusente(
+                f"{caminho.name} não declara `suite.env_prefix`, que o schema exige.")
+        derivados.append(prefixo)
+
+    return sorted(set(declarados) | set(derivados))
 
 
 def denied_exact(politica: dict) -> list[str]:

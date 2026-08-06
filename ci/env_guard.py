@@ -92,6 +92,47 @@ def politica() -> dict:
     return doc["env_hygiene"] or {}
 
 
+def prefixos_efetivos(pol: dict) -> list[str]:
+    """Os prefixos de `harness.yaml` MAIS os declarados por cada ficha de suite (CP-041).
+
+    DERIVAR EM VEZ DE DUPLICAR, mais uma vez. `WEBQA_` morava aqui como literal; agora nasce da
+    ficha `harness/suites/qa-suite.yaml`, e `PRIVSUITE_` nasce da ficha da privacy-suite ANTES de
+    a régua existir. É a lição do CP-020 aplicada à classe: a variável de uma régua nova nasce
+    coberta, sem que ninguém precise lembrar de uma segunda lista.
+
+    E É FAIL-CLOSED, que é a metade que importa. Registro ausente ou ilegível levanta
+    `PoliticaAusente` — jamais devolve o que conseguiu ler. A alternativa seria devolver a lista
+    curta e seguir: o guard imprimiria "nenhuma violada" com convicção, e a família inteira de
+    uma régua teria saído da denylist porque um YAML ficou ilegível. Trava que se desliga sozinha
+    quando o registro some não é trava.
+    """
+    declarados = list(_exigida(pol, "env_denylist_prefix"))
+
+    suites = REPO / "harness" / "suites"
+    if not suites.is_dir():
+        raise PoliticaAusente(
+            "harness/suites/ não existe, e é de lá que os prefixos das réguas derivam desde o "
+            "CP-041. Registro ausente é 'não consegui fiscalizar', jamais 'nada a proibir' — a "
+            "segunda leitura tira WEBQA_* e PRIVSUITE_* da denylist sem que nada acuse.")
+
+    import yaml
+
+    derivados: list[str] = []
+    for caminho in sorted(suites.glob("*.yaml")):
+        try:
+            doc = yaml.safe_load(caminho.read_text(encoding="utf-8")) or {}
+        except Exception as exc:  # noqa: BLE001 - YAML ilegível é indeterminação, não silêncio
+            raise PoliticaAusente(f"ficha de suite ilegível ({caminho.name}): {exc}") from exc
+        prefixo = (doc.get("suite") or {}).get("env_prefix")
+        if not prefixo:
+            raise PoliticaAusente(
+                f"{caminho.name} não declara `suite.env_prefix`, que o schema exige. Ficha sem "
+                f"prefixo é régua cujos gates fail-closed ficam alcançáveis pelo ambiente.")
+        derivados.append(prefixo)
+
+    return sorted(set(declarados) | set(derivados))
+
+
 def violacoes(ambiente: dict[str, str], pol: dict, contexto: str | None = None) -> list[str]:
     """Função pura: entra ambiente e política, sai lista de violações.
 
@@ -104,7 +145,7 @@ def violacoes(ambiente: dict[str, str], pol: dict, contexto: str | None = None) 
                if contexto and e.get("context") == contexto}
 
     achados: list[str] = []
-    for prefixo in _exigida(pol, "env_denylist_prefix"):
+    for prefixo in prefixos_efetivos(pol):
         for nome in sorted(ambiente):
             if nome.startswith(prefixo) and nome not in isentas:
                 achados.append(f"{nome} (prefixo proibido '{prefixo}*': auto-autorização — os "
@@ -125,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         pol = politica()
         achados = violacoes(dict(os.environ), pol, args.context)
-        n = len(_exigida(pol, "env_denylist_exact")) + len(_exigida(pol, "env_denylist_prefix"))
+        n = len(_exigida(pol, "env_denylist_exact")) + len(prefixos_efetivos(pol))
         abortar = _exigida_flag(pol, "fail_on_denied_env")
     except PoliticaAusente as exc:
         print(f"✗ FISCAL_CEGO: {exc}", file=sys.stderr)
