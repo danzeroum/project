@@ -24,11 +24,15 @@ suite:
   # Cruzados com harness.yaml:execution_modes pelo fiscal. load e active_discovery estão AUSENTES
   # de propósito, como em tests/qa/campanha.yaml: um modo que a campanha não autoriza não deve
   # aparecer aqui como se estivesse disponível.
+  # CP-042 — `command` é o que faz o runner conseguir executar a partir da ficha. Os comandos são
+  # EXATAMENTE os que estavam cravados em qa.yml: o que muda não é o que roda, é quem escolhe.
   modes:
     - nome: inventory
       requires_gate: false
+      command: ["{entrypoint}", "inventario", "--raiz", ".", "--saida", "harness/reports/cockpit.html"]
     - nome: passive
       requires_gate: false
+      command: ["{entrypoint}", "auditar", "--config", "{perfil}", "-m", "not load"]
 
   laudo:
     path: harness/reports/qa-report.json

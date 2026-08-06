@@ -136,6 +136,12 @@
               "requires_gate": {
                 "type": "boolean",
                 "description": "true = o modo só roda atrás de gate humano. Espelha agent_may_trigger de harness.yaml, e o fiscal confere a coerência: um modo que a harness marca human_only e a ficha diz requires_gate:false é a autorização se afrouxando pela porta lateral."
+              },
+              "command": {
+                "type": "array",
+                "minItems": 1,
+                "description": "CP-042 — como invocar ESTE modo, em argv já separado. Lista e não string: uma string precisaria passar por shell para virar comando, e shell é onde `--config $ARQUIVO` deixa de ser um argumento e vira uma oportunidade. O runner executa sem shell.\n\nExiste porque a forma não se deriva: a qa-suite chama `inventario` e `auditar`, com flags distintas, e nenhum dos dois é o nome do modo. Placeholders substituídos pelo runner: {laudo}, {perfil}, {entrypoint}. Um placeholder desconhecido é ERRO, nunca texto literal — substituição silenciosa produziria um comando que roda e mede outra coisa.",
+                "items": { "type": "string", "minLength": 1 }
               }
             }
           }

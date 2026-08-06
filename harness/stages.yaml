@@ -162,6 +162,9 @@ stages:
       - kind: ci_script
         ref: ci/audit_suites.py
         symbol: check_clausula_pin
+      - kind: ci_script
+        ref: ci/suite_runner.py
+        symbol: traduzir_veredito
       - kind: workflow_step
         ref: .github/workflows/qa.yml
         step: "Auditoria passiva (Trabalho A — só se escopo autorizar)"

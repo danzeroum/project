@@ -1680,3 +1680,44 @@ adrs:
         description: "O motor compartilhado não importa harness_lib: a fronteira é de DADOS, e é o que permite a um segundo consumidor usá-lo sem receber meio molde junto."
         module_glob: "harness/suite-contract/mutation-engine/mutation_engine.py"
         symbols: ["harness_lib.Findings"]
+      - id: ADR-030-A10
+        kind: path_present
+        severity: critical
+        risk: RISK-WEBQA-001
+        description: "O runner genérico e o kit de conformidade existem como código: sem eles a ficha DESCREVE e nunca EXECUTA, e um registro que ninguém executa é documentação com schema."
+        paths:
+          - ci/suite_runner.py
+          - ci/suite_conformance.py
+      - id: ADR-030-A11
+        kind: file_matches
+        severity: critical
+        risk: RISK-WEBQA-001
+        description: "O runner continua traduzindo `inconclusivo`, e não deixando o estado sumir: um verde que significa 'não olhei' encerra a investigação com a convicção de quem olhou."
+        files: ["ci/suite_runner.py"]
+        pattern: "def traduzir_veredito"
+      - id: ADR-030-A12
+        kind: file_lacks
+        severity: critical
+        risk: RISK-WEBQA-001
+        description: "qa.yml não invoca mais a régua diretamente: o comando mora na ficha, e voltar a cravá-lo aqui faz uma régua nova custar edição de workflow outra vez."
+        files: [".github/workflows/qa.yml"]
+        pattern: "^\\s+webqa (inventario|auditar) --(raiz|config) [^\\n]*\\n\\s+else"
+        mutation:
+          op: substituir_texto
+          alvo: .github/workflows/qa.yml
+          de: "        run: python ci/suite_runner.py --suite qa-suite --mode inventory"
+          para: "        run: |\n          if true; then\n            webqa inventario --raiz . --saida harness/reports/cockpit.html\n          else\n            echo stub\n          fi"
+      - id: ADR-030-A13
+        kind: file_matches
+        severity: high
+        risk: RISK-SEC-001
+        description: "O runner executa sem shell: o argv vem separado da ficha, porque `--config $ARQUIVO` num shell deixa de ser um argumento e vira uma oportunidade."
+        files: ["ci/suite_runner.py"]
+        pattern: "subprocess\\.run\\(comando, cwd=hl\\.REPO"
+      - id: ADR-030-A14
+        kind: file_matches
+        severity: critical
+        risk: RISK-DEP-001
+        description: "A resolução de $ref entre schemas é LOCAL: um fiscal que consulta a rede para julgar o repositório tem veredito que depende de quem responde — a mesma família de sequestro que o CP-025 fecha para pip e import."
+        files: ["ci/harness_lib.py"]
+        pattern: "def _registry"
