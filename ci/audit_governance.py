@@ -225,6 +225,55 @@ KINDS = {
 }
 
 
+def check_assertion_self_match(adr_index: dict, findings: Findings, errors: Errors) -> None:
+    """A asserção que casa com a PRÓPRIA DECLARAÇÃO fica verde por existir, não por conformidade.
+
+    É a parte mecanizável de um padrão de erro que já custou cinco correções em duas semanas
+    (CP-039, e a política em harness/policies/metadata-boundaries.md o nomeia por extenso): a regra
+    é escrita contra a MENÇÃO de uma coisa em vez de contra o FATO dela, e o documento que explica
+    a regra vira o primeiro a satisfazê-la sozinho.
+
+    A forma exata que dá para pegar por máquina: uma asserção `file_matches` cujo `pattern` casa o
+    `index.yaml` que a declara. O texto da própria declaração passa a ser a evidência de
+    conformidade — a asserção não pode reprovar, porque enquanto ela existir o padrão estará lá.
+    Foi o que aconteceu com a ADR-028 deste molde, e até a CP-039 a lição era só prosa.
+
+    `file_lacks` entra pelo motivo espelhado e ainda mais direto: um padrão PROIBIDO que casa o
+    index está sendo violado pelo documento que o proíbe — reprova sempre, e por si mesmo.
+    """
+    idx_rel = ADR_INDEX
+    if not hl.rel_exists(idx_rel):
+        return
+    bruto = hl.read_text(idx_rel)
+    for entry in (adr_index or {}).get("adrs", []):
+        for a in entry.get("assertions") or []:
+            if a.get("kind") not in ("file_matches", "file_lacks"):
+                continue
+            # SÓ quando a asserção MIRA o index. A primeira versão deste fiscal não tinha esta
+            # linha e acusou 40 vezes de uma vez — porque `pattern: "COCKPIT_SRC"` está escrito no
+            # index, então todo padrão casa a própria linha `pattern:` trivialmente.
+            # Escrevi um fiscal contra a âncora-na-menção e ele ancorou na menção. Sexta ocorrência,
+            # e fica registrada aqui porque o padrão é mais teimoso do que a consciência dele.
+            if idx_rel not in (a.get("files") or []):
+                continue
+            try:
+                rx = re.compile(a["pattern"], re.MULTILINE | (re.DOTALL if a.get("dotall") else 0))
+            except re.error:
+                continue  # padrão inválido já é acusado por quem o executa
+            if not rx.search(bruto):
+                continue
+            findings.add(
+                key=f"{a['id']}-SELF-MATCH", origin="assertion_self_match", severity="high",
+                adr=entry.get("id", "?"), assertion=a["id"], risk=a.get("risk"),
+                location=f"{idx_rel} :: {a['id']}",
+                summary=f"{a['id']}: o padrão /{a['pattern']}/ casa o próprio {idx_rel}, que é onde "
+                        f"a asserção é DECLARADA — ela fica verde por existir, não por o "
+                        f"repositório estar conforme.",
+                remediation="Ancorar o padrão no FATO e não na MENÇÃO: quem CRIA o artefato, quem "
+                            "o EXECUTA, quem o CONFIGURA — não a string que o nomeia.",
+            )
+
+
 def check_adr_conformance(adr_index: dict, findings: Findings, errors: Errors) -> None:
     seen_ids: set[str] = set()
     for entry in (adr_index or {}).get("adrs", []):
@@ -1231,6 +1280,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     check_adr_conformance(adr_index, findings, errors)
+    check_assertion_self_match(adr_index, findings, errors)
     check_stage_coverage(stages_doc, findings, errors, project_doc)
     check_repo_partition(stages_doc, findings)
     check_ingest_pipeline(findings, errors)

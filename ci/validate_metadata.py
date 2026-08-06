@@ -456,6 +456,29 @@ def check_threat_model(doc: dict | None, comp_ids: set[str], ifc_ids: set[str],
                 err(f"[ameaça] {tid}: mitigação local_path inexistente: {mit.get('ref')}")
 
 
+# Uma linha de `dependencies` do pyproject, em QUALQUER das formas que a PEP 508 admite:
+#
+#     "pyyaml>=6"                                    faixa
+#     "webqa-suite==1.0.0"                           pin exato
+#     "httpx[http2]>=0.27"                           com extras
+#     "cockpit-harness @ git+https://host/r@<sha>"   REFERÊNCIA DIRETA
+#
+# A última foi acrescentada pela CP-039, e a ausência dela invertia o propósito deste fiscal. O
+# regex anterior aceitava só `[<>=!~]` depois do nome, então a forma mais perigosa que existe —
+# código arbitrário de um host qualquer, sem índice e sem assinatura — era a única invisível ao
+# inventário de supply chain. Quem declarasse a dependência E a inventariasse levava achado de
+# "entrada morta"; quem não a inventariasse não levava achado nenhum. O fiscal punia a honestidade
+# e premiava o silêncio, que é o pior estado possível para um fiscal.
+#
+# Medido no primeiro derivado que extraiu a própria harness e passou a consumi-la por pin de SHA.
+_DEP_PYPROJECT = re.compile(
+    r'^\s*"([A-Za-z0-9][A-Za-z0-9._-]*)'   # o nome do pacote, que é o que o inventário casa
+    r'\s*(?:\[[^\]]*\])?'                  # extras opcionais: [http2], [standard]
+    r'\s*(?:[<>=!~@].*)?"'                 # faixa, pin, marcador — ou ` @ url` da referência direta
+    r'\s*,?\s*$'
+)
+
+
 def _declaradas() -> dict[str, str]:
     """Dependências que este repositório declara, e onde. Leitura textual e deliberada.
 
@@ -466,7 +489,7 @@ def _declaradas() -> dict[str, str]:
     achadas: dict[str, str] = {}
     if rel_exists("pyproject.toml"):
         for linha in read_text_lines("pyproject.toml"):
-            m = re.match(r'^\s*"([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:[<>=!~].*)?"\s*,?\s*$', linha)
+            m = _DEP_PYPROJECT.match(linha)
             if m:
                 achadas[m.group(1).lower()] = "pyproject.toml"
     if rel_exists("requirements-qa.txt"):
@@ -532,9 +555,7 @@ def check_orphan_code(inv: dict | None, components_doc: dict | None) -> None:
         for p in comp.get("source_paths", []):
             donos.setdefault(p, []).append(comp.get("id", "?"))
 
-    isentos: dict[str, int] = {}
-    for entry in components_doc.get("exemptions", []):
-        isentos[entry["path"]] = 0
+    isentos = _isencoes(components_doc)
 
     for mod in inv["modulos"]:
         if mod["kind"] != "code":
@@ -551,17 +572,52 @@ def check_orphan_code(inv: dict | None, components_doc: dict | None) -> None:
             err(f"[órfão] '{path}' pertence a mais de um componente ({', '.join(donos[path])}) — "
                 f"dono ambíguo é dono nenhum")
 
-    for path, casou in isentos.items():
+
+_ISENCOES_VISTAS: dict[str, int] = {}
+
+
+def _isencoes(components_doc: dict | None) -> dict[str, int]:
+    """Contador de isenções, COMPARTILHADO entre as duas invariantes de órfão.
+
+    Antes da CP-039 ele era local a `check_orphan_code`, e era essa localidade o defeito: a isenção
+    só existia para um dos dois lados. Compartilhar permite que a mesma declaração cubra um
+    `conftest.py` sem que a checagem de isenção morta acuse a que casou do outro lado.
+    """
+    _ISENCOES_VISTAS.clear()
+    for entry in (components_doc or {}).get("exemptions", []):
+        _ISENCOES_VISTAS[entry["path"]] = 0
+    return _ISENCOES_VISTAS
+
+
+def check_dead_exemptions() -> None:
+    """Isenção que não casa NADA — nem código, nem teste. Roda DEPOIS das duas invariantes.
+
+    Separada delas pela CP-039, e a razão é o defeito que a versão anterior tinha: enquanto só
+    `check_orphan_code` contava, declarar a isenção de um arquivo de APOIO DE TESTE produzia achado
+    de isenção morta E zero redução no contador de teste órfão. Líquido: +1 por declaração honesta.
+    A trava recusava a declaração que ela própria prescrevia como remédio — medido no primeiro
+    derivado, que tentou declarar dez arquivos de apoio e levou dez achados por isso.
+    """
+    for path, casou in _ISENCOES_VISTAS.items():
         if not casou:
             err(f"[órfão] isenção morta em components.yaml: '{path}' não casa arquivo de código "
-                f"algum — isenção que não protege nada só serve para a cobertura parecer fechada")
+                f"nem de teste — isenção que não protege nada só serve para a cobertura parecer "
+                f"fechada")
 
 
 def check_orphan_tests(inv: dict | None, components_doc: dict | None,
                        caps: dict[str, dict], backlog_doc: dict | None) -> None:
-    """Teste que ninguém declara é teste que ninguém sabe que existe — e cuja remoção não dói."""
+    """Teste que ninguém declara é teste que ninguém sabe que existe — e cuja remoção não dói.
+
+    CONSULTA `exemptions` desde a CP-039, pelo mesmo motivo que `check_orphan_code` sempre
+    consultou: fixture, stub e conftest não exercitam nada, e vinculá-los a um componente para
+    calar o fiscal seria inventar que exercitam. A isenção continua custando justificativa de 40
+    caracteres e continua morrendo se não casar arquivo algum — o que muda é ela passar a EXISTIR
+    para este lado.
+    """
     if not inv:
         return
+    isentos = _ISENCOES_VISTAS
     referenciados: set[str] = set()
     for comp in (components_doc or {}).get("components", []):
         referenciados.update(comp.get("tested_by", []))
@@ -571,9 +627,16 @@ def check_orphan_tests(inv: dict | None, components_doc: dict | None,
         referenciados.update(item.get("validated_by", []))
 
     for mod in inv["modulos"]:
-        if mod["kind"] == "test" and mod["path"] not in referenciados:
-            err(f"[teste órfão] '{mod['path']}' não é referenciado por tested_by, test_paths nem "
-                f"validated_by — a evidência existe e nenhum metadado a reivindica")
+        if mod["kind"] != "test":
+            continue
+        path = mod["path"]
+        if path in isentos:
+            isentos[path] += 1
+            continue
+        if path not in referenciados:
+            err(f"[teste órfão] '{path}' não é referenciado por tested_by, test_paths nem "
+                f"validated_by, nem consta de components.yaml:exemptions — a evidência existe e "
+                f"nenhum metadado a reivindica")
 
 
 def check_declared_dependencies(inv: dict | None, components_doc: dict | None) -> None:
@@ -915,6 +978,7 @@ def main(argv: list[str] | None = None) -> int:
     inv = _inventory(loaded.get("project.yaml"))
     check_orphan_code(inv, components_doc)
     check_orphan_tests(inv, components_doc, caps, backlog_doc)
+    check_dead_exemptions()   # depois das duas: a isenção pode casar de qualquer um dos lados
     check_declared_dependencies(inv, components_doc)
     check_exposes(inv, components_doc)
     risk_ids = check_risk_controls(loaded.get("governance/risk-register.yaml"))

@@ -53,7 +53,7 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `summary.by_severity` | object | sim |  |
 | `findings` | array<object> | sim | Divergências entre o declarado e o real. severity é TRIAGEM, não gate: com fail-closed qualquer achado derruba o CI. |
 | `findings[].id` | string | sim |  |
-| `findings[].origin` | enum(adr_assertion · adr_meta · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing · dependency_conflict) | sim |  |
+| `findings[].origin` | enum(adr_assertion · adr_meta · assertion_self_match · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing · dependency_conflict) | sim |  |
 | `findings[].severity` | enum(info · low · medium · high · critical) | sim |  |
 | `findings[].summary` | string | sim |  |
 | `findings[].adr` | string | — |  |
@@ -244,7 +244,7 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `components[].derived_from.sha` | string | sim |  |
 | `components[].derived_from.path` | string | sim | Relativo à raiz do alvo, sem o prefixo workspace/target/. |
 | `components[].derived_from.section` | string | — | Âncora dentro do arquivo (título de seção, símbolo). Opcional: nem toda origem tem subdivisão. |
-| `exemptions` | array<object> | sim | Arquivos sob code_roots que deliberadamente NÃO pertencem a componente algum. Mesma mecânica de stages.yaml:ungoverned, incluindo a propriedade que a torna honesta: isenção que não casa arquivo nenhum é ela própria um achado, porque serve só para fazer a cobertura parecer fechada. Lista vazia é declaração válida — e é o que se espera de um alvo cujo código está inteiramente mapeado. |
+| `exemptions` | array<object> | sim | Arquivos sob code_roots OU test_roots que deliberadamente nao pertencem a componente algum — fixture, stub, conftest, snapshot, shim. Mesma mecanica de stages.yaml:ungoverned, incluindo a propriedade que a torna honesta: isencao que nao casa arquivo nenhum e ela propria um achado. Ate a CP-039 so check_orphan_code a consultava, e declarar um arquivo de apoio de TESTE produzia achado de isencao morta sem reduzir o contador de teste orfao — a trava recusava a declaracao que ela propria prescrevia. Lista vazia e declaracao valida. |
 | `exemptions[].path` | string | sim |  |
 | `exemptions[].justification` | string | sim |  |
 
@@ -666,10 +666,11 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `risks[].owner` | string | sim |  |
 | `risks[].status` | enum(open · mitigated · accepted · closed) | sim |  |
 | `risks[].controls` | array<object> | sim | Referências TIPADAS. Nem todo controle é arquivo local: o gate mora na suíte externa, o ambiente no GitHub. |
-| `risks[].controls[].kind` | enum(local_path · standard_symbol · github_environment · branch_protection) | sim |  |
+| `risks[].controls[].kind` | enum(local_path · standard_symbol · pinned_dependency · github_environment · branch_protection) | sim |  |
 | `risks[].controls[].ref` | string | sim |  |
 | `risks[].controls[].standard` | const(webqa-suite) | — |  |
-| `risks[].controls[].version_source` | const(requirements-qa.txt) | — |  |
+| `risks[].controls[].version_source` | string | — | Arquivo que trava a versao do artefato externo. Para standard_symbol e sempre requirements-qa.txt (fonte unica da regua). Para pinned_dependency e o arquivo onde o pin daquela dependencia mora, tipicamente pyproject.toml ou um requirements-*.txt. |
+| `risks[].controls[].dependency` | string | — | Nome do pacote, como ele aparece em security/dependencies.yaml. E o elo que faz o controle ser reconferivel: o inventario diz de onde a dependencia vem e com que pin. |
 | `risks[].derived_from` | object | — | Proveniência da ingestão: de ONDE no alvo este item foi derivado, e em QUE commit. Sem o sha, 'este metadado descreve o alvo' vira afirmação sobre um alvo que já mudou — o mesmo modo de falha que target.lock resolve, uma camada acima. ci/validate_metadata.py::check_derived_from cobra que repo casa target.repo, que sha casa target.lock exatamente e que path existe no alvo materializado. |
 | `risks[].derived_from.repo` | string | sim |  |
 | `risks[].derived_from.sha` | string | sim |  |

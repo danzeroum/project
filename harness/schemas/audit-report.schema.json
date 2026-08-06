@@ -158,6 +158,7 @@
             "enum": [
               "adr_assertion",
               "adr_meta",
+              "assertion_self_match",
               "stage_coverage",
               "stage_partition",
               "policy_pointer",

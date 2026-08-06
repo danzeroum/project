@@ -417,6 +417,11 @@ SEVERITIES = ("info", "low", "medium", "high", "critical")
 # na primeira adição esquecida, e um achado que não diz o que fazer transfere para quem lê o
 # trabalho de descobrir — que é onde a trava vira obstáculo.
 REMEDIACAO_POR_ORIGEM = {
+    # CP-039. A remediação é o antídoto da política, em uma linha: o padrão tem de ser evidência
+    # de quem CRIA, quem EXECUTA ou quem CONFIGURA o artefato — nunca da string que o nomeia.
+    "assertion_self_match":
+        "Ancorar o padrão no FATO e não na MENÇÃO — quem CRIA o artefato, quem o EXECUTA, quem o "
+        "CONFIGURA. Ver harness/policies/conformance.md, seção 'A âncora no FATO'.",
     "adr_assertion": "Alinhar o repositório à decisão, ou revisar o ADR: decisão que o código não "
                      "segue muda explicitamente, nunca em silêncio.",
     "adr_meta": "Declarar ao menos uma asserção executável no ADR, ou uma 'manual' justificada "

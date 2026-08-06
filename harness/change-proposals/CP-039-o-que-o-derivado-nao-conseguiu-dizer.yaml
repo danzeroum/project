@@ -1,0 +1,97 @@
+# Três lacunas do molde encontradas ao FECHAR a ingestão do primeiro derivado — não ao abri-la.
+# Declarada ANTES de executada (ADR-004).
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-039
+  title: "O vocabulário supõe que o consumidor contém o próprio código, e a âncora na menção reincidiu pela quinta vez"
+  author_kind: agent
+  created_at: "2026-08-06T01:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - ci/validate_metadata.py
+    - harness/schemas/risk-register.schema.json
+    - harness/schemas/components.schema.json
+    - harness/policies/metadata-boundaries.md
+    - governance/risk-register.yaml
+    - tests/governance/test_vocabulario_do_consumidor_bites.py
+    - docs/metadata-graph.md
+    - docs/alignment.md
+    - docs/schema-reference.md
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-META-001
+      - RISK-META-002
+      - RISK-MOLD-001
+    rationale: >
+      A CP-038 trouxe o que apareceu quando um derivado começou a consumir a v1.0.0. Esta traz o
+      que apareceu quando ele TERMINOU: `danzeroum/projectCockpitDocker` fechou a CP-003 dele em
+      06/08/2026, saindo de 299 achados para 12, e os três gaps abaixo são exatamente o que impediu
+      os 12 de serem menos. Nenhum apareceu em teste do molde porque nenhum é sobre o molde
+      sozinho — os dois primeiros são sobre o molde sendo consumido por um repositório que
+      TERMINOU de se organizar, e o terceiro é sobre mim.
+
+      (1) O VOCABULÁRIO SUPÕE QUE O CONSUMIDOR CONTÉM O PRÓPRIO CÓDIGO. Quando aquele derivado
+      extraiu a harness dele para um repositório próprio e passou a consumi-la por pin exato de
+      SHA — a coisa CERTA a fazer, e a que este molde prega —, duas travas perderam a capacidade de
+      dizer a verdade.
+
+      (1a) `ci/validate_metadata.py::_declaradas` lê `pyproject.toml` com o regex
+      `"nome[<>=!~]..."` e não reconhece referência direta PEP 508 (`nome @ git+https://...`).
+      A consequência inverte o propósito do fiscal: a forma de dependência mais perigosa que
+      existe — código arbitrário de um host qualquer, sem índice, sem assinatura — é justamente a
+      única que o inventário de supply chain não enxerga. Quem declarar a dependência e inventariá-la
+      corretamente leva achado de "entrada morta"; quem NÃO a inventariar não leva achado nenhum.
+      O fiscal pune a honestidade e premia o silêncio, que é o pior estado possível para um fiscal.
+
+      (1b) `harness/schemas/risk-register.schema.json` fixa `controls[].kind` em `local_path`,
+      `standard_symbol`, `github_environment` e `branch_protection`, e `standard_symbol` tem
+      `standard: {const: "webqa-suite"}`. Não há forma de declarar "o controle deste risco vive na
+      dependência que eu pino". O desenho de `standard_symbol` já resolve exatamente este problema
+      — ancorar um controle externo à versão declarada localmente — mas foi escrito como se a régua
+      fosse a única dependência do mundo com essa propriedade. Três controles daquele derivado
+      emigraram junto com o código e só puderam ser registrados em comentário YAML, que nenhum
+      fiscal lê.
+
+      (2) A ISENÇÃO DE APOIO DE TESTE NÃO É EXPRESSÁVEL. `architecture/components.yaml:exemptions`
+      existe e funciona — para código. `check_orphan_code` a consulta; `check_orphan_tests` não.
+      O resultado, medido no derivado ao tentar executá-la: declarar os dez arquivos de apoio
+      (conftest, requirements-test, dois stubs de DOM, três `.conf` de nginx, um snapshot e dois
+      shims) produziu dez achados de "isenção morta" — a própria trava recusando a declaração — e
+      zero redução nos dez `teste órfão`. Líquido: +10. A saída honesta que sobrou foi contá-los
+      como dívida visível, o que é o segundo melhor estado; o melhor seria poder declará-los.
+      Não é caso raro: todo repositório com suíte séria tem fixture, stub e conftest, e nenhum
+      deles testa coisa alguma. Vinculá-los a um componente para calar o fiscal seria inventar que
+      testam algo — e é o que a ausência do instrumento empurra as pessoas a fazer.
+
+      (3) A ÂNCORA NA MENÇÃO REINCIDIU PELA QUINTA VEZ, E A QUINTA NASCEU DENTRO DO GUARDA. Este
+      item não conserta um fiscal: nomeia um padrão de erro que já custou cinco correções em duas
+      semanas e escreve o antídoto onde ele é lido. As cinco, na ordem:
+      ADR-026-A6 neste molde; um comentário sobre flag administrativa; `docker.danzeroum.com` num
+      config do derivado; `test_fiscal_de_metadados_roda_no_ci`, que exigia a string
+      `ci/validate_metadata.py` num workflow que roda `ci/validate_all.py`; e a quinta, dentro do
+      teste escrito para vigiar as outras quatro — ele procurava a string `workspace/target` num
+      workflow onde quem cria o diretório é `ci/bootstrap.py --only-workspace`.
+      O padrão é sempre o mesmo: escreve-se a regra contra a MENÇÃO de uma coisa em vez de contra o
+      FATO dela, e o documento que explica a regra vira o primeiro a violá-la. A quinta ocorrência
+      é a evidência de que consciência não basta — eu conhecia o padrão, estava escrevendo o teste
+      que o vigia, e reincidi na mesma linha.
+      A parte MECANIZÁVEL do padrão tem forma exata e vira fiscal aqui: uma asserção de ADR cujo
+      `pattern` casa o documento que a DECLARA fica verde por existir, não por o repositório estar
+      conforme. É a lição do ADR-028 deste molde, que hoje é só prosa.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+  tests_required:
+    - tests/governance/test_vocabulario_do_consumidor_bites.py
+  human_approval_required: false
+  change_mode: pull_request
