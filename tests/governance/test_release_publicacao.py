@@ -466,6 +466,57 @@ def test_tag_apontando_para_commit_sem_manifesto_reprova(repo_publicado, capsys)
     assert "manifesto fora da árvore" in capsys.readouterr().err
 
 
+def test_verify_tag_le_a_arvore_taggeada_e_nao_a_de_trabalho(repo_publicado):
+    """O par exato do teste acima, e a diferença entre os dois é toda a correção da CP-040.
+
+    O DISCO É IDÊNTICO nos dois: checkout no pai, sem manifesto no working tree. O que muda é para
+    onde a TAG aponta — lá ela foi movida para o pai, aqui continua no commit de release. Ali é
+    ausência de release e reprova; aqui a cadeia está íntegra e tem de passar.
+
+    Enquanto `--verify-tag` lia `hl.REPO / manifest_path_for(tag)`, os dois casos eram
+    indistinguíveis: os dois reprovavam, e o segundo é FALSO NEGATIVO. Foi medido de verdade — ao
+    consumir a v1.1.0 do molde de um checkout de `main`, o comando acusou cadeia quebrada sobre uma
+    release intacta; `git worktree add --detach` na tag imprimia `✓ cadeia íntegra` sobre a MESMA
+    tag. O comando funcionava num lugar só: dentro do job que a publica, logo depois do
+    `git switch --detach`, onde disco e árvore taggeada coincidem por acidente do procedimento.
+    """
+    repo, parent, _, _ = repo_publicado
+    _git(repo, "checkout", "--quiet", parent)
+    assert not (repo / mr.manifest_path_for("v1.0.0")).exists(), (
+        "o teste precisa do manifesto FORA do disco para valer alguma coisa")
+    assert mr.main(["--verify-tag", "v1.0.0"]) == 0
+
+
+def test_manifesto_adulterado_no_disco_nao_muda_o_veredito(repo_publicado):
+    """A METADE GRAVE do mesmo defeito, e ela é permissiva.
+
+    O falso negativo acima incomoda; este é o que importa. O disco é gravável e a tag não — quem
+    alterasse o manifesto no working tree para casar com um commit adulterado obteria `✓` de um
+    comando que jamais olhou o objeto publicado. A trava existe para provar que "o objeto publicado
+    é o objeto verificado", e estava verificando o objeto que se tem à mão.
+
+    Aqui o disco recebe lixo declarado. O veredito não muda, porque o disco não é consultado.
+    """
+    repo, _, _, _ = repo_publicado
+    (repo / mr.manifest_path_for("v1.0.0")).write_bytes(b'{"nao": "e um manifesto"}\n')
+    assert mr.main(["--verify-tag", "v1.0.0"]) == 0
+
+
+def test_verify_tag_nao_le_o_disco_em_lugar_nenhum():
+    """A âncora no FATO: o manifesto vem de `git show`, e nenhum caminho de disco resta na função.
+
+    Os dois testes acima provam o COMPORTAMENTO, e bastariam se ninguém reintroduzisse a leitura
+    como fallback ("se o git falhar, tenta o disco") — que é exatamente a forma que a regressão
+    teria, porque parece robustez.
+    """
+    fonte = (REPO / "ci/mold_release.py").read_text(encoding="utf-8")
+    corpo = fonte.split("def _cmd_verify_tag(")[1].split("\ndef ")[0]
+    corpo = "\n".join(l for l in corpo.splitlines() if not l.lstrip().startswith("#"))
+    assert 'git", "show", f"{tag}:' in corpo, "o manifesto tem de vir da árvore taggeada"
+    assert "hl.REPO / manifest_path_for" not in corpo, (
+        "leitura do working tree de volta em verify_tag — foi assim que o falso negativo nasceu")
+
+
 def test_um_byte_alterado_depois_da_tag_quebra_a_cadeia_no_derivado(repo_publicado):
     """A BORDA do aceite, e ela mora no consumidor — que é onde a decisão (b) a colocou.
 
@@ -509,8 +560,20 @@ def test_no_molde_a_ancora_independente_nao_existe_e_isso_e_deliberado(repo_publ
 # --------------------------------------------------------------------------------------
 
 def test_o_auditar_verifica_a_cadeia_na_tag_e_valida_no_pai(wf):
-    """A ordem do ADR-026: `--verify-tag` lê o manifesto do DISCO, então precisa da tag montada;
-    `validate_all` é a pergunta certa para o PAI, e roda depois do switch."""
+    """A ordem do ADR-026 — com a justificativa reancorada pela CP-040.
+
+    Esta docstring dizia "`--verify-tag` lê o manifesto do DISCO, então precisa da tag montada", e
+    isso deixou de ser verdade no mesmo PR em que este parágrafo foi reescrito: o comando passou a
+    ler `git show {tag}:{caminho}` e funciona de qualquer checkout. Deixar a frase velha seria a
+    fonte paralela de sempre, na forma mais teimosa — um teste VERDE explicando o repositório de
+    ontem, que é onde o próximo leitor vai buscar o porquê.
+
+    A ordem continua asseverada, e o que a sustenta agora é outra coisa: `git switch --detach` põe
+    a árvore no PAI, e `validate_all` só responde a pergunta certa ali. Verificar a cadeia antes do
+    switch é o que mantém os dois passos falando cada um do seu objeto — a cadeia sobre a tag, a
+    validação sobre o que foi validado. Que `--verify-tag` já não DEPENDA dessa ordem é margem, e
+    margem não é motivo para gastá-la.
+    """
     passos = _passos(wf, "auditar")
     assert _indice(passos, "--verify-tag") < _indice(passos, "git switch --detach")
     assert _indice(passos, "git switch --detach") < _indice(passos, "python ci/validate_all.py")

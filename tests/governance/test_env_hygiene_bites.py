@@ -9,7 +9,9 @@ que torna a trava testável em qualquer lugar.
 
 from __future__ import annotations
 
+import ast
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -161,6 +163,206 @@ def test_hook_do_agente_deixa_passar_comando_limpo():
         env={"PATH": "/usr/bin:/bin"},
     )
     assert proc.returncode == 0, proc.stderr
+
+
+# --------------------------------------------------------------------------------------
+# Os TRÊS estados da política (CP-040) — chave ausente não é lista vazia
+# --------------------------------------------------------------------------------------
+
+def _hook_isolado(tmp_path: Path, harness_doc: dict) -> Path:
+    """Uma cópia do hook num repositório sintético, com o harness.yaml que o teste quiser.
+
+    O hook resolve a raiz a partir do PRÓPRIO arquivo (`__file__`), e é justamente por isso que a
+    cópia é necessária: apontar variável de ambiente para outra raiz não mudaria o documento que
+    ele lê. Foi essa mesma resolução que produziu o defeito no derivado real — o hook mordia, e
+    quem via a mordida concluía que a política dali estava no lugar, quando a política lida era a
+    do molde.
+    """
+    raiz = tmp_path / "repo"
+    (raiz / "ci/hooks").mkdir(parents=True)
+    (raiz / "harness").mkdir(parents=True)
+    (raiz / "ci/hooks/pre_bash_env_hygiene.py").write_bytes(
+        (REPO / "ci/hooks/pre_bash_env_hygiene.py").read_bytes())
+    (raiz / "harness/harness.yaml").write_text(
+        yaml.safe_dump(harness_doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return raiz / "ci/hooks/pre_bash_env_hygiene.py"
+
+
+def _rodar(hook: Path, comando: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(hook)],
+        input=json.dumps({"tool_input": {"command": comando}}),
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin"})
+
+
+def test_chave_ausente_e_indeterminacao_e_nao_permissao(tmp_path: Path):
+    """O fail-open que estava aberto no primeiro derivado real.
+
+    Sem `env_denylist_exact` no harness.yaml, o hook fazia `.get(...) or []`, lia lista vazia e
+    DEIXAVA PASSAR. O idioma transforma "não declarado" em "declarado vazio", e num fiscal essa é a
+    distância entre indeterminação e permissão. Que o schema exija a chave não salva ninguém: o
+    schema fiscaliza o DOCUMENTO, e o hook lê o documento sem passar por ele.
+    """
+    hook = _hook_isolado(tmp_path, {"env_hygiene": {"env_denylist_prefix": ["WEBQA_"]}})
+    proc = _rodar(hook, "PYTHONPATH=/tmp/meu python ci/validate_all.py")
+    assert proc.returncode == 2, proc.stdout
+    assert "FISCAL_CEGO" in proc.stderr
+    assert "env_denylist_exact" in proc.stderr
+
+
+def test_chave_ausente_para_o_comando_limpo_tambem(tmp_path: Path):
+    """Cego é cego. Um hook que só reclamasse ao ver algo suspeito ainda estaria decidindo com a
+    política ausente — e "não vi nada de errado" sem saber o que procurar é a frase que o exit 2
+    existe para não deixar ninguém dizer."""
+    hook = _hook_isolado(tmp_path, {"env_hygiene": {"env_denylist_prefix": ["WEBQA_"]}})
+    proc = _rodar(hook, "python ci/validate_all.py")
+    assert proc.returncode == 2, proc.stdout
+    assert "FISCAL_CEGO" in proc.stderr
+
+
+def test_chave_presente_volta_a_decidir_normalmente(tmp_path: Path):
+    """O par positivo, no MESMO repositório sintético: o que muda entre este teste e os dois
+    acima é uma linha do harness.yaml, e nada mais."""
+    doc = {"env_hygiene": {"env_denylist_prefix": ["WEBQA_"],
+                           "env_denylist_exact": ["PYTHONPATH", "HTTP_PROXY"]}}
+    hook = _hook_isolado(tmp_path, doc)
+    assert _rodar(hook, "PYTHONPATH=/tmp/meu python x.py").returncode == 2
+    assert "DENIED_ENV" in _rodar(hook, "PYTHONPATH=/tmp/meu python x.py").stderr
+    assert _rodar(hook, "python ci/validate_all.py").returncode == 0
+
+
+def test_o_prefixo_tambem_morde_com_a_politica_completa(tmp_path: Path):
+    """A família antiga não pode ter sido perdida ao ler a política de uma vez só."""
+    doc = {"env_hygiene": {"env_denylist_prefix": ["WEBQA_"],
+                           "env_denylist_exact": ["PYTHONPATH"]}}
+    proc = _rodar(_hook_isolado(tmp_path, doc), "WEBQA_LOAD_AUTHORIZED=1 python x.py")
+    assert proc.returncode == 2
+    assert "DENIED_ENV" in proc.stderr, proc.stderr
+
+
+def test_politica_incompleta_nao_produz_veredito_parcial(tmp_path: Path):
+    """Com metade da política ausente, nem a metade presente emite veredito — e é deliberado.
+
+    Seria tentador deixar a mordida por prefixo passar na frente: ela funcionaria, e o comando
+    seria bloqueado do mesmo jeito. Mas `DENIED_ENV` afirma "olhei o que havia para olhar e foi
+    isto que achei", e essa frase é falsa quando metade da política não foi lida. Um bloqueio certo
+    com justificativa errada ensina a coisa errada a quem lê — e o que se aprende ali é que a
+    política estava inteira.
+    """
+    hook = _hook_isolado(tmp_path, {"env_hygiene": {"env_denylist_prefix": ["WEBQA_"]}})
+    proc = _rodar(hook, "WEBQA_LOAD_AUTHORIZED=1 python x.py")
+    assert proc.returncode == 2
+    assert "FISCAL_CEGO" in proc.stderr, proc.stderr
+    assert "DENIED_ENV" not in proc.stderr
+
+
+def test_default_embutido_na_denylist_deixou_de_existir():
+    """`or ["WEBQA_"]` era uma SEGUNDA fonte da lista dentro do código.
+
+    Pior que a lista vazia por um motivo a mais: além de apagar a ausência da chave, ela derivaria
+    da lista real no dia em que alguém acrescentasse um prefixo ao harness.yaml e não a este
+    arquivo — a fonte paralela de sempre, escondida num valor default.
+    """
+    assert 'or ["WEBQA_"]' not in _codigo_executavel("ci/hooks/pre_bash_env_hygiene.py")
+
+
+# --------------------------------------------------------------------------------------
+# A mordida de CLASSE — o idioma, não a ocorrência
+# --------------------------------------------------------------------------------------
+
+def _codigo_executavel(rel: str) -> str:
+    """O arquivo sem a prosa: comentários e docstrings fora.
+
+    Mesma distinção que `test_workflows_nao_duplicam_a_lista` já fazia, estendida ao que este lote
+    tornou necessário. Um fiscal corrigido EXPLICA o defeito que corrigiu, e explicar exige citar o
+    idioma proibido — a docstring de `PoliticaAusente` em post_edit_guard.py cita, palavra por
+    palavra, o encadeamento que ela descreve. Acusar essa citação seria a armadilha de sempre nesta
+    casa: ancorar na MENÇÃO em vez do FATO, e o preço seria proibir que a correção seja explicada
+    onde o próximo leitor procura o porquê.
+    """
+    arvore = ast.parse((REPO / rel).read_text(encoding="utf-8"))
+    prosa: set[int] = set()
+    for no in ast.walk(arvore):
+        if isinstance(no, ast.Constant) and isinstance(no.value, str):
+            prosa.update(range(no.lineno, (no.end_lineno or no.lineno) + 1))
+    return "\n".join(
+        "" if (n in prosa or l.lstrip().startswith("#")) else l
+        for n, l in enumerate((REPO / rel).read_text(encoding="utf-8").splitlines(), start=1))
+
+
+def _chaves_exigidas_pelo_schema() -> set[str]:
+    """As chaves que o SCHEMA marca `required`, derivadas dele e nunca redigitadas.
+
+    É esta derivação que torna a mordida de classe não-arbitrária. A fronteira entre "ausência é
+    indeterminação" e "ausência é vazio" não é gosto de quem escreve o fiscal: é o que o documento
+    já promete. Chave `required` ausente significa que o documento está fora do próprio schema —
+    indeterminação. Chave opcional ausente (`exceptions`) significa exatamente o que o silêncio diz
+    — nenhuma exceção declarada, um estado legítimo e completo.
+
+    E a lista cresce sozinha: uma chave nova marcada `required` no schema nasce coberta por este
+    teste, sem ninguém lembrar de acrescentá-la aqui.
+    """
+    schema = json.loads((REPO / "harness/schemas/harness.schema.json").read_text(encoding="utf-8"))
+    exigidas = set(schema.get("required") or [])
+    for bloco in ("env_hygiene", "repository"):
+        exigidas |= set((schema["properties"].get(bloco) or {}).get("required") or [])
+    return exigidas
+
+
+CHAVES_EXIGIDAS = _chaves_exigidas_pelo_schema()
+
+# Leitores de política: os arquivos que decidem BLOQUEIO a partir do documento declarado. A lista é
+# explícita e curta de propósito — varrer `ci/` inteiro varreria também os lugares onde o idioma é
+# legítimo, e um teste que acusa o uso legítimo é um teste que alguém afrouxa.
+LEITORES_DE_POLITICA = (
+    "ci/hooks/pre_bash_env_hygiene.py",
+    "ci/hooks/post_edit_guard.py",
+    "ci/env_guard.py",
+)
+
+
+def _idioma(chave: str) -> re.Pattern:
+    return re.compile(rf"""\.get\(\s*["']{re.escape(chave)}["']\s*\)\s+or\s+(\[\]|\{{\}}|set\(\))""")
+
+
+@pytest.mark.parametrize("rel", LEITORES_DE_POLITICA)
+def test_leitor_de_politica_nao_transforma_ausencia_em_lista_vazia(rel: str):
+    """A CLASSE do defeito, e não a ocorrência que foi encontrada.
+
+    Corrigir só `denied_exact` deixaria o idioma vivo nos vizinhos — e deixou: escrito primeiro
+    contra o hook, este teste acusou `ci/env_guard.py` e `ci/hooks/post_edit_guard.py` na primeira
+    execução. No env_guard o efeito era o mais eloquente de todos: sem as chaves, ele imprimia
+    "✓ higiene de ambiente: 0 regra(s) da denylist, nenhuma violada" e saía 0. No post_edit_guard,
+    `protected_paths` ausente liberava a edição de qualquer caminho protegido.
+
+    Onde o valor alimenta uma decisão de bloqueio, ausência tem de ser distinguível de vazio.
+    Se um uso legítimo do idioma aparecer num destes arquivos, o conserto é dar-lhe um nome que
+    declare a opcionalidade (`_opcional`), não afrouxar este teste.
+    """
+    codigo = _codigo_executavel(rel)
+    achados = [c for c in CHAVES_EXIGIDAS if _idioma(c).search(codigo)]
+    assert not achados, (
+        f"{rel} usa `.get(\"{achados[0]}\") or []` numa decisão de bloqueio, e o schema marca essa "
+        f"chave como required: 'não declarado' e 'declarado vazio' passam a sair iguais, e o "
+        f"segundo deixa passar")
+
+
+def test_a_mordida_de_classe_pegaria_o_defeito_original():
+    """O teste do teste. Sem esta prova, o regex acima poderia estar errado e o parametrize passaria
+    em silêncio — verde por não casar nada é o modo de falha que este repositório persegue.
+    """
+    assert "env_denylist_exact" in CHAVES_EXIGIDAS
+    assert "protected_paths" in CHAVES_EXIGIDAS
+    assert "exceptions" not in CHAVES_EXIGIDAS, (
+        "`exceptions` é opcional no schema: se virar required, o `_opcional` de env_guard.py "
+        "precisa mudar junto")
+
+    original = '    return _politica().get("env_denylist_exact") or []'
+    assert _idioma("env_denylist_exact").search(original)
+    assert not _idioma("env_denylist_exact").search(
+        '    return politica["env_denylist_exact"] or []')
+    assert not _idioma("env_denylist_exact").search('    return politica.get(chave) or []'), (
+        "o acesso por VARIÁVEL é o helper nomeado, cujo contrato está declarado num lugar só")
 
 
 def test_denylist_vazia_reprova_no_schema():

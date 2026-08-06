@@ -89,14 +89,14 @@ fiscalizar ⇒ exit 2.
 
 ## A âncora no FATO, nunca na MENÇÃO
 
-Esta seção não descreve uma trava nova: nomeia um **padrão de erro** que já custou cinco correções
+Esta seção não descreve uma trava nova: nomeia um **padrão de erro** que já custou oito correções
 em duas semanas neste molde e no primeiro derivado, e escreve o antídoto onde ele é lido.
 
 **A forma do erro.** Escreve-se a regra contra a *menção* de uma coisa em vez de contra o *fato*
 dela. O resultado é sempre o mesmo e sempre invisível na hora: o documento que explica a regra vira
 o primeiro a satisfazê-la — ou a violá-la — por si mesmo.
 
-As seis ocorrências, na ordem em que aconteceram:
+As oito ocorrências, na ordem em que aconteceram:
 
 | # | Onde | A menção que virou âncora | O fato que devia ter sido |
 |---|---|---|---|
@@ -106,10 +106,23 @@ As seis ocorrências, na ordem em que aconteceram:
 | 4 | `test_fiscal_de_metadados_roda_no_ci` | a string `ci/validate_metadata.py` no workflow | o workflow ALCANÇAR o fiscal (o comando roda `validate_all.py`, que o chama) |
 | 5 | o teste-guarda escrito para vigiar 1–4 | a string `workspace/target` no workflow | `ci/bootstrap.py --only-workspace`, que CRIA o diretório |
 | 6 | `check_assertion_self_match`, o fiscal desta seção | o padrão da asserção casando o próprio `pattern:` do index | a asserção MIRAR o index em `files` |
+| 7 | RULE-SUSTENTAR-003, no primeiro derivado | a existência de `mask_inspect` no alvo, lida como "mascara toda saída" | as ROTAS que passam por ele — `/logs` devolve `text/plain` sem tocá-lo |
+| 8 | `_ja_cobertos`, dentro da correção da CP-040 | o id do ativo APARECER num lugar com cara de cobertura | a invariante que lê a isenção PASSAR sem ela |
 
-A quinta e a sexta são o dado que importa: **consciência do padrão não o previne.** A quinta nasceu
-dentro do teste escrito para vigiar as quatro anteriores; a sexta, dentro do fiscal escrito para
-vigiar as cinco. Ambas foram pegas pela execução, não pela leitura.
+Da quinta em diante o dado é sempre o mesmo: **consciência do padrão não o previne.** A quinta
+nasceu dentro do teste escrito para vigiar as quatro anteriores; a sexta, dentro do fiscal escrito
+para vigiar as cinco; a oitava, dentro da correção cujo assunto declarado é a trava que implementa
+metade do próprio enunciado. Nenhuma foi pega por leitura — todas pela execução, e a oitava na
+primeira rodada do teste que a acompanhava no mesmo commit.
+
+A oitava merece o detalhe, porque é a forma mais bem-disfarçada da família. Ela não procurava uma
+string: enumerava as saídas que cada invariante aceita (`implements`, `satisfies`, `related` de
+risco) e chamava de "coberto" quem casasse alguma. Parecia raciocínio sobre fatos, e era um proxy —
+tratou `related`, que é a saída da R1 e fala de CAPACIDADES, como cobertura de um COMPONENTE. E, do
+lado oposto, esqueceu a segunda saída da R4. A correção é a pergunta literal: rodar as invariantes
+sobre uma cópia do metadado sem a linha e ver se alguma acusa. Custa três chamadas de função e não
+pode divergir delas, porque quem responde é a própria invariante. **Quando o fato for computável,
+compute-o — não o aproxime.**
 
 **O antídoto, em três perguntas.** Antes de escrever qualquer asserção, teste ou fiscal que procure
 uma string, pergunte de qual destas ela é evidência:

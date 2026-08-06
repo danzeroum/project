@@ -331,13 +331,26 @@ def _cmd_verify_tag(args) -> int:
               f"Indeterminação, nunca aprovação.", file=sys.stderr)
         return EXIT_UNVERIFIABLE
 
-    caminho = hl.REPO / manifest_path_for(tag)
-    if not caminho.exists():
+    # A ÁRVORE DO COMMIT TAGGEADO, não a de trabalho — corrigido pela CP-040.
+    #
+    # Isto lia `hl.REPO / manifest_path_for(tag)`, e funcionava no único lugar onde foi escrito:
+    # dentro do job de publicação, logo depois de `git switch --detach`, onde a árvore de trabalho
+    # É a árvore taggeada. De qualquer outro checkout — um `main`, o clone de um consumidor
+    # auditando a release — dava FALSO NEGATIVO: "manifesto fora da árvore é ausência de release"
+    # sobre uma release cujo manifesto está lá, dentro da tag.
+    #
+    # Falha fechada, que é o lado seguro. Mas o comando se chama `--verify-tag` e o caminho (B)
+    # deste workflow se chama AUDITORIA: um verificador que só funciona de dentro do publicador
+    # não serve para auditar ninguém. Medido ao consumir a v1.1.0 de fora.
+    try:
+        bruto = subprocess.run(["git", "show", f"{tag}:{manifest_path_for(tag)}"],
+                               cwd=hl.REPO, capture_output=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
         print(f"✗ a tag {tag} aponta para um commit sem {manifest_path_for(tag)} na árvore — "
               f"manifesto fora da árvore é ausência de release.", file=sys.stderr)
         return 1
 
-    dados = caminho.read_bytes()
+    dados = bruto
     manifest = json.loads(dados.decode("utf-8"))
     lock = {"mold_release": lock_block(
         repository=manifest["release"]["repository"], tag=tag,

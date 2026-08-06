@@ -127,14 +127,75 @@ def r4_componente_sem_justificativa(d: dict, f: Findings) -> None:
                       f"de existir ninguém registrou.")
 
 
+def _acusariam_sem(d: dict, ref: str) -> bool:
+    """R1/R3/R4 acusariam `ref` se esta isenção não existisse?
+
+    A PERGUNTA É ESTA, E NÃO UM PROXY DELA. A primeira versão desta função enumerava as saídas que
+    cada invariante aceita — `implements`, `satisfies`, `related` de risco — e decidia "coberto" se
+    alguma casasse. Ela reprovou um caso legítimo no primeiro teste: um COMPONENTE citado no
+    `related` de um risco foi declarado coberto, quando `related` é a saída da R1, que fala de
+    CAPACIDADES. A isenção protegia contra a R4, que não olha `related` para nada.
+
+    O erro é o de sempre nesta casa — ancorar na MENÇÃO ("o id aparece num lugar que se parece com
+    cobertura") em vez de no FATO ("a invariante que lê esta isenção passaria sem ela"). E o proxy
+    tinha um segundo furo pelo lado oposto: esquecia a segunda saída da R4, `tested_by` cruzado com
+    as regras verificadas da capacidade, e teria deixado passar a isenção redundante daquele tipo.
+
+    Rodar as invariantes sobre uma cópia sem a linha custa três chamadas de função e não pode
+    divergir delas: saída nova numa invariante já nasce respeitada aqui, porque quem responde é a
+    própria invariante.
+    """
+    sem_esta = {**d, "isencoes": [e for e in d["isencoes"] if e.get("ref") != ref]}
+    prova = Findings()
+    for invariante in (r1_capacidade_de_alto_risco_sem_risco, r3_superficie_orfa,
+                       r4_componente_sem_justificativa):
+        invariante(sem_esta, prova)
+
+    # Os ids esperados nascem do mesmo `Findings.add` que os produz, nunca de um `f"FIND-..."`
+    # redigitado: o slug é normalizado lá dentro, e uma segunda cópia da normalização aqui seria a
+    # fonte paralela que este repositório recusa em toda parte.
+    esperados = Findings()
+    for prefixo in ("ALIGN-R1-", "ALIGN-R3-", "ALIGN-R4-"):
+        esperados.add(key=prefixo + ref, origin="alignment_risk", severity="info", summary="")
+    ids = {i["id"] for i in esperados.items}
+    return any(i["id"] in ids for i in prova.items)
+
+
 def isencao_morta(d: dict, f: Findings) -> None:
-    """Isenção que não casa ativo algum só serve para a cobertura parecer fechada."""
+    """Isenção que não protege nada — nas DUAS formas que isso acontece.
+
+    O schema de `risk_exemptions` declara a propriedade inteira: "isenção que não casa ativo algum
+    é ela própria um achado — do contrário a lista vira o lugar onde a cobertura é fingida com uma
+    linha". Até a CP-040 só a primeira metade era fiscalizada.
+
+    MORTA é a isenção cujo `ref` não resolve para ativo nenhum. Ela é obviamente inútil.
+    REDUNDANTE é a isenção cujo `ref` resolve para um ativo que JÁ está coberto pela invariante da
+    qual ele foi isentado. Ela é pior, e a diferença é a que importa: a morta não engana ninguém,
+    porque não aponta para nada; a redundante aponta para um ativo real e faz o próximo leitor ver
+    "coberto por isenção declarada" num componente que tem requisito de verdade. Ela fica ali para
+    sempre, e ninguém a remove, porque remover uma isenção parece afrouxar alguma coisa.
+
+    Medida no primeiro derivado: isenção para `CMP-NAO-EXISTE` acusava; isenção para `CMP-CERTS`,
+    que já implementa REQ-006, passava em silêncio.
+    """
     reais = {x.get("id") for grupo in ("caps", "comps", "ifcs", "uis", "reqs") for x in d[grupo]}
     for entrada in d["isencoes"]:
-        if entrada["ref"] not in reais:
-            f.add(key=f"ALIGN-EXEMPT-{entrada['ref']}", origin="alignment_risk", severity="low",
+        ref = entrada["ref"]
+        if ref not in reais:
+            f.add(key=f"ALIGN-EXEMPT-{ref}", origin="alignment_risk", severity="low",
                   risk="RISK-ALIGN-001", location="governance/risk-register.yaml",
-                  summary=f"Isenção morta: '{entrada['ref']}' não é um ativo deste repositório.")
+                  summary=f"Isenção morta: '{ref}' não é um ativo deste repositório.")
+        elif not _acusariam_sem(d, ref):
+            f.add(key=f"ALIGN-EXEMPT-REDUNDANTE-{ref}", origin="alignment_risk", severity="low",
+                  risk="RISK-ALIGN-001", location="governance/risk-register.yaml",
+                  summary=f"Isenção REDUNDANTE: '{ref}' é um ativo real, e invariante alguma de "
+                          f"alinhamento o acusaria sem esta linha — a isenção não protege nada e "
+                          f"faz quem lê achar que o ativo depende dela.",
+                  evidence="medido rodando R1, R3 e R4 sobre uma cópia do metadado sem esta "
+                           "entrada: nenhum achado nomeia o ativo",
+                  remediation="Remover a entrada de risk_exemptions. O ativo já está coberto pela "
+                              "invariante da qual alguém o isentou, e a linha só serve para a "
+                              "cobertura parecer fechada por dois motivos ao mesmo tempo.")
 
 
 # --------------------------------------------------------------------------------------
