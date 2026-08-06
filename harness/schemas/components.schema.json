@@ -166,7 +166,7 @@
     },
     "exemptions": {
       "type": "array",
-      "description": "Arquivos sob code_roots que deliberadamente NÃO pertencem a componente algum. Mesma mecânica de stages.yaml:ungoverned, incluindo a propriedade que a torna honesta: isenção que não casa arquivo nenhum é ela própria um achado, porque serve só para fazer a cobertura parecer fechada. Lista vazia é declaração válida — e é o que se espera de um alvo cujo código está inteiramente mapeado.",
+      "description": "Arquivos sob code_roots OU test_roots que deliberadamente nao pertencem a componente algum — fixture, stub, conftest, snapshot, shim. Mesma mecanica de stages.yaml:ungoverned, incluindo a propriedade que a torna honesta: isencao que nao casa arquivo nenhum e ela propria um achado. Ate a CP-039 so check_orphan_code a consultava, e declarar um arquivo de apoio de TESTE produzia achado de isencao morta sem reduzir o contador de teste orfao — a trava recusava a declaracao que ela propria prescrevia. Lista vazia e declaracao valida.",
       "items": {
         "type": "object",
         "required": [

@@ -84,3 +84,50 @@ Fiscalizado por: `ci/audit_governance.py` (executa as asserções e a partição
 Declarado em: `architecture/adr/index.yaml`, `harness/stages.yaml`.
 Falha como: divergência entre decisão e repositório ⇒ achado no laudo e exit 1; fiscal incapaz de
 fiscalizar ⇒ exit 2.
+
+---
+
+## A âncora no FATO, nunca na MENÇÃO
+
+Esta seção não descreve uma trava nova: nomeia um **padrão de erro** que já custou cinco correções
+em duas semanas neste molde e no primeiro derivado, e escreve o antídoto onde ele é lido.
+
+**A forma do erro.** Escreve-se a regra contra a *menção* de uma coisa em vez de contra o *fato*
+dela. O resultado é sempre o mesmo e sempre invisível na hora: o documento que explica a regra vira
+o primeiro a satisfazê-la — ou a violá-la — por si mesmo.
+
+As seis ocorrências, na ordem em que aconteceram:
+
+| # | Onde | A menção que virou âncora | O fato que devia ter sido |
+|---|---|---|---|
+| 1 | ADR-026-A6, neste molde | a string proibida, citada no texto que a proíbe | o comportamento que ela habilita |
+| 2 | comentário sobre flag administrativa | o nome da flag no comentário que explica por que não se usa | a flag no comando |
+| 3 | `docker.danzeroum.com` num config do derivado | o host no comentário que diz que ele não é usado | o host no valor efetivo |
+| 4 | `test_fiscal_de_metadados_roda_no_ci` | a string `ci/validate_metadata.py` no workflow | o workflow ALCANÇAR o fiscal (o comando roda `validate_all.py`, que o chama) |
+| 5 | o teste-guarda escrito para vigiar 1–4 | a string `workspace/target` no workflow | `ci/bootstrap.py --only-workspace`, que CRIA o diretório |
+| 6 | `check_assertion_self_match`, o fiscal desta seção | o padrão da asserção casando o próprio `pattern:` do index | a asserção MIRAR o index em `files` |
+
+A quinta e a sexta são o dado que importa: **consciência do padrão não o previne.** A quinta nasceu
+dentro do teste escrito para vigiar as quatro anteriores; a sexta, dentro do fiscal escrito para
+vigiar as cinco. Ambas foram pegas pela execução, não pela leitura.
+
+**O antídoto, em três perguntas.** Antes de escrever qualquer asserção, teste ou fiscal que procure
+uma string, pergunte de qual destas ela é evidência:
+
+- **quem CRIA** o artefato — o comando, o script, a flag que o produz;
+- **quem o EXECUTA** — o passo de workflow, a chamada, o import que o alcança;
+- **quem o CONFIGURA** — o valor efetivo, não o comentário ao lado dele.
+
+Se a resposta for "nenhuma das três, mas a string aparece lá", a âncora está na menção. Um comentário
+que cita o nome do perigo é a evidência mais barata que existe, e é por isso que ela seduz.
+
+**A parte que morde.** Só um pedaço deste padrão é mecanizável, e ele agora é fiscal:
+`ci/audit_governance.py::check_assertion_self_match` recusa asserção `file_matches`/`file_lacks`
+que mire `architecture/adr/index.yaml` e cujo padrão case o próprio index — verde por existir, não
+por conformidade. É a lição da ADR-028, que até a CP-039 era só prosa. O resto da tabela acima
+continua sendo julgamento humano, e está escrito aqui exatamente porque não dá para automatizar.
+
+Fiscalizado por: `ci/audit_governance.py::check_assertion_self_match`;
+`tests/governance/test_vocabulario_do_consumidor_bites.py`.
+Declarado em: `architecture/adr/index.yaml`.
+Falha como: asserção verde por existir ⇒ achado `assertion_self_match` no laudo e exit 1.

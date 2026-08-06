@@ -66,6 +66,11 @@ risks:
         ref: .github/workflows/validate-metadata.yml
       - kind: local_path
         ref: architecture/adr/ADR-002-enforcement-nao-em-markdown.md
+      # CP-039. As duas mordidas que faltavam, e as duas nasceram de um consumidor real, não de
+      # teste deste repositório: o inventário que não enxergava referência direta PEP 508, e a
+      # isenção que só existia para o lado do código.
+      - kind: local_path
+        ref: tests/governance/test_vocabulario_do_consumidor_bites.py
 
   - id: RISK-CHANGE-001
     area: governance

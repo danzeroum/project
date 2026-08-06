@@ -143,6 +143,7 @@
                   "enum": [
                     "local_path",
                     "standard_symbol",
+                    "pinned_dependency",
                     "github_environment",
                     "branch_protection"
                   ]
@@ -155,12 +156,57 @@
                   "const": "webqa-suite"
                 },
                 "version_source": {
-                  "const": "requirements-qa.txt"
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Arquivo que trava a versao do artefato externo. Para standard_symbol e sempre requirements-qa.txt (fonte unica da regua). Para pinned_dependency e o arquivo onde o pin daquela dependencia mora, tipicamente pyproject.toml ou um requirements-*.txt."
+                },
+                "dependency": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Nome do pacote, como ele aparece em security/dependencies.yaml. E o elo que faz o controle ser reconferivel: o inventario diz de onde a dependencia vem e com que pin."
                 }
               },
               "allOf": [
                 {
-                  "comment": "standard_symbol EXIGE âncora de versão; os demais kinds NÃO admitem esses campos.",
+                  "comment": "Kinds locais nao admitem campos de ancoragem externa. standard_symbol e pinned_dependency os exigem, cada um os seus — as regras deles vem abaixo.",
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "local_path",
+                          "github_environment",
+                          "branch_protection"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "standard"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "version_source"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "dependency"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "comment": "standard_symbol EXIGE ancora de versao, e a dela e a fonte unica da regua.",
                   "if": {
                     "properties": {
                       "kind": {
@@ -175,26 +221,35 @@
                     "required": [
                       "standard",
                       "version_source"
-                    ]
-                  },
-                  "else": {
-                    "not": {
-                      "anyOf": [
-                        {
-                          "required": [
-                            "standard"
-                          ]
-                        },
-                        {
-                          "required": [
-                            "version_source"
-                          ]
-                        }
-                      ]
+                    ],
+                    "properties": {
+                      "version_source": {
+                        "const": "requirements-qa.txt"
+                      }
                     }
                   }
+                },
+                {
+                  "comment": "pinned_dependency EXIGE o nome do pacote e onde o pin dele mora — mesma exigencia de ancoragem do standard_symbol, pela mesma razao: controle externo sem versao ancorada e controle que muda sozinho.",
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "pinned_dependency"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "dependency",
+                      "version_source"
+                    ]
+                  }
                 }
-              ]
+              ],
+              "description": "Referencias TIPADAS. Nem todo controle e arquivo local: o gate mora na suite externa, o ambiente no GitHub, e — desde a CP-039 — o controle pode viver numa DEPENDENCIA PINADA. Este ultimo kind nasceu de um consumidor real que extraiu a propria harness para um repositorio proprio e passou a consumi-la por pin de SHA: os controles emigraram junto com o codigo, e nao havia como dize-lo. Sem o kind, a saida era comentario YAML, que fiscal nenhum le."
             }
           },
           "derived_from": {
