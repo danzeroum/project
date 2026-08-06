@@ -140,6 +140,80 @@ def test_isencao_morta_reprova(repo_copy, run_alignment):
     assert "FIND-ALIGN-EXEMPT-CAP-QUE-NAO-EXISTE" in _ids(achados), _ids(achados)
 
 
+def test_isencao_redundante_reprova(repo_copy, run_alignment):
+    """A segunda metade do enunciado que o schema declara (CP-040).
+
+    CMP-PRICING implementa REQ-001 — está coberto pela própria invariante da qual esta linha o
+    isenta. A isenção não protege nada, e é PIOR que a morta acima justamente porque aponta para
+    um ativo real: quem revisa lê "coberto por isenção declarada" num componente que tem requisito
+    de verdade, e não remove a linha porque remover isenção parece afrouxar alguma coisa.
+    """
+    _editar(repo_copy, "governance/risk-register.yaml", lambda d: d["risk_exemptions"].append({
+        "ref": "CMP-PRICING",
+        "justification": "isenção redundante injetada pelo teste: o componente já implementa "
+                         "REQ-001 e portanto nunca dependeu desta linha",
+    }))
+    code, achados = run_alignment(repo_copy)
+    assert code == 1
+    assert "FIND-ALIGN-EXEMPT-REDUNDANTE-CMP-PRICING" in _ids(achados), _ids(achados)
+
+
+def test_isencao_de_ativo_descoberto_nao_e_redundante(repo_copy, run_alignment):
+    """O par que impede a trava de virar 'toda isenção é achado'.
+
+    Este teste começou errado, e o erro merece ficar escrito porque é o mesmo que a correção
+    conserta. A primeira versão isentava CMP-CATALOG do baseline supondo-o descoberto "porque não
+    implementa requisito" — mas a R4 tem DUAS saídas, e ele sai pela segunda: `tested_by` cruzado
+    com a regra verificada da sua capacidade. Isentá-lo ali é redundante de fato, e o fiscal estava
+    certo ao acusar.
+
+    Descobrir o ativo exige desligar a saída que ele usa. Com a regra em `proposed`, a R4 passa a
+    acusar CMP-CATALOG — e é só então que a isenção PROTEGE alguma coisa e tem de passar calada.
+    """
+    _editar(repo_copy, "business/rules/catalog.yaml",
+            lambda d: d["rules"][0].update(status="proposed"))
+    _editar(repo_copy, "governance/risk-register.yaml", lambda d: d["risk_exemptions"].append({
+        "ref": "CMP-CATALOG",
+        "justification": "isenção legítima injetada pelo teste: sem regra verificada, a R4 acusaria "
+                         "o componente, então esta linha é a única coisa que responde por ele",
+    }))
+    code, achados = run_alignment(repo_copy)
+    assert code == 0, [a for a in achados if a["severity"] != "info"]
+
+
+def test_isencao_de_superficie_ja_satisfeita_reprova(repo_copy, run_alignment):
+    """A mesma pergunta pelo lado das superfícies: `satisfies` é o `implements` delas."""
+    _editar(repo_copy, "governance/risk-register.yaml", lambda d: d["risk_exemptions"].append({
+        "ref": "UI-PRICING-PAGE",
+        "justification": "isenção redundante injetada pelo teste: a superfície já satisfaz REQ-001",
+    }))
+    code, achados = run_alignment(repo_copy)
+    assert code == 1
+    assert "FIND-ALIGN-EXEMPT-REDUNDANTE-UI-PRICING-PAGE" in _ids(achados), _ids(achados)
+
+
+def test_isencao_de_capacidade_ja_referenciada_por_risco_reprova(repo_copy, run_alignment):
+    """R1 aceita DUAS coberturas — risco que referencia a capacidade, ou isenção declarada.
+    Declarar as duas para o mesmo ativo é ter a isenção sobrando, e sobrando em silêncio.
+
+    O `risk_level` sobe junto de propósito: sem ele a R1 nem olharia a capacidade, e o teste
+    passaria pelo motivo errado — provando que isenção de ativo fora do escopo da invariante é
+    redundante, que é verdade e não é o que esta linha existe para provar.
+    """
+    _editar(repo_copy, "business/capabilities.yaml",
+            lambda d: d["capabilities"][1].update(risk_level="critical"))
+    _editar(repo_copy, "governance/risk-register.yaml",
+            lambda d: d["risks"][0].setdefault("related", []).append("CAP-CATALOG"))
+    _editar(repo_copy, "governance/risk-register.yaml", lambda d: d["risk_exemptions"].append({
+        "ref": "CAP-CATALOG",
+        "justification": "isenção redundante injetada pelo teste: a capacidade já é referenciada "
+                         "por um risco do registro",
+    }))
+    code, achados = run_alignment(repo_copy)
+    assert code == 1
+    assert "FIND-ALIGN-EXEMPT-REDUNDANTE-CAP-CATALOG" in _ids(achados), _ids(achados)
+
+
 # --------------------------------------------------------------------------------------
 # O artefato derivado
 # --------------------------------------------------------------------------------------

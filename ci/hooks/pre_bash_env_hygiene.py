@@ -21,24 +21,67 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent.parent
 
 
+class PoliticaAusente(Exception):
+    """A política não declara o que este hook precisaria ler.
+
+    Exceção e não valor de retorno, porque um valor de retorno seria interpretado — e a única
+    interpretação barata de uma lista vazia é "nada a proibir", que é o oposto da verdade.
+    """
+
+
 def _politica() -> dict:
     import yaml
     doc = yaml.safe_load((REPO / "harness" / "harness.yaml").read_text(encoding="utf-8")) or {}
-    return (doc.get("env_hygiene") or {})
+    if "env_hygiene" not in doc:
+        raise PoliticaAusente(
+            "harness/harness.yaml não declara o bloco `env_hygiene`. O schema o exige no topo — "
+            "e um hook que lesse dicionário vazio aqui concluiria 'nada a proibir' sobre um "
+            "documento que nunca disse isso.")
+    return doc["env_hygiene"] or {}
 
 
-def denied_prefixes() -> list[str]:
-    return _politica().get("env_denylist_prefix") or ["WEBQA_"]
+def _exigida(politica: dict, chave: str) -> list[str]:
+    """Chave que o schema marca `required`: ausência é INDETERMINAÇÃO, jamais vazio.
+
+    O default embutido é tão proibido quanto a lista vazia, e por um motivo a mais: `or ["WEBQA_"]`
+    — que era o que estava escrito aqui — não só deixava a chave sumir sem ruído como criava uma
+    SEGUNDA fonte da denylist dentro do código, que deriva da primeira no dia em que alguém
+    acrescenta um prefixo ao harness.yaml e não a este arquivo.
+    """
+    if chave not in politica:
+        raise PoliticaAusente(
+            f"harness/harness.yaml:env_hygiene não declara `{chave}`. O schema a exige "
+            f"(required + minItems 1) — mas o schema fiscaliza o DOCUMENTO, e este hook lê o "
+            f"documento sem passar por ele. Chave ausente é 'não consegui fiscalizar', jamais "
+            f"'nada a proibir'.")
+    return politica[chave] or []
 
 
-def denied_exact() -> list[str]:
+def denied_prefixes(politica: dict) -> list[str]:
+    return _exigida(politica, "env_denylist_prefix")
+
+
+def denied_exact(politica: dict) -> list[str]:
     """CP-025 — a família que não autoriza nada e por isso é pior: ela redireciona.
 
     O hook cobre o agente pelo mesmo motivo que cobria WEBQA_*: a trava que só existe no CI não
     protege a sessão, e é na sessão que o agente tem shell. Um `PYTHONPATH=/tmp/meu python
     ci/validate_all.py` digitado numa sessão produziria um verde que ninguém saberia questionar.
+
+    TRÊS ESTADOS, e não dois — corrigido pela CP-040. Isto era `.get(...) or []`, e aquele idioma
+    transforma "não declarado" em "declarado vazio". Num fiscal, essa é a distância entre
+    INDETERMINAÇÃO e PERMISSÃO: sem a chave no harness.yaml o hook rodava, lia lista vazia e
+    deixava passar — fail-open silencioso, no fiscal cuja razão de existir é fechar um vão.
+
+    Medido no primeiro derivado real: a chave faltava lá desde o transplante da carcaça, a trava
+    estava aberta, e a evidência de que ela funcionava vinha de OUTRO repositório — o hook resolve
+    a raiz subindo do diretório corrente, e nas sessões em que ele recusou um `PYTHONPATH` a raiz
+    resolvida era a do molde.
+
+    Levanta em vez de devolver lista: quem chama decide a reação, e a reação certa para "não
+    consegui fiscalizar" é exit 2, nunca exit 0.
     """
-    return _politica().get("env_denylist_exact") or []
+    return _exigida(politica, "env_denylist_exact")
 
 
 def main() -> int:
@@ -51,6 +94,20 @@ def main() -> int:
     if not command:
         return 0
 
+    # A POLÍTICA INTEIRA É LIDA ANTES DE QUALQUER VEREDITO, e a ordem é a decisão (CP-040).
+    # Ler chave por chave, mordendo pelo caminho, produziria um `DENIED_ENV` sobre uma política
+    # incompleta — e `DENIED_ENV` afirma "olhei o que havia para olhar e foi isto que achei".
+    # Com metade da política ausente essa frase é falsa mesmo quando o bloqueio está certo.
+    try:
+        politica = _politica()
+        prefixos, exatos = denied_prefixes(politica), denied_exact(politica)
+    except PoliticaAusente as exc:
+        # Exit 2 é o mesmo código da recusa, e é deliberado: para quem digitou o comando, "a
+        # política sumiu" e "a política proíbe isto" pedem a mesma coisa — parar e olhar. O que
+        # não pode acontecer é o comando seguir porque o fiscal não sabia o que perguntar.
+        print(f"FISCAL_CEGO: {exc}", file=sys.stderr)
+        return 2
+
     def recusar(alvo: str, porque: str) -> int:
         print(
             f"DENIED_ENV: o comando define '{alvo}', que a denylist de harness/harness.yaml "
@@ -62,7 +119,7 @@ def main() -> int:
         )
         return 2
 
-    for prefix in denied_prefixes():
+    for prefix in prefixos:
         p = re.escape(prefix)
         # Cobre `export WEBQA_X=1`, `WEBQA_X=1 cmd`, `env WEBQA_X=1` e `set WEBQA_X`.
         if re.search(rf"(?:^|[;&|]|\bexport\s+|\benv\s+|\bset\s+)\s*{p}[A-Z0-9_]*\s*=", command) \
@@ -73,7 +130,7 @@ def main() -> int:
                 "consegue defini-las se autoriza a sondar. Modos pesados são human_only, em job "
                 "segregado do CI.")
 
-    for nome in denied_exact():
+    for nome in exatos:
         n = re.escape(nome)
         if re.search(rf"(?:^|[;&|]|\bexport\s+|\benv\s+|\bset\s+)\s*{n}\s*=", command) \
            or re.search(rf"\bexport\s+{n}\b", command):

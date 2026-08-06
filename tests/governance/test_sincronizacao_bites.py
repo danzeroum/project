@@ -219,6 +219,115 @@ def test_sync_diff_sem_metadado_afetado_sai_0(repo_copy, alvo_com_dois_commits, 
     assert code == 0
 
 
+def _autorar_sem_proveniencia(root: Path) -> None:
+    """Reescreve os componentes como um derivado REAL os tem: autorados por leitura, sem SHA.
+
+    É o estado do primeiro derivado deste molde — 36 componentes escritos à mão na fatia-2, nenhum
+    proposto pelo cartographer, nenhum com `derived_from`. O fiscal de sync foi desenhado contra o
+    outro estado, e o teste que existia aqui montava só ele.
+    """
+    comps = _ler(root, "architecture/components.yaml")
+    comps["source_of_truth"] = True
+    comps["generated_from"] = None
+    for comp in comps["components"]:
+        comp.pop("derived_from", None)
+    _gravar(root, "architecture/components.yaml", comps)
+
+
+def test_sync_diff_ve_o_metadado_autorado_pelo_elo_que_ele_tem(repo_copy, alvo_com_dois_commits,
+                                                               conformance):
+    """CONF-014: sem `derived_from` em item algum, o comando respondia "nenhum" — sempre.
+
+    MEDIDO no primeiro derivado real: 36 componentes, zero com proveniência, um diff que mexeu em
+    dois deles, e a resposta foi "nenhum metadado com proveniência aponta para eles". A frase era
+    verdadeira e vazia. Cruzando por `source_paths`, que é o elo que existe em metadado autorado,
+    a lista real aparece — e é ela que vira trabalho na change-proposal.
+    """
+    alvo, antigo, novo = alvo_com_dois_commits
+    _preparar_derivado(repo_copy, alvo, antigo)
+    _autorar_sem_proveniencia(repo_copy)
+
+    code, mod = conformance(repo_copy, ["--sync-diff", novo])
+    assert code == 1, "há metadado afetado pelo elo fraco: o comando sinaliza trabalho pendente"
+    d = mod.sync_diff(novo)
+    assert {i["id"] for i in d["metadados_afetados"]} == {"CMP-SERVICO"}, d
+    assert {i["elo"] for i in d["metadados_afetados"]} == {"source_paths"}, d
+
+
+def test_o_elo_fraco_nao_vira_proveniencia(repo_copy, alvo_com_dois_commits, conformance):
+    """A correção não pode apagar a distinção que ela existe para tornar visível.
+
+    `source_paths` diz de que arquivo o item FALA; `derived_from` diz contra que commit ele foi
+    ESCRITO. Um item alcançado pelo elo fraco não carrega SHA registrado, e o campo tem de dizer
+    isso — senão a saída passaria a afirmar uma ancoragem que não existe, trocando um "não sei
+    olhar" por um "olhei e está carimbado".
+    """
+    alvo, antigo, novo = alvo_com_dois_commits
+    _preparar_derivado(repo_copy, alvo, antigo)
+    _autorar_sem_proveniencia(repo_copy)
+    _, mod = conformance(repo_copy, ["--sync-diff", novo])
+    assert [i["sha_registrado"] for i in mod.sync_diff(novo)["metadados_afetados"]] == [None]
+
+
+def test_a_proveniencia_continua_vencendo_quando_existe(repo_copy, alvo_com_dois_commits,
+                                                        conformance):
+    """O par: com `derived_from`, o elo forte é o que responde, e o item não conta como órfão."""
+    alvo, antigo, novo = alvo_com_dois_commits
+    _preparar_derivado(repo_copy, alvo, antigo)
+    _, mod = conformance(repo_copy, ["--sync-diff", novo])
+    com = mod.sync_diff(novo)
+    assert [i["elo"] for i in com["metadados_afetados"]] == ["derived_from"], com
+
+    # Medido pela DIFERENÇA, nunca por um número cravado: `sem_proveniencia` conta todos os itens
+    # derivaveis do repositório, e um metadado novo em qualquer documento moveria um literal aqui
+    # sem que nada tivesse quebrado. O que este teste afirma são os DOIS componentes.
+    _autorar_sem_proveniencia(repo_copy)
+    _, mod = conformance(repo_copy, ["--sync-diff", novo])
+    assert mod.sync_diff(novo)["sem_proveniencia"] - com["sem_proveniencia"] == 2
+
+
+def test_a_saida_declara_por_onde_olhou(repo_copy, alvo_com_dois_commits, conformance, capsys):
+    """O achado da CONF-014 era A TELA, e é por isso que a mordida olha a tela.
+
+    "Nenhum" e "não sei olhar" saíam iguais, e o segundo é o estado em que alguém avança o lock
+    achando que não há trabalho. Corrigir só o cruzamento deixaria a próxima pessoa lendo uma
+    resposta cuja medição continua implícita — e contagem que não declara como foi medida é a
+    mesma armadilha com outro número.
+    """
+    alvo, antigo, novo = alvo_com_dois_commits
+    _preparar_derivado(repo_copy, alvo, antigo)
+    _autorar_sem_proveniencia(repo_copy)
+    conformance(repo_copy, ["--sync-diff", novo])
+    saida = capsys.readouterr().out
+
+    assert "derived_from.path" in saida and "source_paths" in saida, saida
+    assert "item(ns) de metadado não têm `derived_from`" in saida, saida
+    assert "por `source_paths`" in saida, saida
+    assert "CMP-SERVICO" in saida, saida
+
+
+def test_nenhum_afetado_e_declarado_como_medicao(repo_copy, alvo_com_dois_commits, conformance,
+                                                 capsys):
+    """O caso vazio é o que mais precisa da declaração, porque é o único que ninguém investiga."""
+    alvo, antigo, novo = alvo_com_dois_commits
+    _preparar_derivado(repo_copy, alvo, antigo)
+    _autorar_sem_proveniencia(repo_copy)
+    comps = _ler(repo_copy, "architecture/components.yaml")
+    comps["components"] = [c for c in comps["components"] if c["id"] == "CMP-ESTAVEL"]
+    comps["exemptions"] = [{
+        "path": "workspace/target/app/servico.py",
+        "justification": "isenção injetada pelo teste para isolar o caso em que metadado nenhum "
+                         "aponta para arquivo alterado, por elo algum",
+    }]
+    _gravar(repo_copy, "architecture/components.yaml", comps)
+
+    code, _ = conformance(repo_copy, ["--sync-diff", novo])
+    assert code == 0
+    saida = capsys.readouterr().out
+    assert "por elo nenhum dos dois" in saida, saida
+    assert "uma medição, não uma ausência de medição" in saida, saida
+
+
 def test_canal_de_retorno_ao_alvo_nasce_desligado(repo_copy):
     """Escrita em repositório que não se governa começa fechada (decision_policy.default: deny)."""
     harness = yaml.safe_load((repo_copy / "harness/harness.yaml").read_text(encoding="utf-8"))

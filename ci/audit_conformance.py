@@ -33,6 +33,12 @@ REVIEW = "governance/conformance-review.yaml"
 LAUDO = "harness/reports/conformance-audit.json"
 WORKSPACE = "workspace/target"
 
+# CP-040 — os elos que existem em metadado AUTORADO: onde o item diz de que arquivo ele fala,
+# ainda que sem carimbar o SHA. Não substituem `derived_from` — não dizem CONTRA QUE COMMIT o
+# item foi escrito — mas respondem a pergunta que `--sync-diff` faz. Módulo e não local porque
+# a saída precisa NOMEAR por onde olhou, e uma medição que não se declara vira a próxima CONF-014.
+ELOS_FRACOS = ("source_paths", "tested_by", "validated_by", "test_paths")
+
 
 def check_review_currency(findings: Findings) -> None:
     """A revisão existe e cobre o estado atual — incluindo o commit do alvo."""
@@ -101,18 +107,39 @@ def sync_diff(remoto: str) -> dict:
 
     mudados = set(_mudados(atual, remoto))
     afetados: list[dict] = []
+    sem_proveniencia = 0
     import validate_metadata as vm
 
+    # CP-040 — DOIS ELOS, e o segundo existe porque o primeiro é estreito.
+    #
+    # Isto cruzava só `derived_from.path`, que é o elo do metadado PROPOSTO pelo cartographer. Num
+    # derivado cujo metadado foi AUTORADO por leitura, `derived_from` não existe em item nenhum: o
+    # primeiro derivado real tinha 36 componentes, zero com proveniência, e a resposta a um diff
+    # que mexeu em dois deles foi "nenhum metadado com proveniência aponta para eles".
+    #
+    # A frase era verdadeira e a tela não distinguia. "Nenhum" e "não sei olhar" saem iguais, e o
+    # segundo é o estado em que alguém avança o lock achando que não há trabalho.
+    #
     for rel, chave in vm.DERIVAVEIS:
         if not hl.rel_exists(rel):
             continue
         for item in (hl.read_yaml(rel) or {}).get(chave, []) or []:
             proc = item.get("derived_from")
-            if proc and proc.get("path") in mudados:
-                afetados.append({"doc": rel, "id": item.get("id", "?"),
-                                 "path": proc["path"], "sha_registrado": proc.get("sha")})
+            if proc:
+                if proc.get("path") in mudados:
+                    afetados.append({"doc": rel, "id": item.get("id", "?"), "elo": "derived_from",
+                                     "path": proc["path"], "sha_registrado": proc.get("sha")})
+                continue
+            sem_proveniencia += 1
+            for campo in ELOS_FRACOS:
+                for caminho in item.get(campo) or []:
+                    # os caminhos do derivado vêm prefixados com workspace/target/
+                    nu = caminho.split("workspace/target/", 1)[-1]
+                    if nu in mudados:
+                        afetados.append({"doc": rel, "id": item.get("id", "?"), "elo": campo,
+                                         "path": nu, "sha_registrado": None})
     return {"de": atual, "para": remoto, "arquivos_mudados": sorted(mudados),
-            "metadados_afetados": afetados}
+            "metadados_afetados": afetados, "sem_proveniencia": sem_proveniencia}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -134,10 +161,25 @@ def main(argv: list[str] | None = None) -> int:
             d = sync_diff(args.sync_diff)
             print(f"• {len(d['arquivos_mudados'])} arquivo(s) do alvo mudaram entre "
                   f"{d['de'][:12]} e {d['para'][:12]}")
+            # A MEDIÇÃO SE DECLARA ANTES DO RESULTADO — CP-040/CONF-014. A saída anterior dizia
+            # "nenhum metadado com PROVENIÊNCIA aponta para eles", e a palavra que carregava o peso
+            # passava despercebida: num derivado de metadado autorado nenhum item tem
+            # `derived_from`, então aquela frase era verdadeira e vazia. "Nenhum" e "não sei olhar"
+            # saíam idênticos na tela, e o segundo é o estado em que alguém avança o lock achando
+            # que não há trabalho.
+            print(f"• Cruzado por dois elos: `derived_from.path` (proveniência carimbada, "
+                  f"com SHA) e {', '.join(ELOS_FRACOS)} (autoria declarada, sem SHA).")
+            if d["sem_proveniencia"]:
+                print(f"• {d['sem_proveniencia']} item(ns) de metadado não têm `derived_from`: "
+                      f"para eles valeu só o elo fraco, que diz de que arquivo o item FALA mas "
+                      f"não contra que commit ele foi ESCRITO. Um item cujo arquivo não mudou "
+                      f"pode ainda assim ter sido escrito contra outro estado dele.")
             if not d["metadados_afetados"]:
-                print("• Nenhum metadado com proveniência aponta para eles.")
+                print("• Nenhum metadado aponta para os arquivos que mudaram — por elo nenhum "
+                      "dos dois. Isto é uma medição, não uma ausência de medição.")
             for item in d["metadados_afetados"]:
-                print(f"  · {item['id']} ({item['doc']}) descreve {item['path']}, que mudou")
+                print(f"  · {item['id']} ({item['doc']}) descreve {item['path']} "
+                      f"por `{item['elo']}`, que mudou")
             print("\nO lock NÃO avança aqui: avançá-lo é decisão declarada em change-proposal.")
             return 1 if d["metadados_afetados"] else 0
 

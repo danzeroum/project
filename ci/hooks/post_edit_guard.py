@@ -33,10 +33,27 @@ GENERATED = {
 EXEMPT_PREFIXES = ("harness/change-proposals/",)
 
 
+class PoliticaAusente(Exception):
+    """A política não declara o que este hook precisaria ler.
+
+    Encontrada pela mordida de classe da CP-040, no mesmo lote da irmã do hook de ambiente. O
+    encadeamento `(doc.get("repository") or {}).get("protected_paths") or []` era duplamente
+    permissivo: sem o bloco `repository`, e sem a chave dentro dele, o guard percorria uma lista
+    vazia e liberava a edição de QUALQUER caminho — em silêncio, com exit 0, indistinguível de
+    "olhei a lista e este arquivo não está nela".
+    """
+
+
 def protected_paths() -> list[str]:
     import yaml
     doc = yaml.safe_load((REPO / "harness" / "harness.yaml").read_text(encoding="utf-8")) or {}
-    return (doc.get("repository") or {}).get("protected_paths") or []
+    repo = doc.get("repository")
+    if repo is None or "protected_paths" not in repo:
+        raise PoliticaAusente(
+            "harness/harness.yaml não declara `repository.protected_paths`, que o schema exige. "
+            "Lista ausente é 'não consegui fiscalizar', jamais 'nada protegido' — e a segunda "
+            "leitura libera exatamente os caminhos que só mudam com revisão humana.")
+    return repo["protected_paths"] or []
 
 
 def main() -> int:
@@ -64,7 +81,13 @@ def main() -> int:
     if rel.startswith(EXEMPT_PREFIXES):
         return 0
 
-    for p in protected_paths():
+    try:
+        protegidos = protected_paths()
+    except PoliticaAusente as exc:
+        print(f"FISCAL_CEGO: {exc}", file=sys.stderr)
+        return 2
+
+    for p in protegidos:
         stem = p.rstrip("/")
         if rel == stem or rel.startswith(stem + "/"):
             print(
