@@ -15,6 +15,7 @@ proposal:
   capabilities_affected: []
   components_affected: []
   paths_affected:
+    - .github/workflows/governance.yml
     - ci/alignment_report.py
     - ci/audit_conformance.py
     - ci/env_guard.py
@@ -132,7 +133,16 @@ proposal:
       manifesto no working tree para casar com um commit adulterado obteria `✓` de um comando que
       jamais olhou o objeto publicado. A trava que prova "o objeto publicado é o objeto verificado"
       estava verificando o objeto que se tem à mão.
-      FEITO: o manifesto passa a ser lido com `git show {tag}:{caminho}`. Tag sem manifesto na
+      FEITO: o manifesto passa a ser lido com `git show {tag}:{caminho}`. E a regressão fica
+      VIGIADA ONDE O DEFEITO APARECIA: o job `cadeia-das-releases` de governance.yml confere, de um
+      checkout COMUM da branch, a cadeia de toda tag publicada — hoje v1.0.0 e v1.1.0, e a lista
+      vem das tags porque a release publicada É a ref. Vigiar isto só no job de release seria vigiar
+      exatamente o único lugar onde o comando quebrado passava.
+      (A primeira versão do job derivava a lista de `harness/releases/*.manifest.json` na árvore, e
+      percorria lista vazia: o commit de release não muda nada além do manifesto e não volta para a
+      branch, então o diretório de trabalho tem só o README. Verde por vacuidade, pego ao rodar o
+      passo antes de commitá-lo — e registrado aqui porque é o mesmo defeito da família, cometido
+      dentro da vigilância dela.) Tag sem manifesto na
       árvore continua sendo ausência de release (a mensagem e o exit 1 não mudam). Efeito colateral
       declarado: a ordem `--verify-tag` antes de `git switch --detach` no workflow deixa de ser
       EXIGÊNCIA e passa a ser escolha — o teste que a fiscaliza tem a justificativa reancorada no
