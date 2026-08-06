@@ -19,6 +19,23 @@ seu `sha256`, e `ci/audit_suites.py` confere. A âncora é o **digest**, não o 
 mesma razão que `target.lock` guarda `manifest_sha` além da tag, e que o `README` de
 `harness/releases/` repete: tag é ponteiro móvel; digest não é.
 
+### O que o contrato fixa, e o que ele deliberadamente não fixa
+
+O manifesto fixa o **texto normativo**, o **envelope de laudo**, o **schema do próprio manifesto**
+e o **motor de mutação**. Ele **não** fixa `harness/schemas/suite-registry.schema.json`, e a
+ausência é uma decisão, não um esquecimento.
+
+O contrato governa a interface **suíte ↔ consumidor**: o que a régua entrega. O **registro** é
+como *este* consumidor anota o lado dele — outro projeto consumindo a mesma régua teria registro
+com outra forma, e continuaria honrando a contract-v1 integralmente. Fixar o registro aqui
+confundiria as duas coisas: qualquer evolução na maneira de *declarar* uma suíte passaria a exigir
+versão nova do **contrato**, como se a promessa da régua tivesse mudado quando só a nossa ficha
+mudou.
+
+O registro não fica desprotegido por isso: `ADR-030-A2` e `ADR-030-A3` travam por ponteiro os
+campos que importam (`env_prefix` obrigatório, `contract_version` como enum fechado), a prova de
+mutação exige que essas travas mordam, e ele segue sob `CODEOWNERS`.
+
 Acrescentar uma sexta cláusula é a **v2**, nunca uma edição da v1. O schema trava isso com
 `minItems: 5` e `maxItems: 5` — sem a trava, o contrato mudaria de conteúdo sem mudar de nome, e
 uma ficha que declara `contract_version: v1` passaria a prometer outra coisa sem que ninguém

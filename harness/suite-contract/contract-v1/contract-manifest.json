@@ -65,17 +65,12 @@
       {
         "path": "harness/suite-contract/contract-v1/SUITE_CONTRACT.md",
         "role": "contract-text",
-        "sha256": "4a807e183a8023e0458ddb4c771bd5f55b024506bad1d8993f2dc88c9e8a3657"
+        "sha256": "57692e8ed98422f3341384f8c57d5baeb27a682da929400bdd0990be1c2a67e6"
       },
       {
         "path": "harness/suite-contract/mutation-engine/mutation_engine.py",
         "role": "engine",
         "sha256": "72a369c20da5e76b20526c27821fd706bd776e140f89ed5e37591be04836fa17"
-      },
-      {
-        "path": "harness/schemas/suite-registry.schema.json",
-        "role": "schema",
-        "sha256": "5f70b7ca2a869abcf474b66d9ea9f6667e4a8f601257ad7069cbf2825a099e0b"
       },
       {
         "path": "harness/schemas/suite-contract-manifest.schema.json",
