@@ -90,6 +90,55 @@ def verify_protection(*, protection: dict | None, codeowners: list[str],
     return v
 
 
+EXIGENCIA_LIGADA = "ligada"
+EXIGENCIA_DESLIGADA = "desligada"
+# Indeterminado é `None`, e não uma terceira string, de propósito: quem consumir isto tem de
+# tratar a ausência explicitamente. Uma string como "indeterminado" seria truthy, e o primeiro
+# `if estado:` distraído transformaria "não consegui olhar" em "está ligada".
+
+
+def exigencia_de_review(protection: dict | None) -> str | None:
+    """PURA: dado o payload da API, a exigência de review está ligada?
+
+    `None` de entrada devolve `None` de saída, e essa propagação é a trava: nenhuma leitura de
+    ausência produz conclusão. A camada que chama pode até escolher ser branda com o
+    indeterminado, mas não pode confundi-lo com o positivo.
+    """
+    if protection is None:
+        return None
+    if not protection:
+        # `{}` é resposta, não silêncio: a branch existe e não tem proteção alguma. Isso é VER que
+        # está desligada, e é diferente de não conseguir ver.
+        return EXIGENCIA_DESLIGADA
+    reviews = protection.get("required_pull_request_reviews")
+    if not reviews:
+        return EXIGENCIA_DESLIGADA
+    if not reviews.get("require_code_owner_reviews"):
+        # Exigir review de qualquer um não pluga o aval dos protected_paths: é o review de CODE
+        # OWNER que faz `protected_paths` significar alguma coisa.
+        return EXIGENCIA_DESLIGADA
+    return EXIGENCIA_LIGADA
+
+
+def estado_da_exigencia_de_review(repo: str | None = None, branch: str = "main") -> str | None:
+    """Consulta a API. `None` = não consegui olhar — NUNCA 'ligada'.
+
+    Sem token ou sem repositório, devolve `None` ANTES de qualquer chamada: localmente, inclusive
+    no hook que roda a cada turno, não há rede. Não memoiza: uma verificação positiva anterior não
+    vale para a execução atual, porque token que expira no meio transformaria prova em memória.
+    """
+    repo = repo or os.environ.get("GITHUB_REPOSITORY", "")
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if not token or not repo:
+        return None
+    try:
+        protection = _api(
+            f"https://api.github.com/repos/{repo}/branches/{branch}/protection", token)
+    except (urllib.error.URLError, TimeoutError):
+        return None
+    return exigencia_de_review(protection)
+
+
 REGRAS_DE_TAG_EXIGIDAS = ("deletion", "non_fast_forward", "update")
 
 

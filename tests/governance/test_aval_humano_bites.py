@@ -122,3 +122,87 @@ def test_sem_proposta_exigindo_aval_nao_ha_achado(repo_copy, run_auditor):
             p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
     assert not _achados(repo_copy, run_auditor)
+
+
+# --------------------------------------------------------------------------------------
+# OS TRÊS ESTADOS (CP-049) — e a costura que impede o exit-0-inconclusivo de reencarnar
+# --------------------------------------------------------------------------------------
+# Testados por INJEÇÃO do resolvedor, não por rede: o que precisa ser provado é a junção entre
+# "o que verify_protection conseguiu ver" e "o que o fiscal conclui", e essa junção é código puro.
+# Um teste que dependesse da API provaria o GitHub, não a costura.
+
+def _fiscal(estado):
+    """Roda o fiscal com um estado injetado e devolve os achados de approval_gate."""
+    import harness_lib as hl_local
+    import audit_governance as ag
+    importlib.reload(hl_local)
+    importlib.reload(ag)
+    findings = hl_local.Findings()
+    ag.check_approval_gate_plugged(findings, lambda: estado)
+    return [f for f in findings.items if f["origin"] == "approval_gate"]
+
+
+def test_VISTO_e_ligada_produz_SILENCIO(_restaura_repo=None):
+    """O único caminho de silêncio que existe, e ele custa confirmação positiva.
+
+    É o que torna a promessa da CP-048 verdadeira: no dia em que a proteção for ligada E o CI
+    tiver token com escopo, o fiscal fica verde. Antes disso, não.
+    """
+    assert _fiscal("ligada") == []
+
+
+def test_VISTO_e_desligada_produz_HIGH():
+    """Lacuna PROVADA é acionável, e por isso não é branda.
+
+    Aqui não há dúvida a acomodar: a API respondeu e a exigência não está lá. `info` seria a
+    severidade de quem não sabe, e neste caminho sabe-se.
+    """
+    achados = _fiscal("desligada")
+    assert achados, "proteção vista desligada tem de produzir achado"
+    assert achados[0]["severity"] == "high", achados[0]
+    assert "VISTA" in achados[0]["summary"] or "PROTECAO-DESLIGADA" in achados[0]["id"]
+
+
+def test_NAO_CONSEGUI_OLHAR_produz_INFO_e_JAMAIS_silencio():
+    """A COSTURA. É o teste que dá sentido a este arquivo inteiro.
+
+    Se "não consegui olhar" comprasse silêncio, o exit-0-inconclusivo reencarnaria dentro do
+    fiscal criado para matá-lo — e da pior forma possível: verde por ausência de prova, num fiscal
+    cujo nome promete prova.
+
+    A asserção é dupla de propósito. `!= []` prova que não houve silêncio; `== "info"` prova que a
+    brandura é a declarada. Testar só a severidade deixaria passar a versão que não emite nada.
+    """
+    achados = _fiscal(None)
+    assert achados != [], "indeterminado JAMAIS pode comprar silêncio — é o exit-0-inconclusivo"
+    assert achados[0]["severity"] == "info", achados[0]
+    assert "INDETERMINADO" in achados[0]["summary"], achados[0]["summary"]
+
+
+def test_token_que_expira_no_meio_NAO_herda_o_silencio_anterior():
+    """A borda que transforma prova em memória, e a razão de não haver cache.
+
+    Uma verificação positiva anterior não vale para a execução atual. Se valesse, o fiscal
+    responderia sobre o passado com a confiança do presente — que é exatamente o defeito do
+    carimbo eterno que este repositório recusa desde a CP-036.
+    """
+    assert _fiscal("ligada") == [], "pré-condição: a verificação positiva silencia"
+
+    achados = _fiscal(None)
+    assert achados != [], "o silêncio anterior não pode sobreviver à perda do token"
+    assert achados[0]["severity"] == "info"
+
+
+@pytest.mark.parametrize("estado,esperado", [
+    ("ligada", 0),
+    ("desligada", 1),
+    (None, 1),
+])
+def test_os_tres_estados_sao_EXAUSTIVOS(estado, esperado):
+    """Nenhum estado cai num quarto caminho não previsto.
+
+    Um `if/elif` sem `else` explícito é onde um estado novo entraria em silêncio por omissão — e
+    silêncio por omissão é indistinguível de silêncio por confirmação, que é a distinção inteira
+    desta proposta.
+    """
+    assert len(_fiscal(estado)) == esperado
