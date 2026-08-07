@@ -34,7 +34,13 @@ SKIP = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules",
 MODULOS_DOS_FISCAIS = (
     "harness_lib", "adapters", "inventory_code", "validate_metadata",
     "generate_graph", "audit_governance", "alignment_report", "audit_conformance",
-    "audit_lgpd", "validate_all",
+    "audit_lgpd",
+    # CP-050. env_guard entra ANTES de generate_config_report porque o gerador o importa e chama
+    # `prefixos_efetivos`, e o REPO de env_guard é de módulo: sem recarregá-lo, toda mordida que
+    # mexe em harness/harness.yaml ou harness/suites/ leria a ÁRVORE DE TRABALHO e passaria pelo
+    # motivo errado — que é exatamente o bug que o comentário acima descreve.
+    "env_guard", "generate_config_report",
+    "validate_all",
 )
 
 
@@ -80,8 +86,12 @@ def run_auditor(monkeypatch):
 
     yield _run
     os.environ.pop("HARNESS_REPO_ROOT", None)
-    import harness_lib
-    importlib.reload(harness_lib)
+    # Recarrega o GRAFO INTEIRO, não só harness_lib. Recarregar pela metade deixa um módulo com
+    # REPO congelado apontando para uma cópia já apagada, e o teste SEGUINTE valida a árvore
+    # errada — passando ou reprovando por um motivo que não é o dele. Foi o que aconteceu com
+    # env_guard: enquanto ele não era recarregado, o check de prefixo de ci/audit_suites.py lia a
+    # árvore de trabalho em toda mordida, e passava por isso, não pelo que a mordida montava.
+    recarregar_fiscais()
 
 
 @pytest.fixture
@@ -102,8 +112,12 @@ def run_metadata(monkeypatch):
 
     yield _run
     os.environ.pop("HARNESS_REPO_ROOT", None)
-    import harness_lib
-    importlib.reload(harness_lib)
+    # Recarrega o GRAFO INTEIRO, não só harness_lib. Recarregar pela metade deixa um módulo com
+    # REPO congelado apontando para uma cópia já apagada, e o teste SEGUINTE valida a árvore
+    # errada — passando ou reprovando por um motivo que não é o dele. Foi o que aconteceu com
+    # env_guard: enquanto ele não era recarregado, o check de prefixo de ci/audit_suites.py lia a
+    # árvore de trabalho em toda mordida, e passava por isso, não pelo que a mordida montava.
+    recarregar_fiscais()
 
 
 def ids_of(findings: list[dict]) -> set[str]:

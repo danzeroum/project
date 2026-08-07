@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/config-report.schema.json",
+  "title": "docs/configuracao/config.json — a camada de configuração do repositório, derivada dos contratos",
+  "description": "Contrato do artefato de dados do painel de configuração. É a interface de MÁQUINA da mesma leitura que o HTML apresenta a uma pessoa: quem quiser saber quais enums, patterns e travas este repositório declara não deve precisar parsear HTML. Escrito por ci/generate_config_report.py e conferido pelo --check dele.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "generated_from",
+    "provenance",
+    "vocabulary",
+    "grammar",
+    "consts",
+    "locks",
+    "schemas",
+    "control",
+    "fiscais",
+    "environment",
+    "suites",
+    "inheritance",
+    "empty_reasons",
+    "unreadable"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "allOf": [
+    {
+      "comment": "Este artefato NUNCA é fonte de verdade. Um derivado que se declarasse fonte convidaria a edição à mão, e o --check contradiria a edição na hora mais cara — depois de alguém ter investido tempo nela. O oneOf de cabeçalho já cobre a coerência do par; esta trava fecha o lado que importa aqui, e é a razão de o campo existir travado em vez de apenas validado.",
+      "properties": {
+        "source_of_truth": { "const": false }
+      }
+    },
+    {
+      "comment": "Coleção vazia e coleção ilegível NÃO são o mesmo estado, e pintá-las igual é o modo de falha que o RISK-INCUBA-001 descreve: num derivado recém-criado o mapa e o defeito têm a mesma cor. Toda coleção que aparecer vazia PRECISA de uma razão declarada em empty_reasons — 'declarado vazio' é uma afirmação sobre o repositório, 'não consegui ler' é uma afirmação sobre o fiscal, e um zero solto não distingue as duas.",
+      "if": {
+        "properties": {
+          "unreadable": { "type": "array", "minItems": 1 }
+        },
+        "required": ["unreadable"]
+      },
+      "then": {
+        "properties": {
+          "empty_reasons": { "type": "object", "minProperties": 1 }
+        },
+        "required": ["empty_reasons"]
+      }
+    }
+  ],
+  "$defs": {
+    "pointer": {
+      "type": "string",
+      "pattern": "^(/[^/]*)*$",
+      "description": "JSON Pointer RFC 6901 do nó dentro do schema de origem. É a chave de deduplicação de TODO este artefato, e nunca o valor: low/medium/high/critical aparece em vários schemas como escalas semanticamente distintas, e deduplicar por valor as fundiria — apagando exatamente a informação de que são escalas distintas."
+    },
+    "schema_file": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+\\.schema\\.json$",
+      "description": "Nome do arquivo em harness/schemas/, sem caminho. O caminho é invariante e restatá-lo em cada linha seria a segunda cópia de sempre."
+    },
+    "grupo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Grupo temático de apresentação. É a ÚNICA decisão de apresentação do gerador, declarada uma vez e fail-closed: schema sem grupo, ou grupo apontando para schema que não existe mais, aborta com exit 2. Um contrato não classificado sumiria da tela em silêncio, que é o modo de falha que este painel inteiro existe para não ter."
+    },
+    "razao_declarada": {
+      "const": "declarado vazio",
+      "description": "A coleção está vazia e isso é uma afirmação sobre o REPOSITÓRIO: não há o que mostrar."
+    },
+    "razao_nao_ingerido": {
+      "const": "ainda não ingerido",
+      "description": "A coleção está vazia porque a fase da ingestão que a preencheria ainda não rodou. É uma afirmação sobre o TEMPO, não sobre o repositório — e é o estado que o RISK-INCUBA-001 descreve, em que mapa e defeito têm a mesma cor se ninguém os separar."
+    },
+    "razao_ilegivel": {
+      "const": "não consegui ler",
+      "description": "A coleção está vazia porque a leitura falhou. É uma afirmação sobre o FISCAL, e a única das três que jamais pode sair como exit 0."
+    }
+  },
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "metadata_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": {
+      "type": ["string", "null"],
+      "description": "Os caminhos lidos, em prosa curta. A lista completa e verificável, com hash por arquivo, mora em provenance.inputs — aqui fica a forma que o invariante de cabeçalho (I11) cobra em todo metadado do repositório."
+    },
+
+    "provenance": {
+      "type": "object",
+      "required": ["repository", "standard", "versions", "inputs", "inputs_fingerprint", "commit"],
+      "additionalProperties": false,
+      "description": "Procedência é obrigatória em qualquer comparação. A daqui é por CONTEÚDO, não por commit: ver o comment do bloco commit.",
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "standard": {
+          "type": "object",
+          "required": ["name", "version_source"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version_source": {
+              "const": "requirements-qa.txt",
+              "description": "ONDE a versão do padrão mora, jamais QUAL. Restatar o número aqui criaria a segunda cópia que o ADR-003, o RISK-DEP-001 e check_version_single_source existem para impedir — e a primeira a divergir seria justamente esta, que ninguém atualiza."
+            }
+          }
+        },
+        "versions": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "integer"] },
+          "description": "As versões da própria configuração, LIDAS dos arquivos (schema_version, metadata_version, harness, contrato). Nenhuma é escrita aqui."
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "inputs_fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Impressão do CONTEÚDO de tudo que foi lido. Substitui o commit SHA porque muda se e somente se uma entrada muda — enquanto o SHA mudaria a cada commit, inclusive os que não tocam entrada alguma, e faria o --check reprovar para sempre: o artefato nasce num commit e é conferido no seguinte."
+        },
+        "commit": {
+          "type": "object",
+          "required": ["embedded", "onde"],
+          "additionalProperties": false,
+          "description": "O commit NÃO é embutido, e dizer isso explicitamente é metade do ponto: um leitor que não encontra o SHA precisa saber que a ausência é decisão, não esquecimento, e onde o carimbo volátil mora.",
+          "properties": {
+            "embedded": {
+              "const": false,
+              "description": "Sempre false. Ver o comment de inputs_fingerprint: um artefato conferido byte a byte não pode conter valor que muda sem que seu conteúdo mude."
+            },
+            "onde": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+
+    "vocabulary": {
+      "type": "array",
+      "description": "Todo nó com enum, em todos os schemas, deduplicado por JSON Pointer. Tela 02.",
+      "items": {
+        "type": "object",
+        "required": ["field", "pointer", "file", "group", "values"],
+        "additionalProperties": false,
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "pointer": { "$ref": "#/$defs/pointer" },
+          "file": { "$ref": "#/$defs/schema_file" },
+          "group": { "$ref": "#/$defs/grupo" },
+          "values": { "type": "array", "minItems": 1 },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A description do próprio nó, quando existe. AUSENTE quando não existe — nunca inventada. O lugar de consertar uma nota faltando é o schema."
+          }
+        }
+      }
+    },
+
+    "grammar": {
+      "type": "array",
+      "description": "Todo nó com pattern, deduplicado pela REGEX (a mesma forma de id aparece em muitos schemas, e mostrá-la vinte vezes esconderia as vinte formas distintas). Tela 03.",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "used_in", "group"],
+        "additionalProperties": false,
+        "properties": {
+          "pattern": { "type": "string", "minLength": 1 },
+          "group": { "$ref": "#/$defs/grupo" },
+          "used_in": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["file", "field", "pointer"],
+              "additionalProperties": false,
+              "properties": {
+                "file": { "$ref": "#/$defs/schema_file" },
+                "field": { "type": "string" },
+                "pointer": { "$ref": "#/$defs/pointer" }
+              }
+            }
+          },
+          "example": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Um valor REAL do repositório que casa este pattern. AUSENTE quando não houver instância — num derivado recém-criado várias não terão. Exemplo sintético que case a regex mas não exista aqui é a segunda descrição em miniatura, e é por isso que o campo é opcional em vez de preenchido por gerador."
+          },
+          "example_from": {
+            "type": "string",
+            "minLength": 1,
+            "description": "O arquivo de metadado de onde o exemplo foi lido. Exemplo sem procedência é indistinguível de exemplo inventado."
+          }
+        }
+      }
+    },
+
+    "consts": {
+      "type": "array",
+      "description": "Todo nó com const FORA de bloco condicional e fora do oneOf de cabeçalho. Dentro de if/then/else/not o const é PREDICADO de uma trava, não valor travado, e pertence a locks. Tela 01.",
+      "items": {
+        "type": "object",
+        "required": ["field", "pointer", "file", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "pointer": { "$ref": "#/$defs/pointer" },
+          "file": { "$ref": "#/$defs/schema_file" },
+          "value": {}
+        }
+      }
+    },
+
+    "header_invariant": {
+      "type": ["object", "null"],
+      "description": "O par source_of_truth/generated_from aparece num oneOf em quase todos os schemas. É UMA invariante repetida, não N consts — detectada pela FORMA do bloco, nunca por lista de arquivos: renomeado o par, o card continua coletando com o nome novo; uma lista de arquivos continuaria certa até o dia em que deixasse de ser.",
+      "additionalProperties": false,
+      "required": ["fields", "present_in", "absent_in"],
+      "properties": {
+        "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "present_in": { "type": "array", "items": { "$ref": "#/$defs/schema_file" } },
+        "absent_in": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/schema_file" },
+          "description": "A metade que informa: os schemas SEM a invariante são contratos de subdocumento, e se alguém a acrescentar a um deles esta lista encolhe sozinha."
+        },
+        "why": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "locks": {
+      "type": "array",
+      "description": "Todo if/then/else, oneOf, not e allOf com comment. A tela que justifica o painel: cada entrada é uma combinação que o schema torna inexpressável. Tela 04.",
+      "items": {
+        "type": "object",
+        "required": ["pointer", "file", "block_kind", "rule"],
+        "additionalProperties": false,
+        "properties": {
+          "pointer": { "$ref": "#/$defs/pointer" },
+          "file": { "$ref": "#/$defs/schema_file" },
+          "group": { "$ref": "#/$defs/grupo" },
+          "block_kind": {
+            "type": "string",
+            "minLength": 1,
+            "description": "LIDO do nó (quais das chaves if/then/else/not/oneOf/anyOf ele tem), nunca escrito. Uma pílula digitada seria a primeira coisa a divergir quando um bloco ganhasse um else."
+          },
+          "rule": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A regra em linguagem natural, SINTETIZADA da estrutura do bloco por template. Não é prosa autoral: um template por forma de bloco cobre o repositório inteiro, e é isso que faz uma trava nova aparecer na tela sem ninguém editar a tela."
+          },
+          "why": {
+            "type": "string",
+            "minLength": 1,
+            "description": "O comment (ou description) do bloco ou do ancestral mais próximo que tenha um. AUSENTE quando o schema não declara nenhum — e a ausência aparece na tela como pílula, porque o lugar de escrever o porquê de uma trava é o schema, não uma glosa paralela que apodrece assim que o ponteiro se move."
+          }
+        }
+      }
+    },
+
+    "schemas": {
+      "type": "array",
+      "description": "O catálogo dos contratos. Tela 07.",
+      "items": {
+        "type": "object",
+        "required": ["file", "bytes", "group"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "$ref": "#/$defs/schema_file" },
+          "title": { "type": "string" },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "group": { "$ref": "#/$defs/grupo" }
+        }
+      }
+    },
+
+    "control": {
+      "type": "object",
+      "description": "harness/harness.yaml, lido quase 1:1. Tela 05. O que exige cálculo está declarado nos comments dos campos derivados.",
+      "additionalProperties": true
+    },
+
+    "fiscais": {
+      "type": "object",
+      "required": ["aggregated", "standalone"],
+      "additionalProperties": false,
+      "description": "Tela 06. Os agregados saem do return literal de ci/validate_all.py::_steps(), lido por AST — nunca de um glob sobre ci/*.py, que traria também os que rodam fora do agregado.",
+      "properties": {
+        "aggregated": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["step", "module", "argv"],
+            "additionalProperties": false,
+            "properties": {
+              "step": { "type": "string", "minLength": 1 },
+              "module": { "type": "string", "minLength": 1 },
+              "argv": { "type": "array", "items": { "type": "string" } },
+              "doc": { "type": "string" },
+              "bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "standalone": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["module"],
+            "additionalProperties": false,
+            "properties": {
+              "module": { "type": "string", "minLength": 1 },
+              "doc": { "type": "string" },
+              "bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+
+    "environment": { "type": "object", "additionalProperties": true, "description": "pyproject, lockfile, .gitignore e paridade local. Tela 07." },
+    "suites": { "type": "object", "additionalProperties": true, "description": "Contrato de régua, fichas e gaps. Tela 08." },
+    "inheritance": { "type": "object", "additionalProperties": true, "description": "O que o derivado herda travado e o que nasce vazio. Tela 09." },
+
+    "empty_reasons": {
+      "type": "object",
+      "description": "Os três estados que NUNCA podem ser pintados iguais — um zero solto afirma o primeiro e pode ser qualquer um dos três. Cada estado é um $def NOMEADO em vez de uma posição num enum, e a diferença é operacional: o gerador lê o texto por JSON Pointer nomeado, então o texto existe uma vez só, no contrato, e trocá-lo aqui muda a tela sem que ninguém edite o gerador. Um enum obrigaria o gerador a saber a ORDEM dos valores, que é acoplamento a um detalhe que ninguém prometeu manter.",
+      "additionalProperties": {
+        "type": "string",
+        "oneOf": [
+          { "$ref": "#/$defs/razao_declarada" },
+          { "$ref": "#/$defs/razao_nao_ingerido" },
+          { "$ref": "#/$defs/razao_ilegivel" }
+        ]
+      }
+    },
+
+    "unreadable": {
+      "type": "array",
+      "description": "O que impede uma seção de encolher em silêncio. Sem este campo, um schema corrompido viraria 'esse arquivo não tem enums' — o modo de falha mais perigoso deste painel, porque a tela continua bonita. Com ele, vira exit 2 com nome e motivo.",
+      "items": {
+        "type": "object",
+        "required": ["path", "why"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "why": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

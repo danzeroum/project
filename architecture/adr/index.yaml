@@ -1721,3 +1721,85 @@ adrs:
         description: "A resolução de $ref entre schemas é LOCAL: um fiscal que consulta a rede para julgar o repositório tem veredito que depende de quem responde — a mesma família de sequestro que o CP-025 fecha para pip e import."
         files: ["ci/harness_lib.py"]
         pattern: "def _registry"
+
+  - id: ADR-031
+    title: "O painel de configuração deriva dos contratos, e prova isso a cada execução"
+    status: accepted
+    file: architecture/adr/ADR-031-painel-de-configuracao-derivado.md
+    related_risks:
+      - RISK-ORIENT-001
+      - RISK-META-001
+    assertions:
+      - id: ADR-031-A1
+        kind: import_required
+        severity: high
+        risk: RISK-ORIENT-001
+        description: "O gerador usa o leitor da casa. Sem harness_lib ele não honraria HARNESS_REPO_ROOT, e toda mordida passaria a validar a árvore de trabalho em vez da cópia mutada — provando exatamente nada."
+        module_glob: "ci/generate_config_report.py"
+        symbols: ["harness_lib"]
+      - id: ADR-031-A2
+        kind: import_forbidden
+        severity: high
+        risk: RISK-ORIENT-001
+        description: "Nenhum leitor PARALELO do que harness_lib já lê. O escopo é a decisão: escrever JSON é permitido (json.dumps serializa o artefato), LER em paralelo não é — seriam duas leituras do mesmo repositório, e a segunda derivaria."
+        module_glob: "ci/generate_config_report.py"
+        symbols: ["yaml", "tomllib", "toml", "configparser", "json.load", "json.loads", "json.JSONDecoder"]
+      - id: ADR-031-A3
+        kind: path_present
+        severity: high
+        risk: RISK-META-001
+        description: "O gerador, o contrato do artefato, o stylesheet declarado e os dois artefatos derivados existem como arquivo."
+        paths:
+          - ci/generate_config_report.py
+          - ci/assets/organic.css
+          - harness/schemas/config-report.schema.json
+          - docs/configuracao/index.html
+          - docs/configuracao/config.json
+      - id: ADR-031-A4
+        kind: file_matches
+        severity: critical
+        risk: RISK-ORIENT-001
+        description: "A autoauditoria continua no lugar. É ela, e não uma asserção de texto, que impede a transcrição: um arquivo que fala sobre vocabulário fechado contém as palavras do assunto em toda parte, e procurar no texto cru ancoraria na menção."
+        files: ["ci/generate_config_report.py"]
+        pattern: "^def _vocabulario_nao_esta_no_codigo\\("
+        mutation:
+          op: apagar_padrao
+          alvo: ci/generate_config_report.py
+          pattern: "def _vocabulario_nao_esta_no_codigo\\("
+      - id: ADR-031-A5
+        kind: file_lacks
+        severity: high
+        risk: RISK-META-001
+        description: "O artefato abre offline: nada nele busca recurso na rede. Um painel que depende de rede para renderizar some quando a rede some — e some em silêncio, porque a página ainda abre."
+        files: ["docs/configuracao/index.html"]
+        pattern: "@import|<(?:link|script|img|iframe)[^>]*\\b(?:src|href)\\s*=\\s*[\"']?(?:https?:)?//"
+        # O inverso de um file_lacks com alternação não é derivável mecanicamente, e uma regra
+        # bloqueante que não sabe provar que morde é decorativa. A mutação canônica é o gesto real:
+        # alguém acrescenta uma folha de estilo remota ao painel, ele continua abrindo, e some em
+        # silêncio no dia em que a rede não responder.
+        mutation:
+          op: injetar_texto
+          alvo: docs/configuracao/index.html
+          texto: "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Caprasimo\">"
+      - id: ADR-031-A6
+        kind: schema_lock
+        severity: high
+        risk: RISK-META-001
+        description: "O estado 'não consegui ler' continua existindo como valor nomeado no contrato. É o único dos três estados de vazio que jamais pode sair como exit 0, e apagá-lo faria coleção ilegível e coleção vazia saírem iguais na tela."
+        file: harness/schemas/config-report.schema.json
+        pointer: /$defs/razao_ilegivel/const
+        expected: "não consegui ler"
+      - id: ADR-031-A7
+        kind: manual
+        severity: medium
+        risk: RISK-ORIENT-001
+        description: "Nenhuma asserção de TEXTO procura valores de vocabulário dentro do gerador."
+        justification: >
+          Seria a próxima ocorrência da âncora-na-menção registrada em harness/policies/conformance.md
+          como família reincidente — nove ocorrências, a última nascida dentro do fiscal escrito para
+          vigiar as anteriores. Um gerador que fala SOBRE vocabulário fechado contém as palavras do
+          assunto em toda parte, inclusive nos comentários que explicam por que ele não deve conter os
+          VALORES, e _regex_assert lê o arquivo cru. A verificação real é
+          _vocabulario_nao_esta_no_codigo, que lê o AST — onde comentário não existe — e roda a cada
+          execução do gerador, portanto é gate via validate_all. A asserção A4 prova que ela continua
+          no lugar, e a mutação declarada nela prova que a remoção é acusada.
