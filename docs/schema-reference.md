@@ -630,6 +630,45 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `release.validation.run_url` | string | — |  |
 | `release.artifact_digest` | string | sim | Digest do conteúdo versionado do commit validado (git archive canônico). É o que permite dizer 'esta árvore é aquela árvore' sem confiar na tag. |
 
+## `repo-report.schema.json`
+
+**repo-report — o estado do repositório como interface consumível**
+
+> O artefato de dados do relatório derivado. O HTML é a vista humana; ESTE é o contrato: uma ferramenta de auditoria, uma suíte ou um CI leem o estado do repositório sem parsear HTML. Derivado por ci/generate_report.py e mantido em dia pelo --check — nunca fonte de verdade.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `schema_version` | string | sim |  |
+| `metadata_version` | string | sim |  |
+| `source_of_truth` | const(False) | sim | Sempre false, e o schema torna o contrário inexpressável. Um derivado que se declara fonte é um segundo original, e a partir dele as duas descrições divergem sem erro. |
+| `generated_from` | array<string> | sim | TODOS os caminhos lidos, ordenados. É o que permite auditar se uma fonte deixou de ser lida sem ninguém notar. |
+| `provenance` | object | sim | Sem carimbo, o laudo não vale: um retrato sem data que ninguém reconcilia. |
+| `provenance.repository` | string | null | — |  |
+| `provenance.kind` | string | null | — |  |
+| `provenance.sources_digest` | string | sim | Digest do conteúdo de todas as fontes. Substitui o SHA do commit DE PROPÓSITO: embutir o HEAD tornaria o artefato diferente a cada commit e o --check reprovaria logo após o próprio commit que o gerou, transformando a trava em ruído. O digest é determinístico e mais preciso — dois commits que não tocam metadado têm o mesmo digest. |
+| `provenance.standard` | object | sim |  |
+| `provenance.standard.version_source` | string | sim | A versão do padrão POR REFERÊNCIA. Restatá-la aqui criaria a segunda cópia que deriva — é o que check_version_single_source reprova. |
+| `provenance.standard.pin_declared` | boolean | — |  |
+| `provenance.fingerprints` | object | sim | O que diz se o julgamento cobre ESTE estado, e não um anterior. |
+| `provenance.fingerprints.privacy_review` | string | null | sim |  |
+| `provenance.fingerprints.conformance_review` | string | null | sim |  |
+| `project` | object | sim |  |
+| `project.name` | string | null | — |  |
+| `project.kind` | string | null | sim |  |
+| `project.description` | string | null | — |  |
+| `project.owners` | array<—> | — |  |
+| `collections` | object | sim | As coleções do metadado, por chave. Toda uma delas pode estar vazia: num derivado recém-criado, quase todas estão. |
+| `counts` | object | sim | len() de cada coleção. Existe para que nenhuma tela precise contar por conta própria — um contador escrito à mão é a segunda descrição que deriva em silêncio. |
+| `computed` | object | sim |  |
+| `computed.last_report` | object | sim | O laudo da ÚLTIMA execução dos fiscais, com a data. Executá-los aqui seria circular (validate_all chama este gerador). Número velho rotulado é honesto; sem rótulo, não. |
+| `computed.inventory` | object | sim | Com `redigido: true`, campos e finalidades viram contagens. É a decisão declarada da CP-045: num derivado o inventário traz o mapa de onde o dado pessoal está, e publicá-lo em claro vaza material de conformidade. |
+| `computed.inventory.redigido` | boolean | sim |  |
+| `computed.inventory.total_campos` | integer | sim |  |
+| `computed.inventory.total_finalidades` | integer | sim |  |
+| `computed.risk_matrix` | object | sim |  |
+| `computed.open_risks` | array<—> | sim |  |
+| `empty_reasons` | object | sim | O campo que impede 'nenhum' e 'não sei olhar' de saírem iguais na tela. O enum é fechado de propósito: um quarto estado inventado por quem renderiza reabriria a ambiguidade que este campo existe para fechar. |
+
 ## `report.schema.json`
 
 **Envelope do laudo**

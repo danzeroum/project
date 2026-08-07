@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/repo-report.schema.json",
+  "title": "repo-report — o estado do repositório como interface consumível",
+  "description": "O artefato de dados do relatório derivado. O HTML é a vista humana; ESTE é o contrato: uma ferramenta de auditoria, uma suíte ou um CI leem o estado do repositório sem parsear HTML. Derivado por ci/generate_report.py e mantido em dia pelo --check — nunca fonte de verdade.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "generated_from",
+    "provenance",
+    "project",
+    "collections",
+    "counts",
+    "computed",
+    "empty_reasons"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "metadata_version": { "type": "string" },
+    "source_of_truth": {
+      "const": false,
+      "description": "Sempre false, e o schema torna o contrário inexpressável. Um derivado que se declara fonte é um segundo original, e a partir dele as duas descrições divergem sem erro."
+    },
+    "generated_from": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "TODOS os caminhos lidos, ordenados. É o que permite auditar se uma fonte deixou de ser lida sem ninguém notar."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources_digest", "standard", "fingerprints"],
+      "description": "Sem carimbo, o laudo não vale: um retrato sem data que ninguém reconcilia.",
+      "properties": {
+        "repository": { "type": ["string", "null"] },
+        "kind": { "type": ["string", "null"] },
+        "sources_digest": {
+          "type": "string",
+          "description": "Digest do conteúdo de todas as fontes. Substitui o SHA do commit DE PROPÓSITO: embutir o HEAD tornaria o artefato diferente a cada commit e o --check reprovaria logo após o próprio commit que o gerou, transformando a trava em ruído. O digest é determinístico e mais preciso — dois commits que não tocam metadado têm o mesmo digest."
+        },
+        "standard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version_source"],
+          "properties": {
+            "version_source": {
+              "type": "string",
+              "description": "A versão do padrão POR REFERÊNCIA. Restatá-la aqui criaria a segunda cópia que deriva — é o que check_version_single_source reprova."
+            },
+            "pin_declared": { "type": "boolean" }
+          }
+        },
+        "fingerprints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["privacy_review", "conformance_review"],
+          "description": "O que diz se o julgamento cobre ESTE estado, e não um anterior.",
+          "properties": {
+            "privacy_review": { "type": ["string", "null"] },
+            "conformance_review": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "kind": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "owners": { "type": "array" }
+      }
+    },
+    "collections": {
+      "type": "object",
+      "additionalProperties": { "type": "array" },
+      "description": "As coleções do metadado, por chave. Toda uma delas pode estar vazia: num derivado recém-criado, quase todas estão."
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "len() de cada coleção. Existe para que nenhuma tela precise contar por conta própria — um contador escrito à mão é a segunda descrição que deriva em silêncio."
+    },
+    "computed": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["last_report", "inventory", "risk_matrix", "open_risks"],
+      "properties": {
+        "last_report": {
+          "type": "object",
+          "description": "O laudo da ÚLTIMA execução dos fiscais, com a data. Executá-los aqui seria circular (validate_all chama este gerador). Número velho rotulado é honesto; sem rótulo, não."
+        },
+        "inventory": {
+          "type": "object",
+          "required": ["redigido", "total_campos", "total_finalidades"],
+          "description": "Com `redigido: true`, campos e finalidades viram contagens. É a decisão declarada da CP-045: num derivado o inventário traz o mapa de onde o dado pessoal está, e publicá-lo em claro vaza material de conformidade.",
+          "properties": {
+            "redigido": { "type": "boolean" },
+            "total_campos": { "type": "integer", "minimum": 0 },
+            "total_finalidades": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "risk_matrix": { "type": "object" },
+        "open_risks": { "type": "array" }
+      }
+    },
+    "empty_reasons": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": ["declarado vazio", "ainda não ingerido", "não consegui ler"]
+      },
+      "description": "O campo que impede 'nenhum' e 'não sei olhar' de saírem iguais na tela. O enum é fechado de propósito: um quarto estado inventado por quem renderiza reabriria a ambiguidade que este campo existe para fechar."
+    }
+  }
+}

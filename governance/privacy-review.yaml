@@ -23,9 +23,9 @@ review:
   # Registrar o que não foi avaliado é requisito da revisão — "sem achados" numa categoria que
   # ninguém olhou é a forma mais silenciosa de laudo falso.
   not_assessed:
-    - "Consentimento e preferências (não há frontend nem coleta de titular)"
+    - "Consentimento e preferências (o relatório é superfície de LEITURA e não coleta nada do titular: sem formulário, sem localStorage, sem cookie. A frase anterior dizia 'não há frontend' e deixou de ser verdadeira com a CP-045; o que a sustenta agora é a ausência de COLETA, não a ausência de tela)"
     - "Criptografia por campo e KMS (não há banco de dados)"
-    - "Cookies, pixels e scripts de terceiros (não há superfície web publicada)"
+    - "Cookies, pixels e scripts de terceiros (o relatório de docs/relatorio/ é a primeira superfície web deste repositório, e foi construído SEM nenhum dos três: sem CDN, sem estado no navegador, sem telemetria — CP-045/ADR-031. Não avaliado porque não existe o que avaliar, e não porque não se olhou)"
     - "Transferência internacional (não há integração que exporte dado)"
     - "Modelos de ML e datasets de treino (não há)"
     - "Job de expurgo (não há dado persistido além da evidência efêmera de auditoria)"

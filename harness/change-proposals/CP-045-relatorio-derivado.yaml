@@ -1,0 +1,116 @@
+# Mudança proposta: um relatório derivado que descreve o repositório inteiro, e o gerador dele.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+#
+# POR QUE 045 E NÃO 044. O número 044 já aparece no histórico de commits deste repositório e do
+# `harness-authority`, rotulando a recalibração da cadência do atestado — trabalho que não exigiu
+# proposta porque tocou só `tests/governance/`, fora dos caminhos protegidos. Reaproveitar o número
+# faria dois assuntos diferentes atenderem pelo mesmo id, e o registro vale mais que a sequência
+# sem buracos.
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-045
+  title: "O relatório do repositório: um artefato derivado que descreve o todo sem conhecer nenhum alvo"
+  author_kind: agent
+  created_at: "2026-08-07T14:30:00Z"
+  status: draft
+  capabilities_affected: []
+  components_affected: []
+
+  # Todos os caminhos, porque o fiscal cruza esta lista contra o diff. Os três primeiros são
+  # `protected_paths` e são a razão de esta proposta existir antes do código.
+  paths_affected:
+    - ci/generate_report.py
+    - ci/validate_all.py
+    - harness/schemas/repo-report.schema.json
+    - harness/stages.yaml
+    - harness/policies/relatorio.md
+    - governance/risk-register.yaml
+    - governance/privacy-review.yaml
+    - architecture/adr/index.yaml
+    - architecture/adr/ADR-031-o-relatorio-e-derivado-e-nao-conhece-alvo.md
+    - docs/relatorio/index.html
+    - docs/relatorio/report.json
+    - docs/schema-reference.md
+    - tests/governance/test_relatorio_bites.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-META-001
+      - RISK-ORIENT-001
+      - RISK-PRIV-002
+      - RISK-INCUBA-001
+    rationale: >
+      O QUE ESTE ARTEFATO É. Uma vista de leitura navegável do que hoje exige abrir 28 YAMLs e
+      rodar onze fiscais. Não é serviço, não tem backend, não faz build: é o mesmo contrato de
+      `docs/metadata-graph.md` — arquivo derivado que o `--check` do CI mantém em dia.
+      POR QUE O RISCO É ALTO, e não é o tamanho do diff. São três motivos independentes, e cada um
+      sozinho já levantaria o nível.
+      PRIMEIRO, É UM SEGUNDO DESCRITOR DO REPOSITÓRIO. `RISK-ORIENT-001` nomeia exatamente esta
+      falha: orientação que ENUMERA em vez de DERIVAR. Uma tela que lista "as nove etapas" ou "os
+      onze fiscais" com números escritos à mão vira uma segunda descrição do repositório, que
+      deriva da primeira em silêncio e com aparência de documentação cuidadosa. A armadilha é
+      imediata e mede-se agora: o `CLAUDE.md` deste repositório diz "as treze etapas" e
+      `harness/stages.yaml` tem CATORZE. O documento está errado desde a etapa que alguém
+      acrescentou sem reler a prosa, e ninguém percebeu porque nada o fiscaliza. O relatório será a
+      tela mais lida do repositório; se ele restatar contadores, multiplica esse defeito por vinte.
+      Por isso a regra é estrutural e não estilística: todo contador vem de `len()` da coleção real,
+      e a asserção do ADR recusa id literal dentro do gerador.
+      SEGUNDO, ACRESCENTAR ESTE GERADOR A `_steps()` TORNA A PRÓPRIA TELA MENTIROSA se ela tiver o
+      número de fiscais escrito. É a armadilha auto-referente da §3 do handoff, e ela é a prova
+      viva do primeiro motivo: a primeira coisa que este trabalho faz, ao existir, é invalidar um
+      número que alguém teria escrito.
+      TERCEIRO, E É O MAIS CARO DE DESCOBRIR DEPOIS: PUBLICAR MUDA O ESCOPO DO PARECER DE
+      PRIVACIDADE. `governance/privacy-review.yaml` declara hoje, em `not_assessed`, que "não há
+      superfície web publicada" e que "não há frontend nem coleta de titular". Um HTML de auditoria
+      na árvore de um repositório público já é superfície — a frase passa a ser falsa no instante
+      em que o artefato existe, e `audit_lgpd.py::check_judgment_currency` reprova pelo
+      `scope_fingerprint` desatualizado. Pior no derivado: o painel renderiza
+      `governance/data-inventory.yaml`, que no molde está vazio mas num alvo real contém
+      finalidades, campos e bases legais. HTML estático com isso, publicado, é vazamento de
+      material de conformidade — e o vazamento não seria de dado do titular, seria do MAPA de onde
+      o dado está, que é pior porque é o que um atacante procura primeiro.
+      AS DUAS DECISÕES DE PRIVACIDADE, DECLARADAS E NÃO PADRÃO. (a) O gerador NUNCA publica por
+      conta própria: publicar é passo de workflow que alguém liga deliberadamente, e esta CP não
+      liga nenhum. (b) O modo `--redigir` é OBRIGATÓRIO e não fase dois: quando o destino for
+      público, os campos do inventário viram CONTAGENS. Deixá-lo opcional seria escolher o default
+      inseguro para o caso que mais importa — o derivado, que é justamente quem tem inventário
+      não-vazio. O parecer é refeito no MESMO PR; deixar para depois deixa o repositório vermelho
+      no meio, que é como um fiscal aprende a ser ignorado.
+      COLEÇÃO VAZIA É ESTADO DE PRIMEIRA CLASSE, e é por isso que `RISK-INCUBA-001` — aberto, com
+      prazo em 2026-11-03 — está nesta lista. O relatório é a PRIMEIRA tela que alguém abre num
+      derivado recém-criado, quando quase tudo está vazio. O primeiro derivado real chegou com 299
+      achados, dos quais 209 eram o mapa que a ingestão ainda ia autorar: mapa e defeito com a
+      mesma cor. A tela precisa distinguir três estados e nunca pintá-los igual — `declarado vazio`
+      ≠ `ainda não ingerido` ≠ `não consegui ler` — porque "nenhum" e "não sei olhar" saindo iguais
+      é o estado em que alguém avança achando que não há trabalho. É a família de defeito da
+      CP-040, e o idioma que a causa (`\.get(x) or []`) fica proibido no gerador.
+      NENHUM ALVO É ESPECIAL, e a genericidade é o produto. Zero nomes de negócio, zero nomes de
+      derivado, zero ids literais no gerador — `ADR-008-A5` já reprova nome de alvo em `ci/`, e a
+      asserção nova estende a recusa aos ids. O teste que prova não é de estilo: rodar o gerador
+      contra o repositório com o negócio de exemplo removido tem de produzir relatório VAZIO E
+      COERENTE, exit 0, não um traceback e não uma tela com buracos.
+      O QUE ESTA PROPOSTA NÃO FAZ. Não liga GitHub Pages. Não acrescenta dependência de Python
+      (`pyyaml` + `json` bastam; `ADR-009` recusou toolchain de Node por razão que vale mais aqui).
+      Não toca `source_of_truth: true` de arquivo nenhum. Não abre issue nem PR no alvo. E não
+      executa os fiscais de dentro do gerador: `validate_all` chamaria `generate_report --check`,
+      que chamaria `validate_all` — o ciclo se quebra lendo o resultado da última execução em
+      `harness/reports/` COM A DATA, porque número velho rotulado é honesto e número velho sem
+      rótulo não é.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+    - inventory
+    - passive
+
+  tests_required:
+    - tests/governance/test_relatorio_bites.py
+    - tests/governance/test_conformance_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

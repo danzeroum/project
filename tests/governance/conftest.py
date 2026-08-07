@@ -33,7 +33,7 @@ SKIP = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules",
 # anterior — os dois bugs mais caros desta suíte, e ambos já aconteceram.
 MODULOS_DOS_FISCAIS = (
     "harness_lib", "adapters", "inventory_code", "validate_metadata",
-    "generate_graph", "audit_governance", "alignment_report", "audit_conformance",
+    "generate_graph", "generate_report", "audit_governance", "alignment_report", "audit_conformance",
     "audit_lgpd", "validate_all",
 )
 

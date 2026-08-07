@@ -38,6 +38,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
     import audit_governance
     import audit_lgpd
     import generate_graph
+    import generate_report
     import generate_schema_docs
     import validate_metadata
 
@@ -52,6 +53,10 @@ def _steps() -> list[tuple[str, object, list[str]]]:
         ("ledger", audit_ledger.main, []),
         ("suites", audit_suites.main, []),
         ("dependências", check_dependency_conflict.main, []),
+        # Entra por último de propósito: o relatório DESCREVE o repositório, então lê o laudo da
+        # execução anterior em vez de rodar os fiscais por conta própria — rodá-los aqui dentro
+        # seria circular, já que este passo é chamado por este mesmo laço (CP-045).
+        ("relatorio", generate_report.main, ["--check"]),
     ]
 
 

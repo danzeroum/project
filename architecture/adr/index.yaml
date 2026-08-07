@@ -1721,3 +1721,62 @@ adrs:
         description: "A resolução de $ref entre schemas é LOCAL: um fiscal que consulta a rede para julgar o repositório tem veredito que depende de quem responde — a mesma família de sequestro que o CP-025 fecha para pip e import."
         files: ["ci/harness_lib.py"]
         pattern: "def _registry"
+  - id: ADR-031
+    title: "O relatório é derivado, deriva tudo e não conhece alvo nenhum"
+    status: accepted
+    file: architecture/adr/ADR-031-o-relatorio-e-derivado-e-nao-conhece-alvo.md
+    related_risks:
+      - RISK-META-001
+      - RISK-ORIENT-001
+    assertions:
+      - id: ADR-031-A1
+        kind: import_required
+        severity: high
+        risk: RISK-ORIENT-001
+        description: "O gerador lê pelo leitor da casa. Um segundo leitor produziria uma segunda resposta para a mesma pergunta, e as duas derivariam em silêncio."
+        module_glob: "ci/generate_report.py"
+        symbols: ["harness_lib"]
+        # A mutação é DECLARADA porque a canônica não serve aqui, e a razão é instrutiva: o import
+        # mora dentro de um `try:` (para que falta de pyyaml saia 2 em vez de traceback), então
+        # apagar a linha deixa o bloco sem corpo, o arquivo deixa de parsear e a asserção fica verde
+        # por não conseguir olhar — decorativa, exatamente o que audit_mutations existe para pegar.
+        # Substituir por uma atribuição mantém o arquivo analisável e remove de fato o leitor.
+        mutation:
+          op: substituir_texto
+          alvo: ci/generate_report.py
+          de: "    import harness_lib as hl"
+          para: "    hl = None  # leitor removido: a asserção tem de acusar"
+      - id: ADR-031-A2
+        kind: import_forbidden
+        severity: high
+        risk: RISK-ORIENT-001
+        description: "Nenhum leitor de YAML paralelo. É a mordida de CLASSE do §3: impede a próxima ocorrência, não só esta."
+        module_glob: "ci/generate_report.py"
+        symbols: ["yaml"]
+      - id: ADR-031-A3
+        kind: file_lacks
+        severity: high
+        risk: RISK-ORIENT-001
+        description: "Nenhum identificador literal COMO DADO no gerador. O padrão é ancorado em aspas de propósito: identificador em prosa explica por que a regra existe, e proibi-lo seria a âncora-na-menção que conformance.md registra com nove ocorrências."
+        files: ["ci/generate_report.py"]
+        pattern: "['\"][A-Z]{2,}-[A-Z0-9]{2,}"
+        mutation:
+          op: injetar_texto
+          alvo: ci/generate_report.py
+          texto: "CAPACIDADE_FIXA = [\"CAP-EXEMPLO\"]  # identificador como dado: a asserção tem de acusar"
+      - id: ADR-031-A4
+        kind: path_present
+        severity: medium
+        risk: RISK-META-001
+        description: "O artefato existe nas duas formas: o JSON é a interface que uma ferramenta consome, o HTML é a vista humana dela. Gerar um sem o outro criaria duas descrições que derivam."
+        paths:
+          - docs/relatorio/report.json
+          - docs/relatorio/index.html
+          - harness/schemas/repo-report.schema.json
+      - id: ADR-031-A5
+        kind: file_matches
+        severity: medium
+        risk: RISK-META-001
+        description: "O artefato se declara derivado no próprio cabeçalho. Sem isso ele é um segundo original, e a partir dele as duas descrições divergem sem erro."
+        files: ["docs/relatorio/index.html"]
+        pattern: "GENERATED: não editar"

@@ -71,6 +71,8 @@ risks:
       # isenção que só existia para o lado do código.
       - kind: local_path
         ref: tests/governance/test_vocabulario_do_consumidor_bites.py
+      - kind: local_path
+        ref: ci/generate_report.py
 
   - id: RISK-CHANGE-001
     area: governance
@@ -317,6 +319,10 @@ risks:
         ref: harness/policies/orientacao.md
       - kind: local_path
         ref: architecture/adr/ADR-014-orientacao-derivada.md
+      - kind: local_path
+        ref: ci/generate_report.py
+      - kind: local_path
+        ref: harness/policies/relatorio.md
 
   - id: RISK-META-002
     area: access

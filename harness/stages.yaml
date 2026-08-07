@@ -308,6 +308,10 @@ stages:
       - kind: ci_script
         ref: ci/generate_schema_docs.py
         symbol: render
+      # Mesmo papel dos dois acima: artefato derivado que o --check mantém em dia (CP-045).
+      - kind: ci_script
+        ref: ci/generate_report.py
+        symbol: main
     privacy_lens:
       scan: false
       question: "A documentação expõe dado real em exemplo? Exemplo com CPF válido é vazamento."
