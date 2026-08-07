@@ -456,6 +456,10 @@ REMEDIACAO_POR_ORIGEM = {
     "assertion_self_match":
         "Ancorar o padrão no FATO e não na MENÇÃO — quem CRIA o artefato, quem o EXECUTA, quem o "
         "CONFIGURA. Ver harness/policies/conformance.md, seção 'A âncora no FATO'.",
+    "cadence_single_source":
+        "Referenciar harness/harness.yaml:external_audit.cadence em vez de repetir a duração. "
+        "Para contar a HISTÓRIA de uma cadência anterior, o lugar é o ADR ou a proposta que a "
+        "decidiu — registro histórico não se reescreve, e por isso não é vigiado aqui.",
     "adr_assertion": "Alinhar o repositório à decisão, ou revisar o ADR: decisão que o código não "
                      "segue muda explicitamente, nunca em silêncio.",
     "adr_meta": "Declarar ao menos uma asserção executável no ADR, ou uma 'manual' justificada "

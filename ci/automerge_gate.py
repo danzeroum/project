@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """O portão do auto-merge: este PR é *só* o atestado, e veio *mesmo* da autoridade?
 
-POR QUE ISTO EXISTE. Desde a CP-036 o atestado vale 25h e o molde bloqueia quando ele vence. O
-cron da autoridade roda todo dia e abre um PR; se esse PR depender de um humano clicar em merge,
-a trava passa a ter um gargalo humano DIÁRIO. Atrito diário é como trava boa vira trava
-contornada (princípio (e)): a pessoa que precisa integrar às 3h da manhã não vai admirar o
+POR QUE ISTO EXISTE. Desde a CP-036 o atestado expira, e o molde bloqueia quando ele vence — a
+duração é a declarada em `harness.yaml:external_audit.cadence`, e não se repete aqui porque cópia
+deriva. O cron da autoridade abre um PR a cada ciclo; se esse PR depender de um humano clicar em
+merge, a trava passa a ter um gargalo humano A CADA CICLO. Atrito recorrente é como trava boa vira
+trava contornada (princípio (e)): a pessoa que precisa integrar às 3h da manhã não vai admirar o
 desenho, vai procurar o caminho de menor resistência — e o caminho de menor resistência de uma
 trava incômoda é desligá-la.
 
