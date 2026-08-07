@@ -55,7 +55,7 @@ Quem quebra a circularidade é `danzeroum/harness-authority`:
 |---|---|
 | repositório próprio | nenhum workflow, token ou PR **deste** lado o edita |
 | GitHub App próprio | identidade emissora que não é o `GITHUB_TOKEN` daqui |
-| cron diário, atestado de 25h | execução perdida faz o carimbo **expirar**, não persistir |
+| cadência declarada em `harness.yaml:external_audit.cadence` | ciclos perdidos além do tolerado fazem o carimbo **expirar**, não persistir |
 | lê rulesets de `main` e `refs/tags/v*` | a configuração real do servidor, de fora |
 
 A autoridade **propõe** por PR e não escreve na `main`: um verificador com direito de push poderia
@@ -84,7 +84,7 @@ produz os dois — são dois problemas, e consertar um não conserta o outro.
 
 ## O PR diário mergeia sozinho — e só ele (CP-037 / ADR-029)
 
-O carimbo vale 25h e o cron abre um PR por dia. Exigir um clique humano nele daria à trava um
+O carimbo vale o que `external_audit.cadence` autoriza — o único lugar onde essa duração é declarada — e o cron abre um PR por ciclo. Exigir um clique humano nele daria à trava um
 gargalo **diário**, e atrito diário é como trava boa vira trava contornada (princípio (e)).
 
 `.github/workflows/atestado-automerge.yml` habilita o **auto-merge nativo** do GitHub sob três
@@ -129,6 +129,6 @@ Dois passos de admin no GitHub, ambos fora do alcance de qualquer PR deste repos
 Por isso `RISK-EXT-001` está `mitigated` e não `closed`: fechar enquanto esses passos não existem
 seria carimbar a parte que falta.
 
-Fiscalizado por: `ci/verify_protection.py::verify_protection`, `ci/verify_protection.py::verify_tag_protection`, `ci/audit_governance.py::check_external_attestation`, `ci/automerge_gate.py::decidir`, `harness/schemas/protection-attestation.schema.json`
+Fiscalizado por: `ci/audit_governance.py::check_attestation_cadence`, `ci/verify_protection.py::verify_protection`, `ci/verify_protection.py::verify_tag_protection`, `ci/audit_governance.py::check_external_attestation`, `ci/automerge_gate.py::decidir`, `harness/schemas/protection-attestation.schema.json`
 Declarado em: `harness/harness.yaml` → `external_audit`; `harness/change-proposals/CP-024-trava-externa-em-duas-camadas.yaml` (status `deferred`); `harness/change-proposals/CP-036-ligar-a-autoridade-externa.yaml`; `harness/change-proposals/CP-037-auto-merge-do-atestado.yaml`
 Falha como: proteção desligada ou caminho sem dono ⇒ exit 1; sem credencial ⇒ exit 3; atestado ausente, expirado, fora do schema ou de emissor não autorizado ⇒ achado bloqueante; portão do auto-merge sem declaração contra a qual comparar ⇒ exit 2 (nunca liberação).

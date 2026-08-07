@@ -210,9 +210,28 @@ def _ligar(root: Path) -> None:
     (root / "harness/state/protection-attestation.json").unlink(missing_ok=True)
 
 
+def _janela_autorizada(root: Path) -> timedelta:
+    """O teto que ESTE repositório autoriza, lido do canônico (CP-046).
+
+    Derivado e não escrito: a fixture abaixo montava `checked_at` numa data fixa e `expires_at` a
+    trinta dias, e "válido" ali significava "futuro distante". Depois da CP-046 futuro distante é
+    exatamente o que a trava recusa — um carimbo que vive mais que o autorizado é a trava
+    amolecendo. O fiscal novo mordeu esta fixture, e mordeu com razão.
+    """
+    doc = yaml.safe_load((root / "harness/harness.yaml").read_text(encoding="utf-8"))
+    cad = doc["external_audit"]["cadence"]
+    return timedelta(days=cad["interval_days"] * cad["tolerated_cycles"],
+                     hours=cad["margin_hours"])
+
+
 def _atestado(root: Path, *, expires: str, identity: str = "harness-authority",
               kind: str = "github_app") -> None:
     import json
+
+    # `checked_at` DERIVA de `expires`, mantendo a janela dentro do autorizado. Cada teste continua
+    # dizendo o que queria dizer — "válido" ou "vencido" — pela data de expiração, que é o eixo que
+    # eles de fato exercitam.
+    nasceu = (datetime.fromisoformat(expires) - _janela_autorizada(root) + timedelta(hours=1))
 
     destino = root / "harness/state"
     destino.mkdir(parents=True, exist_ok=True)
@@ -221,7 +240,7 @@ def _atestado(root: Path, *, expires: str, identity: str = "harness-authority",
         "source_of_truth": True, "generated_from": None,
         "attestation": {
             "repository": "danzeroum/project", "branch": "main",
-            "checked_at": "2026-08-05T00:00:00+00:00", "expires_at": expires,
+            "checked_at": nasceu.isoformat(timespec="seconds"), "expires_at": expires,
             "ruleset_ref": "org/rulesets/42",
             "issuer": {"identity": identity, "kind": kind},
             "verifier_version": "1.0", "config_digest": "sha256:" + "a" * 64,

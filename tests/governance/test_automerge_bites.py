@@ -179,12 +179,30 @@ def test_o_carimbo_expira_e_nao_deixa_janela_cega():
     _conferir_janela(validade)
 
 
-# Os limites da janela, nomeados: o piso é o que fecha a janela cega, o teto é o que impede a
-# validade de crescer até o vencimento nunca chegar. Ficam aqui, e não soltos na asserção, porque
-# `test_os_limites_da_janela_MORDEM` os exercita dos dois lados — um limite que nunca reprovou
-# nada não é limite, é decoração.
-JANELA_MINIMA = timedelta(days=1)
-JANELA_MAXIMA = timedelta(hours=48)
+# Os limites da janela. O TETO não mora mais aqui: ele é derivado de
+# `harness.yaml:external_audit.cadence`, o lugar canônico que a CP-046 criou.
+#
+# A versão anterior escrevia `48h` neste arquivo, e a CP-046 mostrou o custo: afrouxar a cadência
+# do auditor teria feito este teste reprovar o atestado legítimo — a mesma armadilha que já
+# aconteceu com `25h` e que travou o repositório em 07/08. Um número que descreve decisão de outra
+# camada não se copia para cá; lê-se de onde ele é declarado.
+def _cadencia_autorizada() -> dict:
+    import yaml
+    doc = yaml.safe_load((REPO / "harness/harness.yaml").read_text(encoding="utf-8"))
+    cad = doc["external_audit"]["cadence"]
+    assert isinstance(cad, dict), "a cadência precisa estar declarada no lugar canônico"
+    return cad
+
+
+def _teto_autorizado() -> timedelta:
+    cad = _cadencia_autorizada()
+    return timedelta(days=cad["interval_days"] * cad["tolerated_cycles"],
+                     hours=cad["margin_hours"])
+
+
+# O PISO continua literal, e a assimetria é deliberada: ele não descreve a cadência da autoridade,
+# descreve o que ESTE repositório considera janela curta demais para significar alguma coisa.
+JANELA_MINIMA = timedelta(hours=1)
 
 
 def _conferir_janela(validade: timedelta) -> None:
@@ -199,23 +217,27 @@ def _conferir_janela(validade: timedelta) -> None:
             f"carimbo sem prazo é afirmação eterna sobre config que pode ter mudado: {validade}")
     if validade <= JANELA_MINIMA:
         raise AssertionError(
-            f"validade de {validade} deixa intervalo descoberto se a autoridade carimbar uma vez "
-            f"por dia — o carimbo venceria ANTES de o próximo nascer, e a janela cega é o buraco")
-    if validade > JANELA_MAXIMA:
+            f"validade de {validade} é curta demais para significar alguma coisa — um carimbo que "
+            f"vence antes de qualquer ciclo plausível não afirma nada sobre o estado do repositório")
+    teto = _teto_autorizado()
+    if validade > teto:
         raise AssertionError(
-            f"validade de {validade} deixa de afirmar algo sobre hoje e vira memória; acima disso "
-            f"o vencimento para de ser trava")
+            f"validade de {validade} excede o teto AUTORIZADO ({teto}) em "
+            f"harness.yaml:external_audit.cadence — carimbo que vive mais que o autorizado é a "
+            f"trava amolecendo em silêncio: tudo segue verde, por mais tempo, sem sinal")
 
 
+# Os casos ancoram no TETO DERIVADO, não em números escritos: se a cadência autorizada mudar, a
+# tabela acompanha sozinha. Escrever `48h` aqui foi o que obrigou a editar este arquivo na CP-046.
 @pytest.mark.parametrize("validade,morde", [
-    (timedelta(hours=-1), True),   # carimbo que já nasce vencido
-    (timedelta(0), True),          # sem prazo nenhum
-    (timedelta(hours=24), True),   # empata com o dia: o próximo nasce no instante do vencimento
-    (timedelta(hours=25), False),  # o desenho da CP-036, e continua válido
-    (timedelta(hours=26), False),  # o desenho da CP-044, derivado da cadência de 6h
-    (timedelta(hours=48), False),  # o teto exato ainda passa
-    (timedelta(hours=49), True),   # um minuto além dele, não
-    (timedelta(days=30), True),    # a deriva que o teto existe para pegar
+    (timedelta(hours=-1), True),                        # carimbo que já nasce vencido
+    (timedelta(0), True),                               # sem prazo nenhum
+    (timedelta(minutes=30), True),                      # curta demais para afirmar algo
+    (timedelta(hours=25), False),                       # o desenho da CP-036, e ainda cabe
+    (timedelta(hours=26), False),                       # o desenho da CP-044, e ainda cabe
+    (_TETO := _teto_autorizado(), False),               # o teto exato ainda passa
+    (_TETO + timedelta(seconds=1), True),               # um segundo além dele, não
+    (_TETO + timedelta(days=30), True),                 # a deriva que o teto existe para pegar
 ])
 def test_os_limites_da_janela_MORDEM(validade, morde):
     """Os dois limites, exercitados dos dois lados — inclusive nas bordas exatas.
@@ -373,3 +395,90 @@ def test_o_workflow_usa_o_auto_merge_NATIVO_e_nao_mergeia_por_conta_propria():
     assert "--auto" in texto
     assert "--admin" not in texto
     assert "pulls/" not in texto and "/merge" not in texto
+
+
+# --------------------------------------------------------------------------------------
+# A cadência autorizada (CP-046): o molde declara o teto, a autoridade não o estende sozinha
+# --------------------------------------------------------------------------------------
+
+def _janela(root: Path, *, horas: float) -> None:
+    """Reescreve a janela do atestado na cópia, DERIVANDO do carimbo real.
+
+    Derivado e não inventado: se o schema do atestado ganhar um campo obrigatório, um JSON montado
+    à mão aqui continuaria passando no teste e falhando em produção.
+    """
+    import json
+    caminho = root / ATESTADO
+    doc = json.loads(caminho.read_text(encoding="utf-8"))
+    nasceu = datetime.now(timezone.utc)
+    doc["attestation"]["checked_at"] = nasceu.isoformat(timespec="seconds")
+    doc["attestation"]["expires_at"] = (nasceu + timedelta(hours=horas)).isoformat(timespec="seconds")
+    caminho.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+
+
+def test_janela_ALEM_do_autorizado_ACUSA(repo_copy, run_auditor):
+    """A trava que faltava na fronteira entre os dois repositórios.
+
+    A cadência morava só dentro da autoridade, que este repositório não lê. Ela podia dobrar a
+    validade do próprio carimbo e o molde aceitaria em silêncio — tudo verde, por mais tempo, sem
+    nenhum sinal. É o modo de falha que ninguém percebe, porque não produz vermelho nenhum.
+    """
+    teto = _teto_autorizado()
+    _janela(repo_copy, horas=teto.total_seconds() / 3600 + 24)
+
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1, [f["id"] for f in findings]
+    assert any("JANELA-ALEM-DO-AUTORIZADO" in f["id"] for f in findings), \
+        [f["id"] for f in findings]
+
+
+def test_janela_EXATAMENTE_no_teto_passa(repo_copy, run_auditor):
+    """O outro lado, e sem ele a trava seria frouxa ou apertada demais sem ninguém saber qual.
+
+    Um teto que reprova o valor exatamente autorizado obrigaria a autoridade a emitir menos do que
+    o declarado para caber — e a diferença entre os dois números viraria folga não declarada.
+    """
+    _janela(repo_copy, horas=_teto_autorizado().total_seconds() / 3600)
+
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert not any("JANELA-ALEM-DO-AUTORIZADO" in f["id"] for f in findings), \
+        [f["id"] for f in findings]
+
+
+def test_janela_invertida_ACUSA(repo_copy, run_auditor):
+    """Carimbo que nasce vencido não afirma nada, e é diferente de carimbo que venceu."""
+    _janela(repo_copy, horas=-1)
+
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1
+    assert any("JANELA-INVERTIDA" in f["id"] for f in findings), [f["id"] for f in findings]
+
+
+def test_cadencia_incompleta_ACUSA(repo_copy, run_auditor):
+    """Declaração pela metade não aprova por vacuidade.
+
+    Sem os três números não há teto contra o qual comparar. O idioma perigoso seria seguir em
+    frente com o que houvesse — comparar contra nada aprova qualquer janela, e o fiscal ficaria
+    verde justamente quando perdeu a capacidade de julgar (CP-040).
+    """
+    alvo = repo_copy / "harness/harness.yaml"
+    texto = alvo.read_text(encoding="utf-8")
+    assert "    tolerated_cycles: 2\n" in texto
+    alvo.write_text(texto.replace("    tolerated_cycles: 2\n", ""), encoding="utf-8")
+
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert any("CADENCIA-INCOMPLETA" in f["id"] for f in findings), [f["id"] for f in findings]
+
+
+def test_atestado_vencido_CONTINUA_bloqueando(repo_copy, run_auditor):
+    """A mordida que a CP-046 NÃO pode ter afrouxado, e é a razão de a trava existir.
+
+    Afrouxar a cadência muda QUANDO o carimbo vence, nunca SE ele bloqueia ao vencer. Este teste é
+    o que separa "cadência maior" de "trava desligada" — e a diferença entre as duas é justamente
+    o que o dono decidiu preservar.
+    """
+    _janela(repo_copy, horas=-48)
+
+    code, findings = run_auditor("audit_governance", repo_copy)
+    assert code == 1, [f["id"] for f in findings]
+    assert any(f["id"].endswith("ATESTADO-EXPIRADO") for f in findings), [f["id"] for f in findings]

@@ -396,6 +396,10 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `external_audit.authorized_issuer` | object | — | QUEM pode atestar. Sem este bloco, `issuer` no atestado seria um campo exigido pelo schema e conferido por ninguém — 'alguém atestou' passando por 'quem devia atestou'. Quem tem direito de merge escreveria o JSON à mão e o molde aceitaria. |
 | `external_audit.authorized_issuer.identity` | string | sim |  |
 | `external_audit.authorized_issuer.kind` | enum(github_app · oidc_workload · external_service) | sim |  |
+| `external_audit.cadence` | object | — | A cadência AUTORIZADA do auditor externo, e o único lugar onde ela é declarada. A validade tolerada é interval_days x tolerated_cycles + margin_hours; um atestado com janela maior que isso é a trava amolecendo em silêncio, que é o modo de falha que ninguém percebe. |
+| `external_audit.cadence.interval_days` | integer | sim | De quantos em quantos dias a autoridade renova. |
+| `external_audit.cadence.tolerated_cycles` | integer | sim | Quantos ciclos perdidos seguidos o atestado sobrevive. Abaixo de 1 um unico cron atrasado bloquearia, que e o ruido que a CP-046 existe para tirar. |
+| `external_audit.cadence.margin_hours` | integer | sim | Folga sobre os ciclos tolerados, calibrada contra o atraso real do agendador — nunca contra o intervalo nominal. |
 
 ## `ingest-pipeline.schema.json`
 

@@ -50,6 +50,19 @@ external_audit:
     identity: harness-authority
     kind: github_app
   attestation_path: harness/state/protection-attestation.json
+
+  # O LUGAR CANÔNICO da cadência do auditor externo (CP-046). Antes disto o número existia só
+  # dentro da autoridade, num repositório que este aqui não lê — e por isso a divergência entre os
+  # dois era invisível. Aqui o molde declara o que AUTORIZA; a autoridade implementa; e
+  # `audit_governance.py::check_attestation_cadence` confere o atestado recebido contra esta
+  # declaração. Documentação que cite cadência referencia este bloco em vez de repetir o número:
+  # cópia deriva, e foi assim que "25h" acabou espalhado por doze arquivos.
+  cadence:
+    interval_days: 3
+    tolerated_cycles: 2
+    # Calibrada contra o atraso REAL do agendador do Actions (2h34 medidos em 06/08), não contra o
+    # intervalo nominal. Confundir os dois foi o que produziu a folga NEGATIVA que a CP-044 corrigiu.
+    margin_hours: 6
   justification: >
     Não há, hoje, identidade emissora com ruleset administrado fora deste repositório. Ligar a
     flag sem essa raiz administrativa produziria uma autoridade decorativa: quem pode mudar o
