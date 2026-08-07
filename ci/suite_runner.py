@@ -17,7 +17,7 @@ este arquivo — se editar, a padronização não aconteceu e o achado é sobre 
 
 Uso:  python ci/suite_runner.py --suite NOME --mode MODO [--dry-run] [--quiet]
 Saída (os códigos do WEBQA_CONSUMER_CONTRACT, §6, deliberadamente):
-  0  conforme
+  0  conforme (o veredito vem DECLARADO no laudo; este runner não infere mais)
   1  não-conforme (a régua mediu e reprovou, ou o veredito é inconclusivo com o gap vencido)
   2  o runner não conseguiu rodar (ficha ilegível, envelope ausente)
   11 MODE_FORBIDDEN — modo exige gate humano e ele não foi dado
@@ -108,24 +108,29 @@ def montar_comando(suite: dict, modo: dict) -> list[str]:
 
 
 def traduzir_veredito(laudo: dict) -> tuple[str, str]:
-    """(veredito, razão) a partir do laudo — INFERINDO quando a suíte não declara.
+    """(veredito, razão) LIDOS do laudo. A inferência foi APAGADA, e é essa a notícia.
 
-    A inferência é a ponte do gap `GAP-QA-ENVELOPE`: enquanto a régua emite `schema_version: 1.0`
-    sem `verdict`, alguém precisa dizer o que aquele laudo significa, e é melhor que seja um
-    código auditável do que o silêncio de um exit 0. Quando a régua passar a declarar `verdict`,
-    a declaração VENCE — e o gap fecha.
+    Esta função inferia. Com a régua emitindo `schema_version: 1.0` sem `verdict`, alguém
+    precisava dizer o que aquele laudo significava, e um código auditável era melhor que o
+    silêncio de um exit 0 — era a ponte declarada do `GAP-QA-ENVELOPE`.
+
+    A régua assumiu o defeito na origem: emite `verdict`, `verdict_reason` e o fingerprint
+    completo (contract-v1, schema 1.3), com o veredito carimbado pela mesma função que decide o
+    código de saída do `webqa-veredicto`, e roda o kit da contract-v1 no CI DELA sobre o laudo
+    que acabou de emitir. Com isso a inferência deixou de ser ponte: ela passaria a ser um
+    SEGUNDO lugar onde o veredito é decidido, e o primeiro dia em que os dois discordassem seria
+    o dia em que ninguém saberia qual está certo.
+
+    Laudo sem `verdict` agora é erro, e a assimetria é deliberada: um laudo que não diz o que
+    significa não é um laudo mais fraco — é um laudo que exige adivinhação, e este consumidor
+    prefere ficar vermelho a adivinhar. O STUB desta casa (régua ausente) declara o dele: ele é
+    construído aqui, então tem obrigação de dizer o que quer dizer.
     """
-    if "verdict" in laudo:
-        return laudo["verdict"], laudo.get("verdict_reason", "declarado pela régua")
-
-    resultado = laudo.get("result")
-    if resultado in ("suite_not_installed", "error"):
-        return "inconclusivo", f"result={resultado} e a régua não declarou verdict"
-    if resultado == "findings":
-        return "nao_conforme", f"{len(laudo.get('findings') or [])} achado(s)"
-    if resultado == "ok":
-        return "conforme", "sem achados"
-    return "inconclusivo", f"result={resultado!r} não é reconhecível"
+    if "verdict" not in laudo:
+        raise HarnessError(
+            "o laudo não declara `verdict`. Quem mede é quem sabe: a régua emite o veredito no "
+            "envelope (contract-v1, schema 1.3), e este runner não infere mais.")
+    return laudo["verdict"], laudo.get("verdict_reason", "declarado pela régua")
 
 
 def gap_vigente(suite: dict, clausula: str, hoje: date) -> dict | None:
@@ -218,15 +223,24 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which(comando[0]) is None:
         # Régua não instalada. ANTES isto era ::warning:: e exit 0; agora é um laudo de verdade,
         # com veredito inconclusivo, que o resto desta função trata como qualquer outro.
+        # O stub DECLARA o veredito dele. Antes ele emitia `schema_version: 1.0` sem `verdict` e
+        # a tradução inferia — e a inferência morreu quando a régua passou a declarar. Um stub
+        # que continuasse mudo obrigaria a inferência a sobreviver só para ele, o que é o mesmo
+        # que dizer que ela nunca morreu: quem constrói o laudo tem obrigação de dizer o que ele
+        # quer dizer, e aqui quem constrói é esta casa.
         laudo = {
-            "schema_version": "1.0",
+            "schema_version": "1.3",
             "standard": {"name": suite["nome"], "version": "UNINSTALLED",
                          "commit": "UNINSTALLED", "sensitive_paths_hash": "UNINSTALLED"},
             "consumer_project": {"repository": os.environ.get("GITHUB_REPOSITORY", "local"),
                                  "commit": os.environ.get("GITHUB_SHA", "unknown")},
             "execution": {"run_id": os.environ.get("GITHUB_RUN_ID", "local"), "mode": args.mode,
                           "network_used": False, "active_gates": [], "runner_kind": "ci"},
-            "result": "suite_not_installed", "findings": [],
+            "result": "suite_not_installed",
+            "verdict": "inconclusivo",
+            "verdict_reason": (f"'{comando[0]}' não está no PATH: a régua não foi instalada, "
+                               f"então nada foi medido. Não medir não é medir e passar."),
+            "findings": [],
         }
         laudo_abs.write_text(json.dumps(laudo, indent=2, ensure_ascii=False) + "\n",
                              encoding="utf-8")
@@ -256,7 +270,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {p}", file=sys.stderr)
         return CONFIG_INVALID
 
-    veredito, razao = traduzir_veredito(laudo)
+    try:
+        veredito, razao = traduzir_veredito(laudo)
+    except HarnessError as exc:
+        print(f"✗ CONFIG_INVALID: {exc}", file=sys.stderr)
+        return CONFIG_INVALID
 
     if not args.sem_ledger:
         try:
