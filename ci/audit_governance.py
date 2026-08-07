@@ -18,7 +18,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import harness_lib as hl
@@ -1115,6 +1115,74 @@ def check_external_attestation(harness_doc: dict, risk_doc: dict, findings: Find
             summary=f"Atestado de proteção expirou em {expira} — atestado sem validade seria "
                     f"carimbo eterno sobre configuração que pode ter mudado; expirado bloqueia "
                     f"do mesmo modo que ausente.",
+        )
+
+    check_attestation_cadence(externo, doc, caminho, findings)
+
+
+def check_attestation_cadence(externo: dict, doc: dict, caminho: str, findings: Findings) -> None:
+    """A janela do atestado cabe no que este repositório AUTORIZOU (CP-046).
+
+    Por que esta trava passou a existir: a cadência do auditor morava só dentro da autoridade, num
+    repositório que este aqui não lê. A autoridade podia dobrar a validade do próprio carimbo e o
+    molde aceitaria em silêncio — a fronteira entre "quem julga" e "quem é julgado" existia no
+    desenho e não existia em código.
+
+    CONFERE O TETO, E A DIREÇÃO É A DECISÃO. Um atestado que vive MENOS que o autorizado é
+    conservador: ele vence antes, o molde bloqueia antes, e nada perigoso acontece — o piso ("a
+    janela cobre um intervalo, logo não há vão cego") é problema da autoridade, que é a única que
+    conhece o atraso do próprio agendador e o prova nos testes dela. Um atestado que vive MAIS é a
+    trava amolecendo, e é precisamente o que ninguém perceberia: tudo continua verde, por mais
+    tempo, sem nenhum sinal.
+
+    Checar só o teto também torna a mudança segura em qualquer ordem de merge entre os dois
+    repositórios — um atestado emitido sob a cadência antiga cabe na nova e continua válido.
+    """
+    cadencia = externo.get("cadence")
+    if not isinstance(cadencia, dict):
+        return  # não declarada: o schema já a exige quando existe, e ausência não é permissão aqui
+
+    faltando = [k for k in ("interval_days", "tolerated_cycles", "margin_hours")
+                if not isinstance(cadencia.get(k), int)]
+    if faltando:
+        findings.add(
+            key="EXT-AUDIT-CADENCIA-INCOMPLETA", origin="external_audit", severity="high",
+            risk="RISK-META-002", location=HARNESS_YAML,
+            summary=f"A cadência autorizada não declara {faltando} — sem os três números não há "
+                    f"teto contra o qual comparar, e comparar contra nada aprovaria qualquer "
+                    f"janela por vacuidade.",
+        )
+        return
+
+    teto = timedelta(days=cadencia["interval_days"] * cadencia["tolerated_cycles"],
+                     hours=cadencia["margin_hours"])
+    atestado = doc.get("attestation") or {}
+    try:
+        nasceu = datetime.fromisoformat(str(atestado.get("checked_at")).replace("Z", "+00:00"))
+        vence = datetime.fromisoformat(str(atestado.get("expires_at")).replace("Z", "+00:00"))
+    except ValueError:
+        return  # datas ilegíveis já viram achado próprio no schema do atestado
+
+    janela = vence - nasceu
+    if janela <= timedelta(0):
+        findings.add(
+            key="EXT-AUDIT-JANELA-INVERTIDA", origin="external_audit", severity="critical",
+            risk="RISK-META-002", location=caminho,
+            summary=f"O atestado vence em {vence.isoformat()} e diz ter sido conferido em "
+                    f"{nasceu.isoformat()} — um carimbo que nasce vencido não afirma nada.",
+        )
+        return
+    if janela > teto:
+        findings.add(
+            key="EXT-AUDIT-JANELA-ALEM-DO-AUTORIZADO", origin="external_audit", severity="critical",
+            risk="RISK-META-002", location=caminho,
+            summary=f"O atestado vale {janela} e este repositório autorizou no máximo {teto} "
+                    f"({cadencia['interval_days']}d × {cadencia['tolerated_cycles']} ciclos + "
+                    f"{cadencia['margin_hours']}h). Um carimbo que vive mais que o autorizado é a "
+                    f"trava amolecendo em silêncio — tudo segue verde, por mais tempo, sem sinal.",
+            remediation=f"Ou a autoridade estendeu a validade sem declarar aqui, ou a cadência "
+                        f"autorizada em {HARNESS_YAML}:external_audit.cadence precisa mudar — e "
+                        f"mudá-la é decisão declarada, não ajuste de campo.",
         )
 
 

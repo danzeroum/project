@@ -259,6 +259,33 @@
               ]
             }
           }
+        },
+        "cadence": {
+          "type": "object",
+          "required": [
+            "interval_days",
+            "tolerated_cycles",
+            "margin_hours"
+          ],
+          "additionalProperties": false,
+          "description": "A cadência AUTORIZADA do auditor externo, e o único lugar onde ela é declarada. A validade tolerada é interval_days x tolerated_cycles + margin_hours; um atestado com janela maior que isso é a trava amolecendo em silêncio, que é o modo de falha que ninguém percebe.",
+          "properties": {
+            "interval_days": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "De quantos em quantos dias a autoridade renova."
+            },
+            "tolerated_cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Quantos ciclos perdidos seguidos o atestado sobrevive. Abaixo de 1 um unico cron atrasado bloquearia, que e o ruido que a CP-046 existe para tirar."
+            },
+            "margin_hours": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Folga sobre os ciclos tolerados, calibrada contra o atraso real do agendador — nunca contra o intervalo nominal."
+            }
+          }
         }
       },
       "allOf": [

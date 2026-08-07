@@ -1,0 +1,76 @@
+# Mudança proposta: a cadência do auditor externo afrouxa, continua viva, e passa a ter UM lugar.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-046
+  title: "A cadência do auditor externo é declarada aqui, afrouxada para não virar ruído, e continua mordendo"
+  author_kind: agent
+  created_at: "2026-08-07T15:10:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+
+  paths_affected:
+    - harness/harness.yaml
+    - harness/schemas/harness.schema.json
+    - ci/audit_governance.py
+    - harness/policies/trava-externa.md
+    - tests/governance/test_automerge_bites.py
+    - governance/conformance-review.yaml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-SEC-001
+      - RISK-EXT-001
+      - RISK-META-002
+    rationale: >
+      A DECISÃO DO DONO, e ela não é desligar. "O valor de a trava falhar de vez em quando é provar
+      que ela ainda funciona antes de você precisar dela de verdade." A camada externa continua
+      LIGADA; o que muda é a frequência com que ela cobra.
+      O PROBLEMA REAL, MEDIDO E NÃO SUPOSTO. Com cadência de 6h e a caixa `Allow auto-merge`
+      desmarcada, cada ciclo abre um PR que espera por um humano — e o atestado vence em 26h. Em
+      dois dias isso bloqueou o molde duas vezes e gerou quatro PRs. A trava não estava errada: ela
+      estava cobrando uma configuração administrativa que só o dono pode ligar, com uma frequência
+      que transforma o aviso em ruído. E ruído tem um remédio conhecido e péssimo, que é desligar.
+      A CADÊNCIA NOVA É "GRANDE O BASTANTE PARA NÃO IGNORAR", NÃO "A MAIOR POSSÍVEL". Três dias de
+      intervalo, dois ciclos tolerados, seis horas de margem — validade de seis dias e seis horas. O
+      dono é lembrado a cada três dias e bloqueado se ignorar por seis. A margem de 6h é calibrada
+      contra o atraso REAL do agendador do GitHub Actions medido aqui (2h34 no ciclo de 06/08), não
+      contra o intervalo nominal — foi confundir os dois que produziu a folga negativa da CP-044.
+      O LUGAR CANÔNICO, QUE É A METADE ESTRUTURAL DESTA PROPOSTA. Hoje a cadência existe só dentro
+      da autoridade, num repositório que o molde não lê. O molde passa a DECLARAR em
+      `external_audit.cadence` o que autoriza, e um fiscal confere o atestado recebido contra essa
+      declaração. É a doutrina da casa aplicada a uma fronteira que ainda não a tinha: o projeto
+      declara autorização, o padrão fornece o motor — e a divergência entre os dois repositórios
+      deixa de ser invisível.
+      O FISCAL CONFERE O TETO, E A ESCOLHA DA DIREÇÃO É DELIBERADA. Ele exige `0 < janela <=
+      validade declarada`. O piso — "a janela cobre um intervalo, logo não há vão cego" — continua
+      sendo problema da autoridade, provado nos testes dela, porque só ela conhece o atraso do
+      próprio agendador. O que interessa ao molde é o outro lado: um atestado que viva MAIS do que
+      o autorizado é a trava amolecendo em silêncio, e é exatamente o que ninguém perceberia. Checar
+      só o teto também torna esta proposta segura em qualquer ordem de merge entre os dois
+      repositórios: o atestado de 26h que está na árvore hoje cabe no teto novo e continua válido.
+      O QUE ESTA PROPOSTA NÃO TOCA. O portão da CP-037 fica intacto — `ci/automerge_gate.py` não
+      muda, e `test_um_cron_perdido_BLOQUEIA_e_o_seguinte_DESTRAVA_sem_humano` continua verde sem
+      edição, o que é a prova mais forte disponível de que as condições de merge não mudaram.
+      Atestado realmente vencido continua bloqueando o molde: a mordida segue viva, só passa a
+      disparar depois de seis dias de silêncio da autoridade em vez de vinte e seis horas.
+      A CAIXA CONTINUA SENDO AÇÃO DO DONO. Esta proposta não a marca nem finge que a marcou; ela
+      reduz a frequência do incômodo enquanto ela não for marcada.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+    - inventory
+    - passive
+
+  tests_required:
+    - tests/governance/test_automerge_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
