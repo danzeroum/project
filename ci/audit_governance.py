@@ -1271,6 +1271,88 @@ def check_cadence_single_source(findings: Findings) -> None:
             )
 
 
+# As propostas que EXIGEM aval humano, e o estado em que elas de fato mergeiam.
+_STATUS_ANTES_DA_EXECUCAO = ("draft", "approved")
+
+
+def _risco_datado(risco_id: str) -> bool:
+    """O risco existe, está aberto e tem `due`. Sem os três, aceitar é esquecer."""
+    try:
+        doc = hl.read_yaml(RISK_REGISTER) or {}
+    except HarnessError:
+        return False
+    for r in (doc.get("risks") or []):
+        if r.get("id") == risco_id:
+            return bool(r.get("due"))
+    return False
+
+
+def check_approval_gate_plugged(findings: Findings) -> None:
+    """A exigência de aval humano está no caminho que BLOQUEIA, ou só no que descreve? (CP-048)
+
+    O diagnóstico mudou duas vezes antes de fechar, e as duas primeiras versões eram plausíveis:
+
+      "a exigência não existe"      — falsa. O schema torna inexpressável risco alto sem
+                                      `human_approval_required`, e check_cp_lifecycle recusa
+                                      `executed` sem `approved_by`.
+      "o fiscal não está no workflow" — falsa. verify_approval.py e verify_protection.py são
+                                      passos bloqueantes do governance.yml, sem continue-on-error.
+
+    A causa real é mais estreita e por isso passou despercebida: `verify_approval.py` só verifica
+    propostas cujo status já é `executed`. Só que `executed` é uma transição MANUAL feita depois
+    do merge — no instante em que o PR mergeia, a proposta está `approved`, e nesse estado ninguém
+    a confere. O aval é exigido de um estado que só existe quando já é tarde.
+
+    Este fiscal não confere o aval (isso precisa da API, e é de verify_approval.py). Ele confere a
+    PLUMBING: que exista uma proposta exigindo aval e que o repositório saiba dizer se a exigência
+    está ligada. Onde ele não consegue afirmar, ele acusa — porque "não sei" e "está ligado" nunca
+    podem sair iguais.
+    """
+    d = hl.REPO / PROPOSALS_DIR
+    if not d.exists():
+        return
+
+    pendentes: list[str] = []
+    for path in sorted(d.glob("*.yaml")):
+        try:
+            doc = hl.read_yaml(hl.rel(path)) or {}
+        except HarnessError:
+            continue
+        prop = doc.get("proposal") or {}
+        if doc.get("schema_version") != "1.1":
+            continue
+        if not prop.get("human_approval_required"):
+            continue
+        if prop.get("status") in _STATUS_ANTES_DA_EXECUCAO:
+            pendentes.append(prop.get("id", hl.rel(path)))
+
+    if not pendentes:
+        return
+
+    # A FORMA DA CP-024, e a razão de não bloquear: ninguém neste repositório consegue satisfazer
+    # esta condição por PR — ela é configuração de admin. Bloquear produziria vermelho PERMANENTE,
+    # e vermelho permanente é exatamente como um fiscal aprende a ser ignorado (princípio (e)).
+    # O que se recusa não é a lacuna: é o SILÊNCIO sobre ela. Com risco aceito e datado, o achado
+    # sai `info` a cada execução; sem data, ele bloqueia — porque risco aceito sem data é risco
+    # esquecido (princípio (g)).
+    datado = _risco_datado("RISK-APPROVAL-001")
+    findings.add(
+        key="AVAL-EXIGIDO-FORA-DO-CAMINHO-DE-BLOQUEIO", origin="approval_gate",
+        severity="info" if datado else "high",
+        risk="RISK-APPROVAL-001", location=PROPOSALS_DIR,
+        summary=f"{len(pendentes)} proposta(s) exigem aval humano e estão em status que MERGEIA "
+                f"sem que nada o confira ({', '.join(sorted(pendentes))}). "
+                f"ci/verify_approval.py só verifica propostas 'executed', e 'executed' é uma "
+                f"transição manual posterior ao merge — no instante do merge a proposta está "
+                f"'approved', e nesse estado o aval declarado não é resolvido contra ninguém.",
+        remediation="A exigência real é `required_pull_request_reviews` com "
+                    "`require_code_owner_reviews` na branch protection da main — configuração de "
+                    "ADMIN, fora do alcance de qualquer PR. Rodar `python ci/verify_protection.py` "
+                    "com token de escopo admin responde se ela está ligada; sem esse escopo a "
+                    "resposta é exit 3, e exit 3 nunca vale por 'ligada'.",
+    )
+
+
 def check_agent_prompt_pairing(findings: Findings) -> None:
     """Correspondência BIDIRECIONAL entre contrato de agente e template de tarefa (CP-027).
 
@@ -1441,6 +1523,7 @@ def main(argv: list[str] | None = None) -> int:
     check_decision_chain(risk_doc, adr_index, findings, errors)
     check_external_attestation(harness_doc, risk_doc, findings)
     check_cadence_single_source(findings)
+    check_approval_gate_plugged(findings)
     check_risk_control_coverage(risk_doc, findings)
     check_protected_paths(harness_doc, findings)
     check_owners_assigned(risk_doc, project_doc, findings)
