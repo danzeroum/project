@@ -1,0 +1,73 @@
+# Mudança proposta: a renovação diária do atestado fecha sozinha, sem depender de alguém perceber.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-043
+  title: "A renovação do atestado fecha sozinha: a autoridade entrega em dia e confirma que fechou"
+  author_kind: agent
+  created_at: "2026-08-07T04:50:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - architecture/adr/index.yaml
+    - harness/policies/atestado-de-protecao.md
+    - tests/governance/test_renovacao_atestado_bites.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-SEC-001
+      - RISK-CONF-001
+    rationale: >
+      O QUE FALHOU, MEDIDO E NÃO SUPOSTO. O ciclo de 06/08 emitiu atestado válido às 08:51:55Z e o
+      propôs no PR #55 com todos os checks verdes. O PR ficou aberto 19h, o atestado venceu às
+      20:15:49Z, e o molde bloqueou a si mesmo até um humano mergear à mão. O log do portão diz por
+      quê, em uma linha: `Auto merge is not allowed for this repository
+      (enablePullRequestAutoMerge)`. A caixa "Allow auto-merge" está desmarcada, `gh pr merge
+      --auto` falha na primeira chamada, e a CP-037 — corretamente — avisa e segue verde, porque
+      capacidade ausente no ambiente não é defeito do PR.
+      A CAUSA QUE EU MESMO ATRIBUÍ ERRADO, e o registro importa mais que o acerto. Diagnostiquei
+      `behind` como causa; `behind` era CONSEQUÊNCIA — a `main` andou enquanto o PR esperava.
+      Corrigir só a frescura teria produzido um PR em dia que continuaria parado, e a correção
+      pareceria funcionar até o próximo vencimento. Uma causa plausível que explica o sintoma sem
+      ser a causa é o modo mais caro de errar aqui, porque ela sobrevive ao conserto.
+      AS DUAS SÃO NECESSÁRIAS E NENHUMA BASTA. Sem a caixa, auto-merge nenhum acontece. Com a caixa
+      e sem frescura, o auto-merge nativo NÃO atualiza branch `behind` — ele espera indefinidamente
+      quando o ruleset exige branch em dia, e o #55 teria ficado parado do mesmo jeito. Esta CP
+      cobre a segunda; a primeira é ação de admin, e é justamente por não ser fiscalizável por
+      código que ela precisa de trava própria (abaixo).
+      ONDE A CORREÇÃO MORA. Na AUTORIDADE, que é quem abre o PR: ela monta o commit sobre a `main`
+      corrente, e depois de propor CONFIRMA que a proposta está integrável — se nasceu `behind` por
+      corrida com outro merge, re-sincroniza UMA vez e desiste com alarme. Re-tentativa única, nunca
+      laço: o timer obsoleto do PR #39 é o precedente do que não fazer. O portão da CP-037 não é
+      tocado — esta CP mexe na FRESCURA da proposta, jamais nas condições de merge.
+      PRINCÍPIO (h), QUE É O CORAÇÃO DISTO. Se a re-sincronização falhar, o job sai INDETERMINADO
+      com alarme, nunca verde silencioso. Verde aqui significaria "achei que renovei" sem ter
+      renovado — e foi exatamente esse verde, no passo do portão, que deixou o buraco aberto por
+      19h sem ninguém perceber. Falha visível faz o atestado antigo expirar e o molde bloquear
+      sozinho, que é o comportamento correto.
+      A TRAVA SOBRE A CAIXA. Uma renovação que depende de uma configuração de repositório invisível
+      no código é uma dependência silenciosa, e o repositório existe para recusá-las. O fiscal passa
+      a exigir que a capacidade seja DECLARADA e conferida contra a API: capacidade ausente vira
+      achado datado, não `::warning::` que se aprende a ignorar (ADR-019).
+      MORDIDA: `main` movida entre a proposta e o merge ⇒ re-sincroniza e fecha; segunda corrida no
+      mesmo instante ⇒ re-tenta uma vez, depois alarme e exit indeterminado; conflito real (não só
+      `behind`) ⇒ indeterminado com alarme, jamais merge forçado; auto-merge desabilitado no alvo
+      ⇒ achado, não aviso; laço de re-sincronização ⇒ recusado por teste.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+    - inventory
+    - passive
+
+  tests_required:
+    - tests/governance/test_renovacao_atestado_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
