@@ -18,6 +18,40 @@ suite:
   # ONDE a versão mora — nunca QUAL (cláusula 1, ADR-003). O schema proíbe URL neste campo.
   pin_source: requirements-qa.txt
 
+  # A OUTRA METADE DA CLÁUSULA 1. `pin_source` diz onde a versão mora; isto diz de onde ela vem.
+  # Sem o par, o pin era uma linha que NÃO RESOLVIA: `webqa-suite==1.0.0` não está em índice
+  # algum, e `pip install -r requirements-qa.txt` falhava — não por defeito de configuração, mas
+  # porque o caminho que funciona só existia num comentário. Comentário não é declaração: nada o
+  # valida, nada o executa, e ele envelhece sem ficar vermelho.
+  #
+  # O `{version}` é obrigatório e é o ponto fino: a ficha descreve o caminho sem nunca dizer para
+  # onde ele aponta hoje. Quem resolve lê o número de pin_source e substitui. Um literal aqui
+  # seria o segundo lugar onde a versão mora, e o fiscal da cláusula 1 o acusaria.
+  install:
+    method: direct-reference
+    spec: "webqa-suite @ git+{origin}@v{version}#subdirectory=webqa-suite"
+    origin_source: requirements-qa.txt
+    decided_at: "2026-08-07"
+    rationale: >-
+      Referência direta (PEP 508), e não índice, porque a régua NÃO É PUBLICADA: o release.yml da
+      qa-suite constrói wheel + sdist como artefato e nenhum passo os envia a PyPI ou a índice
+      privado — decisão do dono, escrita lá. O fragmento `#subdirectory=` é a parte que ninguém
+      adivinha: o pacote não vive na raiz daquele repositório, e sem o fragmento o pip procura o
+      pyproject.toml onde ele não está e falha com "projeto inválido" — mensagem que manda quem
+      instala procurar defeito no lugar errado. A referência é a uma TAG e não a um branch: a
+      régua é a versão, e `@main` faria dois laudos comparáveis medirem réguas diferentes. O
+      caminho é conferido e EXECUTADO na origem, a cada push, pelo job `instalacao-declarada` do
+      CI da qa-suite, que instala num venv limpo e roda o console script — daqui ele é declarado,
+      não provado, e é assim que tem de ser: quem prova que um pacote instala é quem o publica.
+      CONSEQUÊNCIA ACEITA, e é o que esta decisão custa: `pip install -r requirements-qa.txt`
+      sozinho NÃO resolve, porque a linha do pin é `==` e não há índice que a sirva. O comando que
+      resolve está escrito em origin_source, ao lado do pin. Trocar a linha por esta referência
+      direta unificaria os dois, e é a migração certa — mas ela muda a política de pin (`==`, sem
+      faixa) de dependency-updates.md, e política se muda por CP, não de passagem numa ficha.
+      Quando a régua for publicada em índice, esta decisão muda para method:index e a consequência
+      desaparece — a data acima é o que permite saber que ela precede a publicação em vez de
+      tê-la ignorado.
+
   entrypoint: webqa
   perfil_path: tests/qa/config.yaml
 

@@ -116,6 +116,32 @@ def test_duas_fichas_com_o_mesmo_env_prefix_reprovam(repo_copy, run_metadata):
     assert any("env_prefix" in e and "WEBQA_" in e for e in erros), erros
 
 
+def test_ficha_ativa_sem_install_reprova(repo_copy, run_metadata):
+    """A outra metade da cláusula 1: `pin_source` diz onde a versão mora, `install` de onde vem.
+
+    O defeito que a trava existe para pegar já tinha acontecido: a qa-suite era consumida por um
+    pin que NÃO RESOLVIA, e o caminho que funciona vivia num comentário. Comentário não é
+    declaração — nada o valida, nada o executa, e ele envelhece sem ficar vermelho.
+    """
+    escreve_ficha(repo_copy, FICHA_QA, lambda s: s.pop("install"))
+    codigo, erros = run_metadata(repo_copy)
+    assert codigo == 1
+    assert any("install" in e for e in erros), erros
+
+
+def test_install_de_referencia_direta_sem_placeholder_de_origem_reprova(repo_copy, run_metadata):
+    """O spec declara a FORMA; os dois valores moram fora da ficha.
+
+    Sem `{origin}`, o spec ou está incompleto — e o caminho não resolve — ou traz a URL literal,
+    que é a de repositório sob `harness/` que o ADR-008-A5 recusa por cravar um alvo no molde.
+    """
+    escreve_ficha(repo_copy, FICHA_QA, lambda s: s["install"].__setitem__(
+        "spec", "webqa-suite @ git+https://exemplo.invalid/x/y@v{version}#subdirectory=x"))
+    codigo, erros = run_metadata(repo_copy)
+    assert codigo == 1
+    assert any("spec" in e or "origin" in e for e in erros), erros
+
+
 def test_gap_vencido_acusa(repo_copy, monkeypatch):
     """A borda: prazo que passa sem nada acontecer é prazo decorativo."""
     ontem = (date.today() - timedelta(days=1)).isoformat()
