@@ -13,10 +13,16 @@ proposal:
   status: approved
   capabilities_affected: []
   components_affected: []
-  paths_affected:
-    - architecture/adr/index.yaml
-    - harness/policies/atestado-de-protecao.md
-    - tests/governance/test_renovacao_atestado_bites.py
+  # VAZIO, e o vazio é a informação. A correção mora INTEIRAMENTE em danzeroum/harness-authority
+  # — `authority/publicar.py` e `tests/test_publicacao.py` — porque quem abre o PR é a autoridade,
+  # e uma trava não pode depender do vigiado para se renovar. O molde não muda nenhum arquivo:
+  # listar caminhos daqui só para preencher o campo faria o fiscal conferir uma promessa falsa.
+  #
+  # A contrapartida é honesta e precisa ficar escrita: nenhuma asserção de ADR alcança a autoridade.
+  # `path_present` e `file_matches` resolvem contra ESTE repositório, e apontá-las para outro
+  # produziria `assertion_unresolvable` — uma trava que não encontra o que vigiar está quebrada,
+  # não satisfeita. Quem fiscaliza a mudança são os testes da autoridade, no CI da autoridade.
+  paths_affected: []
 
   risk_assessment:
     level: high
@@ -66,8 +72,11 @@ proposal:
     - inventory
     - passive
 
+  # O teste que prova a NÃO-mudança, e ele é do molde: o portão da CP-037 continua mordendo
+  # idêntico porque esta CP não o toca. Um teste que já existia e segue verde é a prova mais forte
+  # disponível aqui — mais forte que um teste novo escrito para confirmar o que se quer ouvir.
   tests_required:
-    - tests/governance/test_renovacao_atestado_bites.py
+    - tests/governance/test_automerge_bites.py
 
   human_approval_required: true
   change_mode: pull_request
