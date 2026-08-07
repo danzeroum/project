@@ -1,163 +1,157 @@
-# Registro TIPADO da validação semântica. Irmão de privacy-review.yaml, e pela mesma razão:
-# o fiscal determinístico não julga se uma descrição ainda condiz com o código — ele confere que
-# alguém julgou e que o julgamento cobre ESTE estado (scope_fingerprint, que inclui o SHA do alvo).
-#
-# Atualizar o fingerprint: python ci/audit_conformance.py --print-fingerprint
-# Schema: harness/schemas/conformance-review.schema.json
-schema_version: "1.0"
-metadata_version: "1.0"
+schema_version: '1.0'
+metadata_version: '1.0'
 source_of_truth: true
 generated_from: null
-
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: "sha256:0fc260329ce20586126052887688196892379a03ed9de44542c2b6eb712fbc14"
-
+  scope_fingerprint: sha256:9ffbecc70538654762d0273cc117d98e83c51c2dcfe7755710a890ec7f0a622a
   findings:
-    - id: CONF-001
-      severity: low
-      summary: >
-        O negócio de exemplo (CAP-PRICING, CAP-CATALOG e seus componentes) descreve um domínio
-        de brinquedo, não um sistema real. Num molde isso é correto; num derivado seria metadado
-        mentindo sobre o que o repositório governa.
-      disposition: accepted
-      rationale: >
-        É o substrato mínimo que faz as asserções do ADR-005 morderem: sem src/project/pricing.py
-        e src/project/ports.py, import_required e import_forbidden viram assertion_unresolvable, e
-        o ADR-006 deixa de ter prova de que a conformidade executa. O CP-000 do /adotar remove
-        esse negócio no derivado e supersede o ADR-005 no mesmo movimento — separá-los deixaria
-        o repositório vermelho no meio.
+  - id: CONF-001
+    severity: low
+    summary: 'O negócio de exemplo (CAP-PRICING, CAP-CATALOG e seus componentes) descreve um domínio de
+      brinquedo, não um sistema real. Num molde isso é correto; num derivado seria metadado mentindo sobre
+      o que o repositório governa.
 
-    - id: CONF-002
-      severity: low
-      summary: >
-        A area 'availability' do enum de riscos segue sem nenhum risco que a use, mesmo depois da
-        Fase E ter sido criada justamente para expor lacunas de cobertura.
-      disposition: accepted
-      rationale: >
-        Este repositório é um molde sem runtime: não há serviço, SLO nem error budget sobre o que
-        um risco de disponibilidade pudesse falar. Criar um aqui produziria exatamente o que a
-        Fase E combate — cobertura de fachada, um risco escrito para o enum não ficar vazio. A
-        lacuna é real e pertence ao derivado que governar um alvo com runtime; deixá-la registrada
-        aqui é o oposto de escondê-la.
+      '
+    disposition: accepted
+    rationale: 'É o substrato mínimo que faz as asserções do ADR-005 morderem: sem src/project/pricing.py
+      e src/project/ports.py, import_required e import_forbidden viram assertion_unresolvable, e o ADR-006
+      deixa de ter prova de que a conformidade executa. O CP-000 do /adotar remove esse negócio no derivado
+      e supersede o ADR-005 no mesmo movimento — separá-los deixaria o repositório vermelho no meio.
 
-    - id: CONF-003
-      severity: medium
-      summary: >
-        O adapter de TypeScript não resolve alias de workspace, re-export em cadeia nem import
-        dinâmico, então o check de dependência declarada é cego para parte do acoplamento real
-        de um monorepo TS.
-      disposition: accepted
-      rationale: >
-        Decisão registrada no ADR-009: adotar dependency-cruiser faria este molde, Python puro,
-        exigir toolchain de Node para fiscalizar qualquer alvo — inclusive alvos sem Node. A perda
-        é declarada no laudo do inventário em vez de ficar invisível, que é a diferença entre um
-        fiscal que não sabe e um que finge saber. Reverter a decisão exige ADR novo, não silêncio.
+      '
+  - id: CONF-002
+    severity: low
+    summary: 'A area ''availability'' do enum de riscos segue sem nenhum risco que a use, mesmo depois
+      da Fase E ter sido criada justamente para expor lacunas de cobertura.
 
-    - id: CONF-004
-      severity: medium
-      summary: >
-        THREAT-PRICING-INFO é mitigada por 'accepted' com a razão de que este molde não tem
-        runtime. A ameaça é real e continua real no derivado: um alvo com serviço herda o
-        vazamento por traceback e a mitigação aceita aqui não vale lá.
-      disposition: risk_entry
+      '
+    disposition: accepted
+    rationale: 'Este repositório é um molde sem runtime: não há serviço, SLO nem error budget sobre o
+      que um risco de disponibilidade pudesse falar. Criar um aqui produziria exatamente o que a Fase
+      E combate — cobertura de fachada, um risco escrito para o enum não ficar vazio. A lacuna é real
+      e pertence ao derivado que governar um alvo com runtime; deixá-la registrada aqui é o oposto de
+      escondê-la.
+
+      '
+  - id: CONF-003
+    severity: medium
+    summary: 'O adapter de TypeScript não resolve alias de workspace, re-export em cadeia nem import dinâmico,
+      então o check de dependência declarada é cego para parte do acoplamento real de um monorepo TS.
+
+      '
+    disposition: accepted
+    rationale: 'Decisão registrada no ADR-009: adotar dependency-cruiser faria este molde, Python puro,
+      exigir toolchain de Node para fiscalizar qualquer alvo — inclusive alvos sem Node. A perda é declarada
+      no laudo do inventário em vez de ficar invisível, que é a diferença entre um fiscal que não sabe
+      e um que finge saber. Reverter a decisão exige ADR novo, não silêncio.
+
+      '
+  - id: CONF-004
+    severity: medium
+    summary: 'THREAT-PRICING-INFO é mitigada por ''accepted'' com a razão de que este molde não tem runtime.
+      A ameaça é real e continua real no derivado: um alvo com serviço herda o vazamento por traceback
+      e a mitigação aceita aqui não vale lá.
+
+      '
+    disposition: risk_entry
+    ref: RISK-SEC-001
+    consumed_by:
+      kind: risk
       ref: RISK-SEC-001
-      # CP-023: o `ref` acima era texto livre que ninguém resolvia. consumed_by é o mesmo destino
-      # numa forma que check_decision_chain confere contra o registro real.
-      consumed_by:
-        kind: risk
-        ref: RISK-SEC-001
-      rationale: >
-        Registrada como herança explícita em vez de resolvida: mitigar aqui exigiria inventar um
-        log de produção que não existe, e uma mitigação de fachada é pior que a herança declarada.
-        O /adotar leva a ameaça ao derivado, onde ela tem alvo real; RISK-SEC-001 carrega o dono.
+    rationale: 'Registrada como herança explícita em vez de resolvida: mitigar aqui exigiria inventar
+      um log de produção que não existe, e uma mitigação de fachada é pior que a herança declarada. O
+      /adotar leva a ameaça ao derivado, onde ela tem alvo real; RISK-SEC-001 carrega o dono.
 
-    - id: CONF-005
-      severity: medium
-      summary: >
-        AS TRÊS LACUNAS QUE SÓ APARECEM QUANDO UM CONSUMIDOR TERMINA. Nenhuma foi encontrada por
-        teste deste molde, e a razão é estrutural: as três são sobre o molde SENDO CONSUMIDO por um
-        repositório que acabou de se organizar. `danzeroum/projectCockpitDocker` fechou a ingestão
-        dele em 06/08/2026 (299 → 12 achados) e as três são exatamente o que impediu os 12 de serem
-        menos.
-        (1) O vocabulário supunha que o consumidor contém o próprio código: o inventário de
-        dependências não lia referência direta PEP 508 — punindo quem declarasse a dependência git
-        e premiando quem a escondesse — e o risk-register não tinha como dizer "o controle vive na
-        dependência que eu pino".
-        (2) `exemptions` só existia para o lado do CÓDIGO, então declarar a isenção de um arquivo
-        de apoio de teste custava +1 achado em vez de −1: a trava recusava a declaração que ela
-        própria prescrevia como remédio.
-        (3) A âncora-na-menção reincidiu pela quinta vez, dentro do teste escrito para vigiar as
-        quatro anteriores — e pela SEXTA ao escrever o fiscal desta CP, que na primeira versão
-        acusou 40 asserções de uma vez porque todo `pattern:` casa a própria linha no index.
-      disposition: change_proposal
-      ref: harness/change-proposals/CP-039-o-que-o-derivado-nao-conseguiu-dizer.yaml
-      consumed_by:
-        kind: change_proposal
-        ref: CP-039
-      rationale: >
-        As três foram EXECUTADAS na CP-039, não só registradas. O que fica como registro é a
-        origem: um molde não descobre sozinho o que só quebra quando alguém o usa até o fim, e é
-        por isso que a prova de fogo com derivado real vale mais que teste sintético.
+      '
+  - id: CONF-005
+    severity: medium
+    summary: 'AS TRÊS LACUNAS QUE SÓ APARECEM QUANDO UM CONSUMIDOR TERMINA. Nenhuma foi encontrada por
+      teste deste molde, e a razão é estrutural: as três são sobre o molde SENDO CONSUMIDO por um repositório
+      que acabou de se organizar. `danzeroum/projectCockpitDocker` fechou a ingestão dele em 06/08/2026
+      (299 → 12 achados) e as três são exatamente o que impediu os 12 de serem menos. (1) O vocabulário
+      supunha que o consumidor contém o próprio código: o inventário de dependências não lia referência
+      direta PEP 508 — punindo quem declarasse a dependência git e premiando quem a escondesse — e o risk-register
+      não tinha como dizer "o controle vive na dependência que eu pino". (2) `exemptions` só existia para
+      o lado do CÓDIGO, então declarar a isenção de um arquivo de apoio de teste custava +1 achado em
+      vez de −1: a trava recusava a declaração que ela própria prescrevia como remédio. (3) A âncora-na-menção
+      reincidiu pela quinta vez, dentro do teste escrito para vigiar as quatro anteriores — e pela SEXTA
+      ao escrever o fiscal desta CP, que na primeira versão acusou 40 asserções de uma vez porque todo
+      `pattern:` casa a própria linha no index.
 
-    - id: CONF-006
-      severity: medium
-      summary: >
-        O ENVELOPE DE LAUDO NUNCA VALIDOU NADA, E NINGUÉM PODIA TER PERCEBIDO. Ao escrever a
-        cláusula 3 do Contrato de Régua (CP-041) descobriu-se que `report.schema.json` recusava
-        QUALQUER documento, inclusive o mais correto possível: o `additionalProperties: false` de
-        `provenance.schema.json`, composto por `$ref` dentro de um `allOf`, rejeitava `result` e
-        `findings` — as duas propriedades que o próprio `report` acrescenta.
-        A trava passou despercebida porque nada era validado contra ela: o laudo é produzido pela
-        suíte externa, que não está instalada, e `harness/reports/` é gitignored. É o caso extremo
-        do que este repositório chama de decorativa — não uma trava que deixou de morder, mas uma
-        que teria recusado tudo e nunca foi exercida.
-      disposition: change_proposal
-      ref: harness/change-proposals/CP-041-contrato-de-regua.yaml
-      consumed_by:
-        kind: change_proposal
-        ref: CP-041
-      rationale: >
-        Corrigido na CP-041 pelo idioma que a versão 2020-12 prevê: mixin não fecha objeto — quem
-        fecha é o envelope CONCRETO, com `unevaluatedProperties: false`, que enxerga as anotações
-        dos subschemas irmãos. A correção veio acompanhada de prova: onze casos que exercem os três
-        estados, as duas direções do bump e o fechamento do objeto.
-        A LIÇÃO É SOBRE COBERTURA, NÃO SOBRE JSON SCHEMA. Um schema que nenhum documento exercita
-        é indistinguível de um schema correto, e o repositório não tinha como saber a diferença.
-        Fica em `not_assessed` o que segue sem exercício: os demais schemas cujo produtor é externo.
+      '
+    disposition: change_proposal
+    ref: harness/change-proposals/CP-039-o-que-o-derivado-nao-conseguiu-dizer.yaml
+    consumed_by:
+      kind: change_proposal
+      ref: CP-039
+    rationale: 'As três foram EXECUTADAS na CP-039, não só registradas. O que fica como registro é a origem:
+      um molde não descobre sozinho o que só quebra quando alguém o usa até o fim, e é por isso que a
+      prova de fogo com derivado real vale mais que teste sintético.
 
-    - id: CONF-007
-      severity: medium
-      summary: >
-        O MESMO ENVELOPE ESCONDIA UM SEGUNDO DEFEITO, E SÓ O PRIMEIRO DOCUMENTO REAL O ENCONTROU.
-        Corrigido o `report.schema.json` na CP-041 (CONF-006), a CP-042 produziu o primeiro laudo
-        que de fato passa por ele — e a validação explodiu com `Unresolvable`: `ci/harness_lib.py`
-        compilava os schemas SEM registry, então o `$ref` para `provenance.schema.json` era tratado
-        como URL e o jsonschema tentava BAIXÁ-LO de `https://danzeroum/project/...`, um host que
-        não existe.
-        O agravante não é a falha, é o sucesso possível: num runner com rede e um host que
-        respondesse, a validação teria PASSADO — e o veredito do fiscal passaria a depender de quem
-        respondeu. É a mesma família de sequestro que o CP-025 fechou para o pip e para o import,
-        num lugar onde ninguém tinha olhado.
-      disposition: change_proposal
-      ref: harness/change-proposals/CP-042-runner-generico.yaml
-      consumed_by:
-        kind: change_proposal
-        ref: CP-042
-      rationale: >
-        Corrigido com `harness_lib._registry()`, que resolve todo `$ref` localmente — por nome de
-        arquivo e por `$id` — e nunca consulta a rede. Coberto por `ADR-030-A14` e por teste.
-        A LIÇÃO REPETE A DO CONF-006 e por isso vale registrar duas vezes: dois defeitos no mesmo
-        envelope, ambos invisíveis pela mesma razão — nenhum documento o exercitava. Cobertura de
-        schema não é "o schema existe e é válido"; é "algum documento real passa por ele". Os
-        schemas cujo produtor é externo seguem sem esse exercício, e seguem em `not_assessed`.
+      '
+  - id: CONF-006
+    severity: medium
+    summary: 'O ENVELOPE DE LAUDO NUNCA VALIDOU NADA, E NINGUÉM PODIA TER PERCEBIDO. Ao escrever a cláusula
+      3 do Contrato de Régua (CP-041) descobriu-se que `report.schema.json` recusava QUALQUER documento,
+      inclusive o mais correto possível: o `additionalProperties: false` de `provenance.schema.json`,
+      composto por `$ref` dentro de um `allOf`, rejeitava `result` e `findings` — as duas propriedades
+      que o próprio `report` acrescenta. A trava passou despercebida porque nada era validado contra ela:
+      o laudo é produzido pela suíte externa, que não está instalada, e `harness/reports/` é gitignored.
+      É o caso extremo do que este repositório chama de decorativa — não uma trava que deixou de morder,
+      mas uma que teria recusado tudo e nunca foi exercida.
 
-  # O que esta revisão NÃO olhou. "Sem achados" numa categoria que ninguém examinou é a forma
-  # mais silenciosa de laudo falso.
+      '
+    disposition: change_proposal
+    ref: harness/change-proposals/CP-041-contrato-de-regua.yaml
+    consumed_by:
+      kind: change_proposal
+      ref: CP-041
+    rationale: 'Corrigido na CP-041 pelo idioma que a versão 2020-12 prevê: mixin não fecha objeto — quem
+      fecha é o envelope CONCRETO, com `unevaluatedProperties: false`, que enxerga as anotações dos subschemas
+      irmãos. A correção veio acompanhada de prova: onze casos que exercem os três estados, as duas direções
+      do bump e o fechamento do objeto. A LIÇÃO É SOBRE COBERTURA, NÃO SOBRE JSON SCHEMA. Um schema que
+      nenhum documento exercita é indistinguível de um schema correto, e o repositório não tinha como
+      saber a diferença. Fica em `not_assessed` o que segue sem exercício: os demais schemas cujo produtor
+      é externo.
+
+      '
+  - id: CONF-007
+    severity: medium
+    summary: 'O MESMO ENVELOPE ESCONDIA UM SEGUNDO DEFEITO, E SÓ O PRIMEIRO DOCUMENTO REAL O ENCONTROU.
+      Corrigido o `report.schema.json` na CP-041 (CONF-006), a CP-042 produziu o primeiro laudo que de
+      fato passa por ele — e a validação explodiu com `Unresolvable`: `ci/harness_lib.py` compilava os
+      schemas SEM registry, então o `$ref` para `provenance.schema.json` era tratado como URL e o jsonschema
+      tentava BAIXÁ-LO de `https://danzeroum/project/...`, um host que não existe. O agravante não é a
+      falha, é o sucesso possível: num runner com rede e um host que respondesse, a validação teria PASSADO
+      — e o veredito do fiscal passaria a depender de quem respondeu. É a mesma família de sequestro que
+      o CP-025 fechou para o pip e para o import, num lugar onde ninguém tinha olhado.
+
+      '
+    disposition: change_proposal
+    ref: harness/change-proposals/CP-042-runner-generico.yaml
+    consumed_by:
+      kind: change_proposal
+      ref: CP-042
+    rationale: 'Corrigido com `harness_lib._registry()`, que resolve todo `$ref` localmente — por nome
+      de arquivo e por `$id` — e nunca consulta a rede. Coberto por `ADR-030-A14` e por teste. A LIÇÃO
+      REPETE A DO CONF-006 e por isso vale registrar duas vezes: dois defeitos no mesmo envelope, ambos
+      invisíveis pela mesma razão — nenhum documento o exercitava. Cobertura de schema não é "o schema
+      existe e é válido"; é "algum documento real passa por ele". Os schemas cujo produtor é externo seguem
+      sem esse exercício, e seguem em `not_assessed`.
+
+      '
   not_assessed:
-    - "Conformidade do código do alvo (não há alvo: este repositório é kind:mold)"
-    - "Adequação das fronteiras de componente propostas pelo cartographer (sem ingestão executada)"
-    - "Eficácia real dos controles em produção (não há ambiente de produção)"
-    - "Se os prazos de tratamento de risco são razoáveis (nenhum risco está open)"
-    - "Schemas cujo produtor é externo e não está instalado: nenhum documento real os exercita, e a CP-041 mostrou que isso esconde defeito (CONF-006)"
+  - 'Conformidade do código do alvo (não há alvo: este repositório é kind:mold)'
+  - Adequação das fronteiras de componente propostas pelo cartographer (sem ingestão executada)
+  - Eficácia real dos controles em produção (não há ambiente de produção)
+  - Se os prazos de tratamento de risco são razoáveis (nenhum risco está open)
+  - 'Schemas cujo produtor é externo e não está instalado: nenhum documento real os exercita, e a CP-041
+    mostrou que isso esconde defeito (CONF-006)'
+  - Se a cadência é restatada FORA dos caminhos que check_cadence_single_source vigia. O fiscal cobre
+    código, política, configuração e workflow por lista de prefixos; um arquivo em harness/agents/ ou
+    docs/ poderia afirmar a duração sem ser pego. Não avaliado porque a lista é deliberadamente estreita
+    — alargá-la para todo o repositório traria de volta os falsos positivos que custaram duas iterações
+    (retenção de evidência e o comentário que explica a própria regra), e um fiscal que acusa tudo é indistinguível
+    de um que não acusa nada.

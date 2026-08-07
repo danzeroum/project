@@ -40,7 +40,8 @@ repository:
 external_audit:
   # LIGADA em 05/08/2026 (CP-036). O que a ligou não foi uma decisão de escrever mais código: foi
   # a autoridade externa passar a existir de fato — `danzeroum/harness-authority`, um repositório
-  # que este aqui não alcança, com App próprio, cron diário e atestado que expira em 25h.
+  # que este aqui não alcança, com App próprio e atestado que expira na cadência declarada
+  # em `cadence`, abaixo — o único lugar onde essa duração é escrita.
   enabled: true
   accepted_risk: RISK-EXT-001   # risco aceito COM DATA (princípio (g)); `due` mora no registro
   # QUEM pode atestar. Ligar sem este bloco produziria um estado pior que desligado: o molde

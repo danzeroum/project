@@ -1,10 +1,11 @@
 name: atestado — auto-merge
 
-# O PR diário da autoridade externa mergeia sem humano — e SÓ ele.
+# O PR periódico da autoridade externa mergeia sem humano — e SÓ ele.
 #
-# Desde a CP-036 o atestado vale 25h e o molde bloqueia quando ele vence. O cron da autoridade
-# abre um PR por dia; exigir um clique humano nele daria à trava um gargalo diário, que é como
-# trava boa vira trava contornada (princípio (e)).
+# Desde a CP-036 o atestado expira e o molde bloqueia quando ele vence; a duração é a declarada em
+# `harness.yaml:external_audit.cadence`, e não se repete aqui porque cópia deriva. O cron da
+# autoridade abre um PR por ciclo; exigir um clique humano nele daria à trava um gargalo recorrente,
+# que é como trava boa vira trava contornada (princípio (e)).
 #
 # `pull_request_target` E NÃO `pull_request`, e a escolha é a segurança inteira deste workflow:
 # com `pull_request_target` o YAML executado vem da BASE, nunca do head do PR. Com

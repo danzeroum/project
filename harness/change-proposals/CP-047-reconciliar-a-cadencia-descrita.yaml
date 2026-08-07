@@ -1,0 +1,75 @@
+# Mudança proposta: a documentação volta a dizer a verdade sobre a cadência, e um fiscal a mantém.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-047
+  title: "A cadência descrita reconcilia com a cadência viva, e histórico deixa de se confundir com presente"
+  author_kind: agent
+  created_at: "2026-08-07T15:40:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+
+  paths_affected:
+    - ci/audit_governance.py
+    - ci/harness_lib.py
+    - harness/schemas/audit-report.schema.json
+    - ci/automerge_gate.py
+    - harness/harness.yaml
+    - harness/policies/trava-externa.md
+    - governance/risk-register.yaml
+    - architecture/adr/ADR-028-a-autoridade-externa-ligada.md
+    - architecture/adr/ADR-029-o-atestado-e-o-unico-conteudo-auto-mergeavel.md
+    - tests/governance/test_automerge_bites.py
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-META-001
+      - RISK-ORIENT-001
+    rationale: >
+      DOCUMENTAÇÃO ENVELHECIDA NÃO É TRAVA NÃO-PLUGADA, e tratar as duas igual seria o erro desta
+      proposta. Nenhum dos textos abaixo morde; nenhum deles deixou de morder. O que eles fazem é
+      pior de um jeito diferente: descrevem errado o comportamento vivo, e quem os lê para decidir
+      decide com a informação errada — sem nenhum vermelho para avisar.
+      O ESTADO MEDIDO. "25h" aparece em doze arquivos. Depois da CP-046 a validade viva é derivada
+      de `external_audit.cadence`, e nenhum desses doze diz isso. Dois deles já se voltaram contra
+      o repositório: o teste que fixava `== 25h` recusou o atestado legítimo e travou o molde em
+      07/08 num impasse circular — o PR que trazia o carimbo válido não podia mergear porque o
+      teste insistia no número velho, e sem esse merge o molde seguia bloqueado por atestado
+      vencido.
+      A DISTINÇÃO QUE ORGANIZA TUDO: "decidi X então" ≠ "faço X agora". Registro histórico NÃO se
+      reescreve. Uma CP descreve o dia em que foi escrita, e um ADR descreve a decisão que tomou —
+      apagar "25h" de dentro deles falsificaria o registro, e o registro é o que permite entender
+      por que as coisas são como são. O que se corrige é a descrição do PRESENTE: comentário de
+      código, política, e a tabela de um ADR que ainda se lê como "é assim que funciona".
+      ONDE ISSO CAI, ARQUIVO A ARQUIVO. Vivo, e portanto reescrito: o comentário de
+      `harness.yaml`, a docstring de `ci/automerge_gate.py`, o comentário do registro de riscos.
+      Histórico, e portanto preservado com rótulo: ADR-028 e ADR-029 ganham uma nota de
+      superseção no topo dizendo que a cadência descrita ali era a vigente quando a decisão foi
+      tomada, e apontando para o canônico. Os textos ficam intactos abaixo dela.
+      O FISCAL, E O CUIDADO QUE ELE EXIGE. `check_cadence_single_source` recusa número de validade
+      de atestado escrito em arquivo que descreve o vivo. Ele é a décima ocorrência potencial da
+      família âncora-na-menção — a que `harness/policies/conformance.md` registra com nove casos,
+      o último nascido DENTRO do fiscal escrito para vigiar os anteriores. Por isso ele separa por
+      NATUREZA DO ARQUIVO em vez de por proximidade de palavra: registro histórico (ADRs, CPs) e
+      testes explicam o porquê e ficam de fora por construção; código, política e configuração
+      descrevem o agora e ficam dentro. Um fiscal que proibisse a menção obrigaria a apagar a
+      explicação no lugar exato onde o próximo leitor a procura.
+      POR QUE `medium` E NÃO `high`. Nada aqui remove trava, nenhum caminho de bloqueio muda, e o
+      fiscal novo só acrescenta uma recusa. O que se ganha é que a próxima mudança de cadência não
+      possa deixar doze arquivos mentindo em silêncio — que é exatamente o estado de hoje.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_cadencia_reconciliada_bites.py
+
+  human_approval_required: false
+  change_mode: pull_request

@@ -1,5 +1,14 @@
 # ADR-028 — A autoridade externa está ligada, e o emissor é conferido
 
+> **Nota de superseção (CP-046).** A cadência descrita neste documento — cron diário e atestado de
+> 25h — era a vigente quando esta decisão foi tomada, e o texto abaixo é preservado por isso: um
+> ADR descreve o dia em que foi escrito, e reescrevê-lo apagaria o registro que permite entender
+> por que as coisas ficaram como estão. A cadência **viva** é declarada em
+> `harness/harness.yaml:external_audit.cadence` e conferida por
+> `ci/audit_governance.py::check_attestation_cadence`. Onde este texto disser "25h", leia
+> "a validade declarada no canônico".
+
+
 **Status:** accepted · **Data:** 2026-08-05 · **Proposta:** CP-036
 **Fecha:** ADR-020 (a camada local não equivale à externa) — a lacuna que ele registrou
 

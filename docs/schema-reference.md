@@ -53,7 +53,7 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `summary.by_severity` | object | sim |  |
 | `findings` | array<object> | sim | Divergências entre o declarado e o real. severity é TRIAGEM, não gate: com fail-closed qualquer achado derruba o CI. |
 | `findings[].id` | string | sim |  |
-| `findings[].origin` | enum(adr_assertion · adr_meta · assertion_self_match · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing · dependency_conflict · suite_contract) | sim |  |
+| `findings[].origin` | enum(adr_assertion · adr_meta · assertion_self_match · stage_coverage · stage_partition · policy_pointer · risk_control · protected_path · lgpd_inventory · lgpd_scan · lgpd_retention · lgpd_declaration · lgpd_judgment · manual_assertion · ingest_pipeline · alignment_risk · alignment_orphan · conformance_review · cp_lifecycle · decision_chain · change_buffer · external_audit · ledger · agent_pairing · dependency_conflict · suite_contract · cadence_single_source · approval_gate) | sim |  |
 | `findings[].severity` | enum(info · low · medium · high · critical) | sim |  |
 | `findings[].summary` | string | sim |  |
 | `findings[].adr` | string | — |  |
