@@ -1,0 +1,103 @@
+# Mudança proposta: uma régua passa a ser consumida por FICHA + PIN, sob contrato versionado.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-041
+  title: "Contrato de Régua (CP-A): contrato versionado, registro de suites, fiscal genérico e motor de mutação compartilhável"
+  author_kind: agent
+  created_at: "2026-08-06T16:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - harness/suite-contract/contract-v1/SUITE_CONTRACT.md
+    - harness/suite-contract/contract-v1/contract-manifest.json
+    - harness/suite-contract/mutation-engine/mutation_engine.py
+    - harness/suites/qa-suite.yaml
+    - harness/suites/privacy-suite.yaml
+    - harness/schemas/suite-registry.schema.json
+    - harness/schemas/suite-contract-manifest.schema.json
+    - harness/schemas/suite-report.schema.json
+    - harness/schemas/audit-report.schema.json
+    - harness/harness.yaml
+    - harness/stages.yaml
+    - harness/policies/contrato-de-regua.md
+    - harness/policies/prova-de-mutacao.md
+    - ci/audit_suites.py
+    - ci/audit_mutations.py
+    - ci/env_guard.py
+    - ci/hooks/pre_bash_env_hygiene.py
+    - ci/validate_all.py
+    - ci/validate_metadata.py
+    - ci/harness_lib.py
+    - architecture/adr/index.yaml
+    - architecture/adr/ADR-030-a-regua-entra-por-ficha.md
+    - .github/workflows/governance.yml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-WEBQA-001
+      - RISK-CONF-001
+      - RISK-SEC-001
+    rationale: >
+      A RÉGUA É CONSUMIDA POR CÓDIGO ESPECÍFICO, E ISSO NÃO ESCALA PARA DUAS. A qa-suite entra
+      hoje por um conjunto de gestos cravados um a um: o pin em `requirements-qa.txt`, o perfil em
+      `tests/qa/config.yaml`, dois passos literais em `.github/workflows/qa.yml`, o contrato em
+      prosa no `WEBQA_CONSUMER_CONTRACT.md` e a linha `env_denylist_prefix: ["WEBQA_"]` em
+      `harness/harness.yaml`. Nenhuma dessas peças sabe que é instância de uma classe. Uma segunda
+      régua — a privacy-suite planejada — exigiria repetir os cinco gestos à mão, e a segunda
+      cópia derivaria da primeira no primeiro dia em que uma delas mudasse. É a mesma deriva que
+      o ADR-003 fecha para a VERSÃO, ainda aberta para o CONSUMO.
+      O QUE FALTAVA ERA A PERGUNTA INVERTIDA. O `WEBQA_CONSUMER_CONTRACT.md` diz o que ESTE
+      consumidor promete à suíte. Nada dizia o que uma SUÍTE precisa entregar para ser consumível
+      — e por isso os defeitos da qa-suite (sem tag, laudo que sai 0 declarando-se inconclusivo)
+      não tinham onde aparecer como achado. Um defeito sem lugar onde aparecer é indistinguível
+      de ausência de defeito.
+      O CONTRATO NASCE VERSIONADO PORQUE A ALTERNATIVA JÁ FOI VIVIDA. Um contrato de
+      rastreabilidade não-rastreável seria a ironia que o molde-sem-tag foi até o ADR-015. A v1 é
+      fechada por `contract-manifest.json` com sha256 por arquivo — a mesma razão pela qual
+      `target.lock` guarda `manifest_sha` e não só a tag: tag é ponteiro móvel, digest não é.
+      A DENYLIST PASSA A DERIVAR DAS FICHAS. `WEBQA_` sai de `harness.yaml` e nasce da ficha da
+      qa-suite; `PRIVSUITE_` nasce da ficha da privacy-suite ANTES de a suíte existir. É a lição
+      do CP-020 e do CP-025 aplicada mais uma vez: derivar em vez de duplicar é o que faz uma
+      variável nova nascer coberta. A leitura é FAIL-CLOSED — registro ilegível é exit 2, jamais
+      conjunto vazio de prefixos, porque conjunto vazio é a trava desligada com cara de trava.
+      O MOTOR DE MUTAÇÃO É EXTRAÍDO, NUNCA COPIADO. `ci/audit_mutations.py` guarda o que sabe
+      deste repositório (o índice de ADRs, o fiscal de conformidade, o protocolo
+      HARNESS_REPO_ROOT); o motor puro vai para `harness/suite-contract/mutation-engine/` e é
+      consumido por pin, com sha256 no manifesto. Uma cópia local poderia ter um operador
+      enfraquecido e a prova diria "todas mordem" sem erro nem aviso — o selo falso que a política
+      `prova-de-mutacao.md` chama de pior que fiscal nenhum.
+      CUSTO (princípio (e)): três schemas, um fiscal novo em `validate_all` (leitura de dois YAMLs
+      pequenos, sem rede, milissegundos), um diretório de contrato e um de registro em
+      `stages.yaml`. A prova de mutação cresce de 163 para ~172 asserções — cerca de cinco
+      segundos a mais num passo que já roda fora da validação total, por decisão do ADR-024.
+      Nenhum consumo atual quebra: o `WEBQA_CONSUMER_CONTRACT.md` e `tests/qa/` seguem válidos e
+      a ficha aponta para eles em vez de substituí-los.
+      MORDIDA (a prova de que não é placa): ficha sem `env_prefix` reprova no schema; ficha com
+      `contract_version` inexistente reprova no enum fechado; gap cujo `due` venceu vira achado
+      bloqueante, forçando re-decisão em vez de a dívida envelhecer calada; cláusula sem mutação
+      canônica declarada no manifesto faz `ci/audit_suites.py` REPROVAR A SI MESMO
+      (`FISCAL-SEM-AUTOPROVA`), no padrão do CP-030; e `PRIVSUITE_LEAK=1` no ambiente aborta com
+      exit 10 por derivação da ficha `planned`, provando a cobertura antes do consumo.
+      INVARIANTE DA EXTRAÇÃO: as 163 asserções do molde reprovam suas mutações canônicas antes e
+      depois de mover o motor, com laudo comparado contra baseline. Divergência é motivo de
+      PARAR e reportar, nunca de ajustar o fiscal — editar o fiscal para o CI passar é a terceira
+      opção, e é a errada.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_contrato_regua_bites.py
+    - tests/governance/test_mutacao_bites.py
+    - tests/governance/test_env_hygiene_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

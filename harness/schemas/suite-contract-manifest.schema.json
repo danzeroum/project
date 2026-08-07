@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/suite-contract-manifest.schema.json",
+  "title": "Manifesto do Contrato de Régua — o que fecha uma versão do contrato",
+  "description": "UM CONTRATO DE RASTREABILIDADE NÃO-RASTREÁVEL SERIA A IRONIA QUE ESTE MOLDE JÁ FOI até o ADR-015. Por isso a v1 nasce fechada: cada arquivo do contrato entra aqui com seu sha256, e o fiscal confere. A âncora é o DIGEST, não o nome da pasta — mesma razão pela qual target-lock.schema.json guarda manifest_sha além da tag: tag é ponteiro móvel, digest não é. O contrato viaja dentro da release vX.Y.Z do molde, cujo artifact_digest já cobre a árvore inteira; o que este manifesto acrescenta é a capacidade de detectar edição de UM arquivo do contrato sem release nova.",
+  "type": "object",
+  "required": ["schema_version", "contract"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "contract": {
+      "type": "object",
+      "required": ["version", "released_at", "files", "clauses"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": ["v1"],
+          "description": "Casa com o enum de suite-registry.schema.json:contract_version e com o nome do diretório. As três formas de dizer a mesma coisa são conferidas entre si pelo fiscal — restatar sem conferir seria a deriva que este repositório combate."
+        },
+        "released_at": { "type": "string", "format": "date" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Todo arquivo que É o contrato, com seu digest. Um arquivo do contrato fora desta lista é um arquivo que pode mudar sem que nada acuse — e o fiscal cobra a partição nos dois sentidos: item que não existe no disco, e arquivo no disco que não está aqui.",
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "role": {
+                "type": "string",
+                "enum": ["contract-text", "schema", "engine"],
+                "description": "engine = o motor de mutação compartilhado, consumido POR PIN e nunca copiado. É o que permite a uma suíte provar as próprias travas com o mesmo motor que o molde usa, sem que exista uma segunda cópia onde um operador possa ter sido enfraquecido."
+              }
+            }
+          }
+        },
+        "clauses": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "description": "As cinco cláusulas. minItems e maxItems iguais a 5 porque o conjunto é FECHADO nesta versão: acrescentar uma sexta é a v2, não uma edição da v1. Sem a trava, o contrato mudaria de conteúdo sem mudar de nome, e uma ficha que declara `contract_version: v1` passaria a prometer outra coisa.",
+          "items": {
+            "type": "object",
+            "required": ["id", "titulo", "assertion", "canonical_mutation"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "enum": [
+                  "pin-fonte-unica",
+                  "release-com-manifesto",
+                  "envelope-com-3-estados",
+                  "fingerprint",
+                  "autoprova-de-mordida"
+                ]
+              },
+              "titulo": { "type": "string", "minLength": 10 },
+              "assertion": {
+                "type": "string",
+                "pattern": "^ci/[a-z_]+\\.py::[a-z_]+$",
+                "description": "O símbolo que COBRA esta cláusula, resolvido por AST contra o arquivo real — a mesma mecânica de enforced_by/symbol em stages.yaml. Cláusula cujo fiscal não existe é prosa, e a política desta casa chama isso de lembrete, nunca garantia."
+              },
+              "canonical_mutation": {
+                "type": "object",
+                "required": ["op", "alvo", "espera_achado"],
+                "additionalProperties": false,
+                "description": "CLÁUSULA 5 APLICADA A SI MESMA. Cada cláusula declara como negá-la e qual achado isso deve produzir. ci/audit_suites.py aplica, exige o achado, e REPROVA A SI MESMO se qualquer cláusula chegar aqui sem mutação declarada — o padrão do CP-030, agora sobre o contrato. Um fiscal que não sabe como seria negado não sabe se está funcionando.",
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "remover_caminho", "criar_caminho", "apagar_linha", "apagar_padrao",
+                      "substituir_texto", "injetar_apos", "injetar_texto", "quebrar_ponteiro"
+                    ],
+                    "description": "Restrito aos operadores que o motor compartilhado implementa. O fiscal confere este enum contra mutation_engine.OPERADORES em vez de confiar nele: um enum que promete um operador inexistente faria a autoprova falhar por engano de escrita, e o achado mandaria consertar o lugar errado."
+                  },
+                  "alvo": { "type": "string", "minLength": 1 },
+                  "de": { "type": "string" },
+                  "para": { "type": "string" },
+                  "texto": { "type": "string" },
+                  "pointer": { "type": "string" },
+                  "pattern": { "type": "string" },
+                  "exclude": { "type": "array", "items": { "type": "string" } },
+                  "contendo": { "type": "string" },
+                  "marcador": { "type": "string" },
+                  "espera_achado": {
+                    "type": "string",
+                    "minLength": 3,
+                    "description": "Fragmento do ID do achado que a mutação deve produzir. Exigir o achado ESPECÍFICO, e não apenas 'algum vermelho', é o que impede a autoprova de ser satisfeita por um erro não relacionado — o modo de falha que a política prova-de-mutacao.md descreve como o acordo entre a mutação e a asserção que não é sobre o mundo."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

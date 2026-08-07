@@ -1,0 +1,67 @@
+# Ficha da privacy-suite — DECLARADA ANTES DE EXISTIR, e é esse o exercício.
+# Schema: ../schemas/suite-registry.schema.json · Contrato: ../suite-contract/contract-v1/
+#
+# Esta ficha é a prova de que a padronização aconteceu. Ela entra no registro, é validada pelo
+# schema, aparece no laudo do fiscal genérico e coloca PRIVSUITE_* na denylist efetiva — tudo isso
+# SEM UMA LINHA DE CÓDIGO NOVA em ci/. Se acrescentar uma régua tivesse exigido editar um fiscal,
+# o Contrato de Régua seria mais um lugar onde a regra mora, e não uma trava.
+#
+# O env_prefix é o ponto mais fino: ele passa a ser negado ANTES de a suíte existir. Uma variável
+# que só entra na denylist no dia em que a régua chega é uma variável descoberta pelo primeiro
+# agente que a define — e o CP-020 já ensinou que derivar em vez de duplicar é o que faz uma
+# variável nova nascer coberta.
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+suite:
+  nome: privacy-suite
+  status: planned
+  contract_version: v1
+
+  # A régua ainda não existe, mas o LUGAR da versão já está decidido. Declarar o caminho antes do
+  # conteúdo é o que impede a v0.1 de nascer com a versão espalhada — que foi como a qa-suite
+  # nasceu, e é o GAP-QA-FONTE-UNICA dela.
+  pin_source: requirements-privacy.txt
+
+  # O schema PROÍBE entrypoint em status: planned. Sem a proibição, "planned" viraria o rótulo
+  # confortável de quem já consome sem declarar consumo.
+  plan_ref: harness/agents/privacy/AGENT.md
+
+  perfil_path: governance/privacy-review.yaml
+
+  laudo:
+    path: harness/reports/privacy-report.json
+    schema: harness/schemas/report.schema.json
+
+  env_prefix: PRIVSUITE_
+
+  ledger_event_kind: validation
+
+  fingerprint_fields: [name, version, commit, catalog_hash, schema_version]
+
+  release:
+    anchored: false   # ver GAP-PRIV-INEXISTENTE
+
+  gaps:
+    - id: GAP-PRIV-SEM-PIN
+      clause: pin-fonte-unica
+      description: >
+        `requirements-privacy.txt` ainda não existe: a ficha declara o LUGAR da versão antes de
+        haver versão. É deliberado — decidir o lugar antes do conteúdo é o que impede a v0.1 de
+        nascer com a versão espalhada, que é o GAP-QA-FONTE-UNICA da qa-suite. O gap existe para
+        que 'planned' não vire o rótulo que dispensa a cláusula 1 para sempre.
+      declared_at: "2026-08-06"
+      due: "2026-11-03"
+      risk: RISK-PRIV-001
+
+    - id: GAP-PRIV-INEXISTENTE
+      clause: release-com-manifesto
+      description: >
+        A régua não existe: não há v0.1 publicada, portanto não há manifesto a ancorar. O gap
+        cobre a cláusula 2 enquanto o consumo é inativo, e vence junto com os da qa-suite para
+        que a decisão sobre as duas réguas seja tomada de uma vez, e não uma de cada vez.
+      declared_at: "2026-08-06"
+      due: "2026-11-03"
+      risk: RISK-PRIV-001

@@ -10,7 +10,7 @@
     "consumer_project",
     "execution"
   ],
-  "additionalProperties": false,
+  "comment": "ESTE BLOCO NÃO FECHA O OBJETO, e a ausência é deliberada (CP-041). Ele tinha `additionalProperties: false`, e como é composto por $ref dentro do allOf de report.schema.json, aquela cláusula recusava as propriedades que o PRÓPRIO report acrescenta — `result` e `findings`. O efeito medido: report.schema.json não validava documento nenhum, nem o mais correto possível. Ninguém percebeu porque nada era validado contra ele: o laudo é produzido pela suíte externa, que não está instalada, e harness/reports/ é gitignored. Uma trava que nunca foi exercida e que teria recusado tudo é o caso extremo do que esta casa chama de decorativa. A correção certa é a que a versão 2020-12 prevê: mixin não fecha objeto — quem fecha é o envelope CONCRETO, com `unevaluatedProperties: false`, que enxerga as anotações dos subschemas irmãos. Ver report.schema.json.",
   "allOf": [
     {
       "comment": "Bump formalizado: schema_version 1.0 NÃO admite o bloco artifact.",

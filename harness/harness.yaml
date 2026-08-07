@@ -99,7 +99,14 @@ execution_modes:
 # Um agente com shell não deve ter como receber, preservar ou injetar WEBQA_*.
 env_hygiene:
   env_allowlist: [PATH, HOME, LANG]
-  env_denylist_prefix: ["WEBQA_"]
+  # VAZIA POR DERIVAÇÃO, não por descuido (CP-041). `WEBQA_` morava aqui como literal; agora nasce
+  # de `harness/suites/qa-suite.yaml:env_prefix`, e `PRIVSUITE_` nasce da ficha da privacy-suite
+  # antes de a régua existir. Esta lista guarda apenas prefixos que não pertencem a régua alguma —
+  # hoje, nenhum. A denylist EFETIVA é `ci/env_guard.py::prefixos_efetivos`, que soma esta lista
+  # às fichas e é FAIL-CLOSED: registro ausente ou ilegível aborta com exit 2, jamais devolve o
+  # que conseguiu ler. Restatar `WEBQA_` aqui recriaria a segunda cópia que o CP-025 já pagou para
+  # não ter — e a primeira entrada a divergir seria a que alguém removeu de um dos dois lugares.
+  env_denylist_prefix: []
   # CP-025 — a segunda família, e ela não autoriza nada: redireciona PARA ONDE o processo busca o
   # que executa. Nenhuma destas ataca o fiscal; elas trocam o que o fiscal lê. E fiscal enganado
   # reporta verde com convicção, que é estritamente pior que vermelho porque encerra a investigação.

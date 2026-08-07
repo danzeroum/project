@@ -154,11 +154,14 @@ stages:
   - id: STAGE-QA-CONFIG
     order: 10
     name: "Configuração declarativa de QA"
-    artifacts: ["tests/qa", "requirements-qa.txt"]
+    artifacts: ["tests/qa", "requirements-qa.txt", "harness/suites"]
     enforced_by:
       - kind: ci_script
         ref: ci/validate_metadata.py
         symbol: check_version_single_source
+      - kind: ci_script
+        ref: ci/audit_suites.py
+        symbol: check_clausula_pin
       - kind: workflow_step
         ref: .github/workflows/qa.yml
         step: "Auditoria passiva (Trabalho A — só se escopo autorizar)"
@@ -267,6 +270,10 @@ stages:
       # CP-028 — o lockfile do ambiente dos fiscais e o script que dá paridade local a ele.
       - "requirements-ci.txt"
       - "harness/local_validate.sh"
+      # CP-041 — o contrato versionado e o motor de mutação que ele compartilha por pin. Fica em
+      # CI-HARNESS e não em QA-CONFIG porque não é configuração de régua alguma: é a máquina que
+      # julga qualquer régua, e o motor que prova que ela morde.
+      - "harness/suite-contract"
     enforced_by:
       - kind: ci_script
         ref: ci/validate_all.py
@@ -274,6 +281,9 @@ stages:
       - kind: ci_script
         ref: ci/audit_mutations.py
         symbol: provar
+      - kind: ci_script
+        ref: ci/audit_suites.py
+        symbol: check_contrato
       - kind: workflow_step
         ref: .github/workflows/governance.yml
         step: "Validação total do projeto"

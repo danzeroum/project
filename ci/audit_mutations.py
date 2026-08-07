@@ -7,9 +7,15 @@ um repositório verde — e é o único estado que este sistema inteiro existe p
 
 COMO A MUTAÇÃO É OBTIDA, e aqui houve uma decisão. O plano pede que "cada controle bloqueante
 declare nos metadados a mutação mínima que deve reprovar" e, na mesma frase, que a suíte seja
-"derivada dos metadados, nunca de lista duplicada". Com 123 asserções, escrever 118 blocos
-`mutation:` à mão SERIA a lista duplicada — ela derivaria da asserção real no primeiro dia em que
-alguém mudasse um `pattern` e esquecesse o bloco.
+"derivada dos metadados, nunca de lista duplicada". Escrever um bloco `mutation:` à mão para cada
+asserção SERIA a lista duplicada — ela derivaria da asserção real no primeiro dia em que alguém
+mudasse um `pattern` e esquecesse o bloco.
+
+(O número de asserções provadas NÃO é restatado em lugar nenhum, e a razão é uma correção: as
+contagens escritas na prosa — deste módulo, da política e do workflow — diziam 118 quando o real
+já era 163. É a doutrina do "não restatar a versão da régua" aplicada ao próprio fiscal; número
+copiado deriva, e este derivou. O fiscal IMPRIME quantas provou, e quem quiser o número lê o
+laudo.)
 
 A leitura adotada: **a mutação é DERIVADA da asserção**, porque cada tipo de asserção tem um
 inverso bem definido (o que existe passa a não existir; o padrão exigido some; a trava de schema
@@ -21,6 +27,16 @@ que a asserção correspondente fique vermelha. Se não ficar, o achado não é 
 é sobre a própria asserção, que passa a ser decorativa. É a regra bloqueante reprovando a si
 mesma, como o plano pede.
 
+O QUE SOBROU AQUI, e por quê. O MOTOR — derivar o inverso, aplicar, desfazer — mora em
+`harness/suite-contract/mutation-engine/` desde o CP-041 e é consumido POR PIN, com sha256 no
+`contract-manifest.json` da contract-v1. Ele não sabe nada deste repositório e por isso serve
+tanto ao molde quanto a qualquer suíte que queira provar as próprias travas.
+
+Este arquivo guarda o que é IRREDUTIVELMENTE daqui: o índice de ADRs como fonte das asserções, o
+fiscal de conformidade como juiz, o protocolo `HARNESS_REPO_ROOT` e a cópia do repositório. A
+divisão não é estética — é a fronteira entre "como se nega uma asserção" (qualquer um) e "quais
+asserções existem e quem as julga" (só este repositório).
+
 Uso:  python ci/audit_mutations.py [--quiet] [--json] [--only ADR-XXX-AN]
 Saída: 0 todas mordem · 1 alguma não morde ou não tem mutação · 2 não foi possível provar.
 """
@@ -29,195 +45,34 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import shutil
 import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-AUDITOR_VERSION = "1.0"
+AUDITOR_VERSION = "1.1"
 REPORT_PATH = "harness/reports/mutation-audit.json"
 
-# Não copiados para a cópia mutada: só custariam tempo, e nenhum fiscal os percorre.
-SKIP = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules",
-        ".ruff_cache", ".mypy_cache", "build", "dist"}
-
-# Texto injetado para violar um `file_lacks`. Simples de propósito: o objetivo é casar o padrão,
-# não parecer código real.
-_MARCA = "MUTACAO-CANONICA"
+MOTOR_DIR = "harness/suite-contract/mutation-engine"
 
 
-def _texto_que_casa(pattern: str) -> str | None:
-    """Um texto que satisfaz o padrão — ou None quando não é mecanicamente derivável.
+def _motor(raiz: Path | None = None):
+    """Importa o motor compartilhado a partir da árvore REAL, nunca da cópia mutada.
 
-    Heurística deliberadamente simples: tira âncoras e quantificadores e devolve o literal. Ela
-    ACERTA em padrões literais (a maioria) e ERRA em regex expressiva — e errar aqui é seguro,
-    porque o chamador confere se o texto de fato casa antes de usá-lo. Adivinhação verificada é
-    barata; adivinhação confiada seria a fonte de um verde falso.
+    A distinção é a única sutileza deste import. `provar()` aponta `HARNESS_REPO_ROOT` para uma
+    cópia e recarrega os fiscais contra ela — é o que faz a mutação ser julgada no lugar certo.
+    O motor NÃO acompanha esse movimento: ele é a régua que mede, e uma régua que se deixa mutar
+    junto com o medido carimbaria qualquer coisa. Uma mutação que apagasse um operador do motor
+    faria as asserções seguintes pararem de morder, e o fiscal culparia as ASSERÇÕES.
     """
-    literal = pattern
-    for marca in ("^", "$", "\\b", "(?s)", "(?m)"):
-        literal = literal.replace(marca, "")
-    literal = re.sub(r"\\([./\-:*+?()\[\]{}|])", r"\1", literal)
-    literal = literal.replace("\\s*", " ").replace("\\s+", " ").replace("\\d+", "1")
-    if re.search(r"[\[\](){}|*+?]", literal):
-        return None
-    try:
-        if re.search(pattern, literal, re.MULTILINE):
-            return literal
-    except re.error:
-        return None
-    return None
+    origem = raiz or Path(__file__).resolve().parent.parent
+    caminho = str((origem / MOTOR_DIR).resolve())
+    if caminho not in sys.path:
+        sys.path.insert(0, caminho)
+    import mutation_engine
 
-
-def derivar_mutacao(a: dict) -> dict | None:
-    """O inverso canônico de uma asserção. None = não derivável (a asserção precisa declarar).
-
-    'Mínima' aqui significa: toca um alvo só, e nega exatamente o que a asserção afirma. Uma
-    mutação maior provaria menos — se ela quebra cinco coisas, o vermelho não diz qual trava
-    mordeu.
-    """
-    if "mutation" in a:
-        return a["mutation"]
-    kind = a.get("kind")
-
-    if kind == "path_present":
-        return {"op": "remover_caminho", "alvo": a["paths"][0]}
-    if kind == "path_absent":
-        return {"op": "criar_caminho", "alvo": a["paths"][0]}
-    if kind == "dir_allowlist":
-        # O inverso de "só isto pode estar aqui" é pôr QUALQUER OUTRA COISA. Um nome que não está
-        # na allowlist, escolhido para não se confundir com nada real do diretório.
-        return {"op": "criar_caminho",
-                "alvo": f"{a['dir'].rstrip('/')}/{_MARCA}-intruso"}
-    if kind == "file_matches":
-        return {"op": "apagar_padrao", "alvo": a["files"][0], "pattern": a["pattern"],
-                "exclude": a.get("exclude") or []}
-    if kind == "file_lacks":
-        texto = _texto_que_casa(a["pattern"])
-        if texto is None:
-            return None
-        return {"op": "injetar_texto", "alvo": a["files"][0], "texto": texto}
-    if kind == "schema_lock":
-        return {"op": "quebrar_ponteiro", "alvo": a["file"], "pointer": a["pointer"]}
-    if kind == "import_required":
-        return {"op": "apagar_linha", "alvo": a["module_glob"],
-                "contendo": a["symbols"][0].rsplit(".", 1)[-1]}
-    if kind == "import_forbidden":
-        return {"op": "injetar_texto", "alvo": a["module_glob"],
-                "texto": f"\nfrom {a['symbols'][0].rsplit('.', 1)[0]} import "
-                         f"{a['symbols'][0].rsplit('.', 1)[-1]}  # {_MARCA}\n"}
-    return None
-
-
-def _resolver(raiz: Path, alvo: str, exclude: list[str] | None = None) -> Path:
-    """O alvo pode ser um glob — asserções sobre famílias de arquivo existem (harness/policies/*.md).
-
-    Sem isto, a mutação "não encontrava" o alvo e o fiscal acusava a asserção de vigiar o que não
-    existe. Era um defeito da mutação disfarçado de defeito da asserção, que é a pior forma de
-    achado: ele manda consertar o lugar errado.
-    """
-    if any(ch in alvo for ch in "*?["):
-        proibidos = {p for padrao in (exclude or []) for p in raiz.glob(padrao)}
-        casados = [p for p in sorted(raiz.glob(alvo)) if p not in proibidos]
-        if casados:
-            return casados[0]
-    return raiz / alvo
-
-
-def aplicar(mut: dict, raiz: Path) -> dict[str, bytes | None]:
-    """Aplica e devolve o estado ANTERIOR dos arquivos tocados, para restaurar depois.
-
-    Restaurar em vez de recopiar o repositório: 118 cópias custariam minutos, e a prova não fica
-    melhor por ser lenta.
-    """
-    alvo = _resolver(raiz, mut["alvo"], mut.get("exclude"))
-    antes: dict[str, bytes | None] = {}
-
-    chave = alvo.relative_to(raiz).as_posix()
-
-    if mut["op"] == "remover_caminho":
-        if alvo.is_dir():
-            destino = alvo.with_name(alvo.name + ".mutado")
-            alvo.rename(destino)
-            antes[chave] = b"__DIR__" + str(destino).encode()
-        elif alvo.exists():
-            antes[chave] = alvo.read_bytes()
-            alvo.unlink()
-        return antes
-
-    if mut["op"] == "criar_caminho":
-        antes[chave] = None
-        alvo.parent.mkdir(parents=True, exist_ok=True)
-        alvo.write_text(f"{_MARCA}\n", encoding="utf-8")
-        return antes
-
-    if not alvo.exists():
-        return antes
-    original = alvo.read_bytes()
-    antes[chave] = original
-    texto = original.decode("utf-8", errors="replace")
-
-    if mut["op"] == "apagar_linha":
-        alvo.write_text("\n".join(l for l in texto.splitlines()
-                                   if mut["contendo"] not in l) + "\n", encoding="utf-8")
-    elif mut["op"] == "apagar_padrao":
-        # TODAS as ocorrências, e a correção veio da própria prova: com count=1, cinco asserções
-        # ficaram verdes depois da mutação e o fiscal as acusou de decorativas. Elas não eram — a
-        # mutação é que era insuficiente. O inverso de "o arquivo contém o padrão" é "não contém
-        # mais", e um padrão que aparece cinco vezes continua aparecendo depois de apagar uma.
-        alvo.write_text(re.sub(mut["pattern"], f"# {_MARCA}", texto, flags=re.MULTILINE),
-                        encoding="utf-8")
-    elif mut["op"] == "substituir_texto":
-        # O inverso de uma DECISÃO BINÁRIA declarada não é apagar a linha — é declarar o contrário.
-        # `enabled: true` sem a chave é erro de schema, um terceiro estado com outra reação; quem
-        # desliga a autoridade escreve `false` e continua válido perante o schema. Mutar para o
-        # estado que não é erro é o que prova que a asserção pega o gesto real, e não só o
-        # desleixo. Sem `de` no arquivo a mutação seria um no-op silencioso — o chamador vê
-        # `antes` vazio? Não: o arquivo existe, então devolvemos o original e o passo seguinte
-        # (a asserção continuar verde) acusa. Por isso a substituição é conferida aqui.
-        if mut["de"] not in texto:
-            return antes
-        alvo.write_text(texto.replace(mut["de"], mut["para"]), encoding="utf-8")
-    elif mut["op"] == "injetar_apos":
-        # Injeta DENTRO do escopo do marcador. As asserções de pureza (verify_chain,
-        # verify_approval) usam padrão temperado, que só casa entre a assinatura e o próximo
-        # `def` de topo — anexar no fim do arquivo não as violaria, e a mutação provaria nada.
-        marcador = mut["marcador"]
-        pos = texto.find(marcador)
-        if pos < 0:
-            return antes
-        corte = texto.find("\n", texto.find(":", pos)) + 1
-        alvo.write_text(texto[:corte] + mut["texto"] + "\n" + texto[corte:], encoding="utf-8")
-    elif mut["op"] == "injetar_texto":
-        alvo.write_text(texto + "\n" + mut["texto"] + "\n", encoding="utf-8")
-    elif mut["op"] == "quebrar_ponteiro":
-        doc = json.loads(texto)
-        partes = [p for p in mut["pointer"].split("/") if p]
-        node = doc
-        for p in partes[:-1]:
-            node = node[int(p)] if isinstance(node, list) else node[p]
-        ultimo = partes[-1]
-        if isinstance(node, list):
-            del node[int(ultimo)]
-        else:
-            node.pop(ultimo, None)
-        alvo.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
-    return antes
-
-
-def restaurar(antes: dict[str, bytes | None], raiz: Path) -> None:
-    for rel, conteudo in antes.items():
-        alvo = raiz / rel
-        if conteudo is None:
-            if alvo.exists():
-                alvo.unlink()
-        elif conteudo.startswith(b"__DIR__"):
-            Path(conteudo[len(b"__DIR__"):].decode()).rename(alvo)
-        else:
-            alvo.parent.mkdir(parents=True, exist_ok=True)
-            alvo.write_bytes(conteudo)
+    return mutation_engine
 
 
 def _asserções_bloqueantes(doc: dict) -> list[tuple[str, dict]]:
@@ -235,6 +90,8 @@ def provar(raiz: Path, apenas: str | None = None) -> tuple[list[dict], int]:
     import importlib
     import os
 
+    motor = _motor()
+
     os.environ["HARNESS_REPO_ROOT"] = str(raiz)
     import harness_lib as hl
     importlib.reload(hl)
@@ -249,7 +106,7 @@ def provar(raiz: Path, apenas: str | None = None) -> tuple[list[dict], int]:
         aid = a.get("id", "?")
         if apenas and aid != apenas:
             continue
-        mut = derivar_mutacao(a)
+        mut = motor.derivar_mutacao(a)
         if mut is None:
             achados.append({
                 "assertion": aid, "adr": adr_id, "problema": "mutacao_nao_derivavel",
@@ -259,7 +116,7 @@ def provar(raiz: Path, apenas: str | None = None) -> tuple[list[dict], int]:
             })
             continue
 
-        antes = aplicar(mut, raiz)
+        antes = motor.aplicar(mut, raiz)
         if not antes:
             achados.append({
                 "assertion": aid, "adr": adr_id, "problema": "alvo_inexistente",
@@ -272,7 +129,7 @@ def provar(raiz: Path, apenas: str | None = None) -> tuple[list[dict], int]:
             ag.check_adr_conformance(hl.read_yaml("architecture/adr/index.yaml"), findings, errors)
             mordeu = any(f.get("assertion") == aid for f in findings.blocking())
         finally:
-            restaurar(antes, raiz)
+            motor.restaurar(antes, raiz)
 
         if mordeu:
             provadas += 1
@@ -296,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     origem = Path(__file__).resolve().parent.parent
     with tempfile.TemporaryDirectory(prefix="mutacao-") as tmp:
         copia = Path(tmp) / "repo"
-        shutil.copytree(origem, copia, ignore=shutil.ignore_patterns(*SKIP))
+        shutil.copytree(origem, copia, ignore=shutil.ignore_patterns(*_motor().SKIP))
         try:
             achados, provadas = provar(copia, args.only)
         except Exception as exc:  # noqa: BLE001 - não conseguir provar é exit 2, nunca 0

@@ -19,7 +19,9 @@ from conftest import REPO
 
 sys.path.insert(0, str(REPO / "ci"))
 
-import audit_mutations as am  # noqa: E402
+sys.path.insert(0, str(REPO / "harness/suite-contract/mutation-engine"))  # noqa: E402
+import mutation_engine as am  # noqa: E402  — o MOTOR, extraído no CP-041
+import audit_mutations  # noqa: E402  — o entrypoint, que os três pontos de CI invocam
 import check_dependency_conflict as cdc  # noqa: E402
 
 
@@ -122,7 +124,7 @@ def test_toda_regra_bloqueante_morde(repo_copy: Path):
     Se este teste falhar dizendo `nao_morde`, alguma asserção virou decorativa. Se falhar dizendo
     `mutacao_nao_derivavel`, alguma asserção nova precisa declarar sua mutação.
     """
-    achados, provadas = am.provar(repo_copy)
+    achados, provadas = audit_mutations.provar(repo_copy)
     assert not achados, achados
     assert provadas > 100, provadas
 
@@ -144,7 +146,7 @@ def test_assercao_decorativa_e_acusada(repo_copy: Path):
     })
     caminho.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
-    achados, _ = am.provar(repo_copy, apenas="ADR-001-A99")
+    achados, _ = audit_mutations.provar(repo_copy, apenas="ADR-001-A99")
     assert any(a["problema"] == "nao_morde" for a in achados), achados
 
 
@@ -159,7 +161,7 @@ def test_assercao_sem_mutacao_derivavel_e_acusada(repo_copy: Path):
     })
     caminho.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
-    achados, _ = am.provar(repo_copy, apenas="ADR-001-A98")
+    achados, _ = audit_mutations.provar(repo_copy, apenas="ADR-001-A98")
     assert any(a["problema"] == "mutacao_nao_derivavel" for a in achados), achados
 
 

@@ -49,6 +49,12 @@ DOCS = [
 
 # Propostas de mudança: artefatos versionados validados por schema + semântica.
 CHANGE_PROPOSALS_DIR = "harness/change-proposals"
+
+# CP-041 — o registro de réguas. COLEÇÃO, não entrada em DOCS, e o desvio da "regra do metadado
+# novo" é deliberado: DOCS mapeia UM arquivo para UM schema, e aqui há um arquivo por régua. É o
+# mesmo precedente de CHANGE_PROPOSALS_DIR e BUSINESS_RULES_DIR — a alternativa seria acrescentar
+# uma linha em DOCS a cada régua, que é a lista mantida à mão que este repositório recusa.
+SUITES_DIR = "harness/suites"
 # Regras de negócio: um arquivo por capacidade, validado por schema + semântica.
 BUSINESS_RULES_DIR = "business/rules"
 
@@ -901,6 +907,42 @@ def check_privacy_review(doc: dict | None, risk_ids: set[str]) -> None:
             err(f"[LGPD] {issue.get('id', '?')}: risco citado {rref} não existe no registro")
 
 
+def check_suites() -> None:
+    """O registro de réguas, conferido na FORMA — o julgamento das cláusulas é do audit_suites.
+
+    A divisão segue a que já existe entre este fiscal e os de comportamento: aqui, schema e
+    invariantes de cabeçalho; lá, se a régua cumpre o contrato que a ficha declara. Misturar as
+    duas faria um erro de digitação e uma cláusula violada saírem com a mesma cara.
+
+    Diretório ausente é INDETERMINAÇÃO. Este é o mesmo cuidado de carregar_fichas e de
+    prefixos_efetivos, e pelo mesmo motivo: some o registro, some a denylist derivada — e um
+    fiscal que trata "não achei o registro" como "não há réguas" desliga a trava em silêncio.
+    """
+    suites_dir = REPO / SUITES_DIR
+    if not suites_dir.is_dir():
+        err(f"[CP-041] {SUITES_DIR}/ não existe. É de lá que a denylist de ambiente deriva: "
+            f"registro ausente é 'não consegui fiscalizar', jamais 'nenhuma régua'.")
+        return
+    vistos: dict[str, str] = {}
+    for path in sorted(suites_dir.glob("*.yaml")):
+        rel = hl.rel(path)
+        try:
+            doc = hl.read_yaml(rel)
+        except HarnessError as exc:  # pragma: no cover - defensivo
+            err(str(exc))
+            continue
+        check_header_invariants(rel, doc)
+        validate_structural(rel, "suite-registry.schema.json", doc)
+
+        prefixo = ((doc or {}).get("suite") or {}).get("env_prefix")
+        if prefixo:
+            if prefixo in vistos:
+                err(f"[CP-041] {rel}: env_prefix '{prefixo}' já é de {vistos[prefixo]}. Duas "
+                    f"réguas com o mesmo prefixo tornam ambíguo de quem é a variável negada — e "
+                    f"remover uma das fichas deixaria a outra descoberta sem que nada acusasse.")
+            vistos[prefixo] = rel
+
+
 def check_change_proposals() -> None:
     """A proposta é conferida na FORMA, nunca contra o metadado de hoje (CP-018).
 
@@ -999,6 +1041,7 @@ def main(argv: list[str] | None = None) -> int:
     check_threat_model(loaded.get("security/threat-model.yaml"), comp_ids, ifc_ids, ui_ids,
                        risk_ids, stage_ids)
     check_dependency_inventory(loaded.get("security/dependencies.yaml"))
+    check_suites()
     check_change_proposals()
 
     if errors:

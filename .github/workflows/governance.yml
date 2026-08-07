@@ -195,7 +195,7 @@ jobs:
 
       # §12, prova de fogo 4 — as travas ainda mordem?
       #
-      # Fora de validate_all.py de propósito: ela copia o repositório e roda o fiscal 118 vezes.
+      # Fora de validate_all.py de propósito: ela copia o repositório e roda o fiscal uma vez por asserção bloqueante.
       # Barata para o CI, cara demais para o hook Stop que roda a cada turno do agente — e um
       # fiscal que torna o loop de trabalho insuportável é desligado, não obedecido.
       - name: Prova de mutação canônica (toda regra bloqueante morde)

@@ -36,7 +36,8 @@
             "ci/alignment_report.py",
             "ci/audit_conformance.py",
             "ci/audit_ledger.py",
-            "ci/check_dependency_conflict.py"
+            "ci/check_dependency_conflict.py",
+        "ci/audit_suites.py"
           ]
         },
         "auditor_version": {
@@ -180,7 +181,8 @@
               "external_audit",
               "ledger",
               "agent_pairing",
-              "dependency_conflict"
+              "dependency_conflict",
+            "suite_contract"
             ]
           },
           "severity": {
