@@ -4400,10 +4400,10 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
           "assertion": "ci/audit_suites.py::check_clausula_release",
           "canonical_mutation": {
             "alvo": "harness/suites/qa-suite.yaml",
-            "de": "      clause: release-com-manifesto",
+            "de": "    anchored: true",
             "espera_achado": "SUITE-QA-SUITE-RELEASE-SEM-GAP",
             "op": "substituir_texto",
-            "para": "      clause: fingerprint"
+            "para": "    anchored: false"
           },
           "id": "release-com-manifesto",
           "titulo": "A régua publica versões ancoráveis, ou declara um gap com data"
@@ -4535,15 +4535,6 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "declared_at": "2026-08-06",
         "due": "2026-11-03",
         "risk": "RISK-DEP-001",
-        "suite": "qa-suite"
-      },
-      {
-        "id": "GAP-QA-TAG",
-        "clause": "release-com-manifesto",
-        "description": "REAGENDADO, e o motivo mudou — que é a única forma honesta de um prazo andar. A régua JÁ publica release ancorável: `webqa-suite/releases/v1.0.0.manifesto.json` existe na árvore, o publicador verifica a cadeia (manifesto descrevendo o pai, commit de release não mudando mais nada, `__version__` da árvore casando com a tag) antes de criar qualquer ref, e o CI dela reconfere todas as releases a cada push. O que falta é MECÂNICO e não é da régua: a REF `refs/tags/v1.0.0` ainda não foi criada. O commit de release está publicado (branch `release/v1.0.0`). Enquanto a ref não existir, `@v1.0.0` não resolve, o consumidor não tem o que pinar, e `anchored` fica false — declarar true seria afirmar uma âncora que ninguém consegue segurar.\n",
-        "declared_at": "2026-08-06",
-        "due": "2026-11-03",
-        "risk": "RISK-WEBQA-001",
         "suite": "qa-suite"
       }
     ]
@@ -5217,7 +5208,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       },
       {
         "path": "harness/suite-contract/contract-v1/contract-manifest.json",
-        "sha256": "df497190fb26af9750d8810dc7c752ba9b51dab75206b7cf0e28acd2b4a68b47"
+        "sha256": "eb5053bf70ca582cba555f84eb00674edaa3a24a86c9ad1875a3b8a76d0e6349"
       },
       {
         "path": "harness/suites/privacy-suite.yaml",
@@ -5225,7 +5216,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       },
       {
         "path": "harness/suites/qa-suite.yaml",
-        "sha256": "ec2e8c6d826f431c0364c37e6603c4fa7c70015b13c931a0cbddd360bb570bbf"
+        "sha256": "ab0f65192b860d099a654e93a8bcc708ca3fb26a6ee97d8976ad3be6619048fe"
       },
       {
         "path": "project.yaml",
@@ -5256,7 +5247,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "sha256": "92bde6e8055c324985b7cdeb183c22a8b88a165b3fea4c0e9e007a9755a7c1e4"
       }
     ],
-    "inputs_fingerprint": "sha256:cf0865c0aeb093894d83a3ad73f08e67d51a3eb8d0758d8e2787d84875bc1ef2",
+    "inputs_fingerprint": "sha256:9fbc552ac5856f94c35a2972e3de6aba2b67f06cf147c8c70d58291c0adac3b4",
     "commit": {
       "embedded": false,
       "onde": "harness/reports/config-report.json"

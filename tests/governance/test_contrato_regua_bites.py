@@ -167,44 +167,22 @@ def test_gap_no_prazo_nao_acusa(repo_copy, monkeypatch):
 # --------------------------------------------------------------------------------------
 
 def test_release_sem_gap_reprova(repo_copy, monkeypatch):
-    """`anchored: false` é legítimo — calado, não. Cláusula 2."""
-    def move_o_gap(suite):
-        for gap in suite["gaps"]:
-            if gap["clause"] == "release-com-manifesto":
-                gap["clause"] = "fingerprint"
+    """`anchored: false` é legítimo — calado, não. Cláusula 2.
 
-    escreve_ficha(repo_copy, FICHA_QA, move_o_gap)
+    A mutação mudou de FORMA quando a v1.0.0 foi publicada: antes havia um gap cobrindo a
+    cláusula, e negá-la era mover o gap; agora a régua ancora de verdade, e negá-la é
+    DESANCORAR. O achado cobrado é o mesmo, e é isso que a mantém a mesma mordida.
+    """
+    escreve_ficha(repo_copy, FICHA_QA,
+                  lambda s: s["release"].__setitem__("anchored", False))
     reemite_digests(repo_copy)
     codigo, achados = roda_suites(repo_copy, monkeypatch)
     assert codigo == 1
     assert any("RELEASE-SEM-GAP" in i for i in ids(achados)), ids(achados)
 
 
-def ancora_a_release(root: Path, conteudo: str = '{"tag": "v1.0.0"}\n') -> str:
-    """Põe a ficha na configuração ANCORADA e devolve o digest do manifesto pinado.
-
-    A qa-suite ainda declara `anchored: false` (a ref da tag não existe), então os dois testes
-    abaixo constroem o estado que querem medir em vez de esperá-lo no repositório. É o oposto
-    de adaptar o teste ao mundo: o caminho do fiscal existe e precisa ser exercido ANTES de
-    alguém depender dele — uma trava estreada em produção é uma trava nunca vista mordendo.
-    """
-    import hashlib
-
-    rel = "harness/suites/qa-suite.manifesto.json"
-    (root / rel).write_text(conteudo, encoding="utf-8")
-    digest = hashlib.sha256(conteudo.encode("utf-8")).hexdigest()
-
-    def ancora(suite):
-        suite["release"] = {"anchored": True, "manifest_path": rel, "manifest_sha": digest}
-        suite["gaps"] = [g for g in suite["gaps"] if g["clause"] != "release-com-manifesto"]
-
-    escreve_ficha(root, FICHA_QA, ancora)
-    return digest
-
-
 def test_manifesto_da_release_ausente_reprova(repo_copy, monkeypatch):
     """Âncora que não encontra o que ancora está quebrada, não satisfeita."""
-    ancora_a_release(repo_copy)
     (repo_copy / "harness/suites/qa-suite.manifesto.json").unlink()
     reemite_digests(repo_copy)
     codigo, achados = roda_suites(repo_copy, monkeypatch)
@@ -219,7 +197,6 @@ def test_manifesto_da_release_com_digest_divergente_reprova(repo_copy, monkeypat
     mover a tag da régua e trazer o manifesto novo passaria calado — exatamente o evento que
     "tag é ponteiro móvel, digest não" existe para tornar visível.
     """
-    ancora_a_release(repo_copy)
     (repo_copy / "harness/suites/qa-suite.manifesto.json").write_text(
         '{"tag": "v1.0.0", "editado": true}\n', encoding="utf-8")
     reemite_digests(repo_copy)
@@ -229,8 +206,12 @@ def test_manifesto_da_release_com_digest_divergente_reprova(repo_copy, monkeypat
 
 
 def test_release_ancorada_com_digest_correto_nao_acusa(repo_copy, monkeypatch):
-    """O simétrico, sem o qual os dois acima passariam mesmo com o fiscal sempre vermelho."""
-    ancora_a_release(repo_copy)
+    """O simétrico, sem o qual os dois acima passariam mesmo com o fiscal sempre vermelho.
+
+    Sobre a ficha REAL, sem fabricar estado: a v1.0.0 está publicada e o digest declarado é o
+    do manifesto que veio da tag. Se este teste precisar de encenação um dia, é sinal de que a
+    âncora deixou de valer no repositório — e é isso que ele existe para acusar.
+    """
     reemite_digests(repo_copy)
     codigo, achados = roda_suites(repo_copy, monkeypatch)
     assert codigo == 0, ids(achados)
