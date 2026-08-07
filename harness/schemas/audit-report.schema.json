@@ -183,7 +183,8 @@
               "agent_pairing",
               "dependency_conflict",
               "suite_contract",
-              "cadence_single_source"
+              "cadence_single_source",
+              "approval_gate"
             ]
           },
           "severity": {

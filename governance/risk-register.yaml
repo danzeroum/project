@@ -527,4 +527,31 @@ risks:
       - kind: local_path
         ref: architecture/adr/ADR-019-vermelho-durante-mudanca-e-mapa.md
 
+  - id: RISK-APPROVAL-001
+    area: governance
+    likelihood: high
+    impact: high
+    treatment: accept
+    status: open
+    due: "2026-11-03"
+    owner: security_owner
+    description: >
+      Uma proposta de risco alto declara `human_approval_required: true`, e no instante em que seu
+      PR mergeia ela está em status `approved`. `ci/verify_approval.py` só verifica propostas
+      `executed` — transição MANUAL feita depois do merge. O aval é exigido de um estado que só
+      existe quando já é tarde, e 21 propostas históricas mergearam assim.
+      A exigência real é `required_pull_request_reviews` com `require_code_owner_reviews` na branch
+      protection, que é configuração de ADMIN e não se liga por PR. Aceito COM DATA em vez de
+      silenciado: irmão da CP-024, mesma forma e mesma razão — o que se recusa não é a lacuna, é o
+      estado desconhecido sem lugar onde aparecer.
+    controls:
+      - kind: local_path
+        ref: ci/audit_governance.py
+      - kind: local_path
+        ref: ci/verify_approval.py
+      - kind: local_path
+        ref: ci/verify_protection.py
+      - kind: branch_protection
+        ref: required_pull_request_reviews
+
 risk_exemptions: []

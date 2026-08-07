@@ -456,6 +456,11 @@ REMEDIACAO_POR_ORIGEM = {
     "assertion_self_match":
         "Ancorar o padrão no FATO e não na MENÇÃO — quem CRIA o artefato, quem o EXECUTA, quem o "
         "CONFIGURA. Ver harness/policies/conformance.md, seção 'A âncora no FATO'.",
+    "approval_gate":
+        "Ligar `required_pull_request_reviews` com `require_code_owner_reviews` na branch "
+        "protection da main — configuração de ADMIN, fora do alcance de um PR. Provar com "
+        "`python ci/verify_protection.py` usando token de escopo admin; exit 3 nunca vale por "
+        "'ligada'.",
     "cadence_single_source":
         "Referenciar harness/harness.yaml:external_audit.cadence em vez de repetir a duração. "
         "Para contar a HISTÓRIA de uma cadência anterior, o lugar é o ADR ou a proposta que a "
