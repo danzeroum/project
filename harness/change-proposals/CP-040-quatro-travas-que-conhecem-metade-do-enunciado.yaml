@@ -1,0 +1,193 @@
+# Quatro travas da mesma família: cada uma implementa metade do enunciado que ela própria declara.
+# Declarada ANTES de executada (ADR-004). Fica fora da v1.1.0 de propósito.
+# Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-040
+  title: "Quatro travas que conhecem metade do próprio enunciado"
+  author_kind: agent
+  created_at: "2026-08-06T02:00:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - .github/workflows/governance.yml
+    - ci/alignment_report.py
+    - ci/audit_conformance.py
+    - ci/env_guard.py
+    - ci/hooks/post_edit_guard.py
+    - ci/hooks/pre_bash_env_hygiene.py
+    - ci/mold_release.py
+    - harness/policies/conformance.md
+    - tests/governance/test_alinhamento_bites.py
+    - tests/governance/test_env_hygiene_bites.py
+    - tests/governance/test_release_publicacao.py
+    - tests/governance/test_sincronizacao_bites.py
+
+  risk_assessment:
+    level: medium
+    risks:
+      - RISK-META-001
+      - RISK-SEC-001
+    rationale: >
+      OS QUATRO SÃO A MESMA FAMÍLIA, e é isso que os junta num lote: uma trava que implementa
+      METADE do enunciado que ela própria declara, e cuja metade faltante falha em SILÊNCIO.
+      Nenhum dos quatro foi encontrado por leitura — os quatro apareceram ao USAR o mecanismo:
+      um num teste de borda pedido pela mesa, um ao preencher campo obrigatório num derivado real,
+      um ao consumir a própria release de fora do job que a publica, um ao sincronizar um alvo.
+      Isso é o achado sobre o achado: leitura encontra a trava ausente; só o uso encontra a trava
+      presente pela metade.
+
+      A DIREÇÃO DA FALHA NÃO É A MESMA NOS QUATRO, e a proposta seria desonesta se fingisse que
+      é. (1), (2) e (4) falham para o lado PERMISSIVO — deixam passar, ou dizem "nada aqui" quando
+      a resposta verdadeira era "não sei olhar". (3) falha para o lado ALARMISTA: acusa cadeia
+      quebrada onde a cadeia está íntegra. O alarmista não é benigno por ser conservador: um fiscal
+      que acusa o caso legítimo é um fiscal que alguém desliga, e a trava morre pelo uso e não pela
+      decisão. E o mesmo defeito de (3) tem a direção permissiva pelo lado de dentro — está escrito
+      no item.
+
+      ------------------------------------------------------------------------------------------
+      (1) ISENÇÃO REDUNDANTE É INVISÍVEL — ci/alignment_report.py::isencao_morta
+
+      O schema de `risk_exemptions` declara a propriedade que a torna honesta: "isenção que não
+      casa ativo algum é ela própria um achado — do contrário a lista vira o lugar onde a cobertura
+      é fingida com uma linha". O fiscal implementava só o primeiro caso: `ref` que não resolve
+      para ativo nenhum.
+      MEDIDO nos dois sentidos, numa cópia do derivado: isenção apontando para `CMP-NAO-EXISTE`
+      ACUSA; isenção apontando para `CMP-CERTS`, que já implementa REQ-006 e portanto não precisa
+      de isenção alguma, passa em SILÊNCIO.
+      A redundante é PIOR que a morta que o fiscal já pegava. A morta não engana ninguém, porque
+      não aponta para nada. A redundante aponta para um ativo real e faz o próximo leitor ver
+      "coberto por isenção declarada" num componente que tem requisito de verdade — e ninguém a
+      remove, porque remover isenção parece afrouxar alguma coisa.
+      FEITO: `isencao_morta` passa a acusar as duas formas. REDUNDANTE é a isenção cuja remoção não
+      produziria achado nenhum — e a pergunta é feita LITERALMENTE, em `_acusariam_sem`: R1, R3 e R4
+      rodam sobre uma cópia do metadado sem aquela linha, e se nenhuma nomear o ativo, a linha não
+      protegia nada. Chave nova de achado: `ALIGN-EXEMPT-REDUNDANTE-*`, na origem `alignment_risk`
+      que já existe (nenhum enum de laudo muda).
+      A primeira versão NÃO fazia isso, e o desvio está registrado no fim desta justificativa: ela
+      enumerava as saídas aceitas por cada invariante (`implements`, `satisfies`, `related`) e
+      chamava de coberto quem casasse alguma. Um proxy — errado nos dois sentidos, e reprovado pelo
+      primeiro teste do par. Rodar a invariante custa três chamadas de função e não pode divergir
+      dela, porque quem responde é ela própria: saída nova numa invariante já nasce respeitada aqui.
+
+      ------------------------------------------------------------------------------------------
+      (2) CHAVE AUSENTE NÃO É LISTA VAZIA — ci/hooks/pre_bash_env_hygiene.py::denied_exact
+
+      Fazia `return _politica().get("env_denylist_exact") or []`. Quando a chave falta no
+      harness.yaml, o hook roda, lê lista vazia e DEIXA PASSAR — fail-open silencioso, no fiscal
+      cuja razão de existir é fechar o vão entre o que morde no CI e o que morde na sessão.
+      Foi medido no primeiro derivado: a chave faltava lá desde o transplante, a trava estava
+      aberta, e a evidência de que ela funcionava vinha de OUTRO repositório — o hook é escolhido
+      subindo do diretório corrente, e nas sessões em que ele recusou um `PYTHONPATH` o arquivo
+      resolvido era o do molde.
+      A CLASSE é maior que o caso: `.get(x) or []` é o idioma que transforma "não declarado" em
+      "declarado vazio" e, num fiscal, a diferença entre os dois é a diferença entre indeterminação
+      e permissão. O schema já exige a chave (`required` + `minItems: 1`) — mas o schema fiscaliza
+      o DOCUMENTO, e o hook lê o documento sem passar pelo schema.
+      FEITO: `denied_exact` distingue os três estados — chave ausente levanta `PoliticaAusente` e
+      o hook sai 2 com `FISCAL_CEGO:`, lista vazia é declaração explícita que o schema já recusa,
+      lista preenchida é o caminho normal. Exit 2 é o mesmo código da recusa de propósito: para
+      quem digitou o comando, "a política sumiu" e "a política proíbe isto" pedem a mesma coisa.
+      Mais a mordida de CLASSE, que é o que impede a próxima: um teste que percorre os leitores de
+      política em `ci/` e recusa o idioma onde o valor alimenta decisão de bloqueio. As chaves
+      proibidas são DERIVADAS do `required` do próprio schema — é ele que já declara onde ausência
+      significa "documento fora do schema" (indeterminação) e onde significa o que o silêncio diz
+      (`exceptions`, opcional). Sem essa derivação a fronteira seria gosto de quem escreve o fiscal.
+
+      E A MORDIDA DE CLASSE ACHOU DOIS IRMÃOS NA PRIMEIRA EXECUÇÃO, o que é o argumento inteiro
+      para tê-la escrito. `ci/env_guard.py` — o gate do CI, não a ergonomia da sessão — tinha o
+      mesmo idioma em quatro pontos: sem as chaves ele imprimia "✓ higiene de ambiente: 0 regra(s)
+      da denylist, nenhuma violada" e saía 0, um tique verde afirmando com todas as letras que zero
+      regras não foram violadas. Tinha ainda a variante que o regex não pega, `pol.get(
+      "fail_on_denied_env")`, onde a ausência lê como False — o valor que DESLIGA o aborto.
+      `ci/hooks/post_edit_guard.py` tinha o encadeamento duplo em `protected_paths`: sem o bloco ou
+      sem a chave, ele percorria lista vazia e liberava a edição de qualquer caminho protegido, com
+      exit 0, indistinguível de "olhei a lista e este arquivo não está nela".
+      Os dois entram no lote porque são a mordida declarada aqui fazendo o que ela existe para
+      fazer. Consertá-la só onde o defeito foi encontrado seria o oposto de escrever uma trava de
+      classe.
+
+      DUAS COISAS QUE A MORDIDA NÃO ALCANÇA, e ficam escritas para ninguém confundir o regex com a
+      fronteira do problema: o campo booleano (acima) e a prosa. Um fiscal corrigido EXPLICA o
+      defeito que corrigiu, e explicar exige citar o idioma — a docstring de `PoliticaAusente` cita
+      palavra por palavra o encadeamento que descreve. O teste lê só código executável (comentários
+      e docstrings fora, via `ast`), porque acusar a citação seria ancorar na MENÇÃO em vez do FATO,
+      e o preço seria proibir que a correção fosse explicada onde o próximo leitor procura o porquê.
+
+      ------------------------------------------------------------------------------------------
+      (3) `--verify-tag` LIA A ÁRVORE DE TRABALHO — ci/mold_release.py
+
+      O comando existe para responder "a cadeia da release publicada está íntegra?", e lia o
+      manifesto de `hl.REPO / manifest_path_for(tag)` — o disco. Funcionava no único lugar onde foi
+      escrito: dentro do job de publicação, logo depois de `git switch --detach`, onde disco e
+      árvore taggeada coincidem por acidente do procedimento.
+      MEDIDO ao consumir a v1.1.0 de fora: de um checkout de `main`, `--verify-tag v1.1.0` deu
+      FALSO NEGATIVO. Diagnosticado com `git worktree add --detach /tmp/wt110 v1.1.0`, onde o mesmo
+      comando imprimiu `✓ cadeia íntegra` sobre exatamente a mesma tag.
+      E O FALSO NEGATIVO É A METADE MENOS GRAVE. O disco é gravável e a tag não: quem alterasse o
+      manifesto no working tree para casar com um commit adulterado obteria `✓` de um comando que
+      jamais olhou o objeto publicado. A trava que prova "o objeto publicado é o objeto verificado"
+      estava verificando o objeto que se tem à mão.
+      FEITO: o manifesto passa a ser lido com `git show {tag}:{caminho}`. E a regressão fica
+      VIGIADA ONDE O DEFEITO APARECIA: o job `cadeia-das-releases` de governance.yml confere, de um
+      checkout COMUM da branch, a cadeia de toda tag publicada — hoje v1.0.0 e v1.1.0, e a lista
+      vem das tags porque a release publicada É a ref. Vigiar isto só no job de release seria vigiar
+      exatamente o único lugar onde o comando quebrado passava.
+      (A primeira versão do job derivava a lista de `harness/releases/*.manifest.json` na árvore, e
+      percorria lista vazia: o commit de release não muda nada além do manifesto e não volta para a
+      branch, então o diretório de trabalho tem só o README. Verde por vacuidade, pego ao rodar o
+      passo antes de commitá-lo — e registrado aqui porque é o mesmo defeito da família, cometido
+      dentro da vigilância dela.) Tag sem manifesto na
+      árvore continua sendo ausência de release (a mensagem e o exit 1 não mudam). Efeito colateral
+      declarado: a ordem `--verify-tag` antes de `git switch --detach` no workflow deixa de ser
+      EXIGÊNCIA e passa a ser escolha — o teste que a fiscaliza tem a justificativa reancorada no
+      mesmo PR, porque teste com docstring vencida é a fonte paralela de sempre.
+
+      ------------------------------------------------------------------------------------------
+      (4) `--sync-diff` CRUZAVA UM ELO SÓ — ci/audit_conformance.py (CONF-014)
+
+      Cruzava `derived_from.path`, que é o elo do metadado PROPOSTO pelo cartographer. Num derivado
+      cujo metadado foi AUTORADO por leitura, `derived_from` não existe em item nenhum.
+      MEDIDO ao sincronizar o primeiro derivado real: 36 componentes, ZERO com proveniência, e a
+      resposta a um diff que mexeu em dois deles foi "nenhum metadado com proveniência aponta para
+      eles". A frase era verdadeira e vazia; cruzando pelo elo que existe ali, a lista real tinha
+      `app/db.py -> CMP-PERSISTENCIA` e `app/routers/containers.py -> CMP-CONTAINERS`.
+      "NENHUM" E "NÃO SEI OLHAR" SAÍAM IGUAIS NA TELA, e o segundo é o estado em que alguém avança
+      o lock achando que não há trabalho.
+      FEITO: cruza também os elos fracos (`source_paths`, `tested_by`, `validated_by`,
+      `test_paths`) para os itens sem proveniência, e a SAÍDA DECLARA A MEDIÇÃO antes do resultado
+      — por quais elos olhou, quantos itens não têm `derived_from`, e que "nenhum" ali é uma
+      medição e não a ausência de uma. O elo fraco não vira proveniência: ele diz de que arquivo o
+      item FALA, não contra que commit ele foi ESCRITO, e a saída diz isso com todas as letras.
+
+      ------------------------------------------------------------------------------------------
+      POR QUE FICOU FORA DA v1.1.0: aquela release congela o que já estava mergeado (CP-039 e tudo
+      até 5eff98b) e existe para provar que o CAMINHO repete — segunda release, mesmo preflight,
+      mesma cadeia, mesmo ledger. Misturar correção nova nela trocaria a pergunta que ela responde.
+      Os itens (3) e (4) foram descobertos DEPOIS da v1.1.0 ser publicada, ao consumi-la: entram
+      neste lote porque são a mesma família, não porque chegaram juntos.
+
+      A NONA OCORRÊNCIA DA FAMÍLIA ÂNCORA-NA-MENÇÃO NASCEU DENTRO DESTA EXECUÇÃO, e está registrada
+      como linha 8 da tabela em `harness/policies/conformance.md`. A primeira versão do item (1)
+      decidia "já coberto" enumerando as saídas que cada invariante aceita — um proxy que tratou
+      `related` (saída da R1, sobre CAPACIDADES) como cobertura de um COMPONENTE, e esqueceu a
+      segunda saída da R4. Foi reprovada pelo primeiro teste do par, e a correção é a pergunta
+      literal: rodar R1/R3/R4 sobre uma cópia do metadado sem a linha e ver se alguma acusa. Fica
+      declarado aqui porque é o mesmo achado que a CP descreve, encontrado de novo dentro dela: a
+      trava que conhece metade do enunciado não é um defeito que se lê, é um defeito que se usa.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+  tests_required:
+    - tests/governance/test_alinhamento_bites.py
+    - tests/governance/test_env_hygiene_bites.py
+    - tests/governance/test_release_publicacao.py
+    - tests/governance/test_sincronizacao_bites.py
+  human_approval_required: false
+  change_mode: pull_request

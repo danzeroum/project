@@ -38,11 +38,58 @@ REPO = Path(os.environ.get("HARNESS_REPO_ROOT") or Path(__file__).resolve().pare
 DENIED_ENV = 10
 
 
+class PoliticaAusente(Exception):
+    """A política não declara o que este fiscal precisaria ler.
+
+    Irmã da do hook, e pela mesma razão — a mordida de classe da CP-040 encontrou este arquivo
+    junto com aquele. Aqui o efeito era ainda mais visível: sem as chaves, `main` imprimia
+    "✓ higiene de ambiente: 0 regra(s) da denylist, nenhuma violada" e saía 0. Um tique verde
+    afirmando, com todas as letras, que zero regras não foram violadas.
+    """
+
+
+def _exigida(politica: dict, chave: str) -> list[str]:
+    """Chave que o schema marca `required`: ausência é INDETERMINAÇÃO, jamais vazio."""
+    if chave not in politica:
+        raise PoliticaAusente(
+            f"harness/harness.yaml:env_hygiene não declara `{chave}`, que o schema exige. "
+            f"Chave ausente é 'não consegui fiscalizar', jamais 'nada a proibir'.")
+    return politica[chave] or []
+
+
+def _exigida_flag(politica: dict, chave: str) -> bool:
+    """A mesma regra para o campo booleano, e ele precisa dela tanto quanto as listas.
+
+    `pol.get("fail_on_denied_env")` sem a chave devolve None, que é falso, que é exatamente o valor
+    que DESLIGA o aborto. O idioma nem sequer é `or []` — é a mesma ausência apagada, com outra
+    cara, e por isso o teste de classe não a pegaria: fica escrito aqui para o próximo leitor não
+    concluir que o regex é a fronteira do problema.
+    """
+    if chave not in politica:
+        raise PoliticaAusente(
+            f"harness/harness.yaml:env_hygiene não declara `{chave}`, que o schema exige. "
+            f"Ausente, ele leria como 'desligado' — o valor que dispensa o aborto.")
+    return bool(politica[chave])
+
+
+def _opcional(politica: dict, chave: str) -> list:
+    """Chave que o schema NÃO marca `required`: ausência e vazio significam a mesma coisa.
+
+    O nome existe para que a diferença seja declarada onde ela é decidida. `exceptions` é opcional
+    no schema — um repositório sem exceção alguma é um estado legítimo e completo, e tratá-lo como
+    indeterminação obrigaria a escrever `exceptions: []` para dizer o que o silêncio já diz.
+    """
+    return politica.get(chave) or []
+
+
 def politica() -> dict:
     import yaml
 
     doc = yaml.safe_load((REPO / "harness" / "harness.yaml").read_text(encoding="utf-8")) or {}
-    return doc.get("env_hygiene") or {}
+    if "env_hygiene" not in doc:
+        raise PoliticaAusente(
+            "harness/harness.yaml não declara o bloco `env_hygiene`, que o schema exige no topo.")
+    return doc["env_hygiene"] or {}
 
 
 def violacoes(ambiente: dict[str, str], pol: dict, contexto: str | None = None) -> list[str]:
@@ -53,16 +100,16 @@ def violacoes(ambiente: dict[str, str], pol: dict, contexto: str | None = None) 
     o guard precisa DIZER em que contexto está, e só as exceções declaradas para aquele contexto
     são dispensadas.
     """
-    isentas = {e["name"] for e in (pol.get("exceptions") or [])
+    isentas = {e["name"] for e in _opcional(pol, "exceptions")
                if contexto and e.get("context") == contexto}
 
     achados: list[str] = []
-    for prefixo in pol.get("env_denylist_prefix") or []:
+    for prefixo in _exigida(pol, "env_denylist_prefix"):
         for nome in sorted(ambiente):
             if nome.startswith(prefixo) and nome not in isentas:
                 achados.append(f"{nome} (prefixo proibido '{prefixo}*': auto-autorização — os "
                                f"gates da suíte são fail-closed por variável de ambiente)")
-    for nome in pol.get("env_denylist_exact") or []:
+    for nome in _exigida(pol, "env_denylist_exact"):
         if nome in ambiente and nome not in isentas:
             achados.append(f"{nome} (nome proibido: sequestro de rede, de índice de pacote ou de "
                            f"import — troca o que o fiscal lê, sem tocar no fiscal)")
@@ -77,20 +124,24 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         pol = politica()
+        achados = violacoes(dict(os.environ), pol, args.context)
+        n = len(_exigida(pol, "env_denylist_exact")) + len(_exigida(pol, "env_denylist_prefix"))
+        abortar = _exigida_flag(pol, "fail_on_denied_env")
+    except PoliticaAusente as exc:
+        print(f"✗ FISCAL_CEGO: {exc}", file=sys.stderr)
+        return 2
     except Exception as exc:  # noqa: BLE001 - política ilegível é 'não consegui fiscalizar'
         print(f"✗ higiene de ambiente: política ilegível ({exc})", file=sys.stderr)
         return 2
 
-    achados = violacoes(dict(os.environ), pol, args.context)
     if not achados:
         if not args.quiet:
-            n = len(pol.get("env_denylist_exact") or []) + len(pol.get("env_denylist_prefix") or [])
             print(f"✓ higiene de ambiente: {n} regra(s) da denylist, nenhuma violada.")
         return 0
 
     # fail_on_denied_env: abortar, nunca filtrar em silêncio. Ignorar esconde exatamente o erro de
     # configuração que o controle existe para revelar.
-    if not pol.get("fail_on_denied_env"):
+    if not abortar:
         print("::warning::variáveis negadas presentes e fail_on_denied_env está desligado.",
               file=sys.stderr)
         return 0

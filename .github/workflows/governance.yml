@@ -12,6 +12,59 @@ permissions:
   contents: read
 
 jobs:
+  # CP-040/gap 3 — a cadeia de CADA release publicada, conferida de um checkout COMUM.
+  #
+  # O job de release já roda `--verify-tag`, e rodava do único lugar onde o comando funcionava:
+  # detached na própria tag, onde a árvore de trabalho e a árvore taggeada coincidem por acidente
+  # do procedimento. Enquanto ele lia o disco, essa coincidência era a prova inteira — e de
+  # qualquer outro checkout o mesmo comando dava FALSO NEGATIVO sobre uma release intacta.
+  #
+  # Este job existe para que a correção não possa regredir em silêncio: checkout normal da branch,
+  # nada de detached, e a cadeia de cada tag publicada tem de fechar. Se alguém reintroduzir a
+  # leitura do working tree, ele fica vermelho aqui — no lugar onde o defeito se manifestava, e não
+  # no lugar onde ele se escondia.
+  #
+  # SEPARADO da full-validation porque precisa de `fetch-depth: 0` (a verificação lê o commit
+  # taggeado E o pai dele), e pagar histórico completo no job que roda todos os fiscais seria
+  # custo espalhado por uma exigência de um passo só.
+  cadeia-das-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags e pais: uma tag rasa não tem contra o que comparar
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install --require-hashes -r requirements-ci.txt
+
+      # A LISTA VEM DAS TAGS, que são o fato: a release publicada É a ref. Cravar `v1.0.0 v1.1.0`
+      # aqui criaria a segunda fonte de sempre — a release seguinte nasceria fora da vigilância e o
+      # passo continuaria verde dizendo que conferiu as releases.
+      #
+      # E NÃO PODE VIR DE `harness/releases/` NA ÁRVORE: o commit de release não muda nada além do
+      # manifesto e não volta para a branch, então o diretório de trabalho tem só o README. Uma
+      # varredura por ali percorreria lista vazia e concluiria "tudo certo" — que é exatamente o
+      # verde por vacuidade que este job existe para não produzir. Medido: a primeira versão deste
+      # passo fazia isso e imprimia "nenhum manifesto" num repositório com duas releases íntegras.
+      #
+      # Zero tags é resposta legítima (um derivado não publica release alguma) e sai dita em voz
+      # alta, nunca como silêncio.
+      - name: Cadeia íntegra em todas as releases publicadas
+        run: |
+          set -euo pipefail
+          tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V)
+          if [ -z "$tags" ]; then
+            echo "nenhuma tag de release: este repositório não publicou release alguma."
+            exit 0
+          fi
+          echo "releases publicadas: $(echo $tags | tr '\n' ' ')"
+          for tag in $tags; do
+            python ci/mold_release.py --verify-tag "$tag"
+          done
+
   full-validation:
     runs-on: ubuntu-latest
     steps:
