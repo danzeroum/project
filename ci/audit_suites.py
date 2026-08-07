@@ -197,6 +197,28 @@ def check_clausula_release(rel: str, suite: dict, findings: hl.Findings) -> None
             summary=f"{nome}: declara release ancorada em '{caminho}', que não existe. Âncora que "
                     f"não encontra o que ancora está quebrada, não satisfeita (ADR-006).",
             location=rel, risk="RISK-WEBQA-001")
+        return
+
+    # O digest, que é a âncora de verdade. A cláusula 2 sempre disse "`manifest_sha` que não bate
+    # ⇒ achado" e nada conferia: `manifest_path` existir prova que há um arquivo, não que é AQUELE
+    # arquivo. Sem esta linha, mover a tag da régua e trazer o manifesto novo passaria calado —
+    # exatamente o evento que "tag é ponteiro móvel, digest não" existe para tornar visível.
+    declarado = release.get("manifest_sha")
+    if caminho and declarado:
+        import hashlib
+
+        medido = hashlib.sha256((hl.REPO / caminho).read_bytes()).hexdigest()
+        if medido != declarado:
+            findings.add(
+                key=f"SUITE-{nome}-RELEASE-DIGEST-DIVERGENTE", origin="suite_contract",
+                severity="critical",
+                summary=f"{nome}: manifest_sha declara {declarado[:12]}… e {caminho} tem "
+                        f"{medido[:12]}…. Ou o manifesto da régua mudou sob os pés, ou o pin foi "
+                        f"atualizado sem que ninguém olhasse o que mudou — e as duas leituras "
+                        f"pedem reações diferentes.",
+                location=rel, risk="RISK-WEBQA-001",
+                remediation="Conferir o que mudou no manifesto da régua e, se a mudança for "
+                            "aceita, atualizar manifest_sha no mesmo PR que a aceita.")
 
 
 def check_clausula_envelope(rel: str, suite: dict, findings: hl.Findings,

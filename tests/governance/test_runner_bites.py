@@ -22,13 +22,16 @@ REPO = Path(__file__).resolve().parent.parent.parent
 FICHA_QA = "harness/suites/qa-suite.yaml"
 
 LAUDO_BASE = {
-    "schema_version": "1.0",
+    # 1.3 e `verdict` DECLARADO: a régua assumiu o veredito, e o runner deixou de inferir.
+    # Um laudo base mudo continuaria exercitando uma inferência que não existe mais — e um
+    # teste que exercita código apagado passa pela razão errada.
+    "schema_version": "1.3",
     "standard": {"name": "webqa-suite", "version": "1.0.0", "commit": "abc",
                  "sensitive_paths_hash": "sha256:aa"},
     "consumer_project": {"repository": "x", "commit": "y"},
     "execution": {"run_id": "r", "mode": "passive", "network_used": False,
                   "active_gates": [], "runner_kind": "ci"},
-    "result": "ok", "findings": [],
+    "result": "ok", "verdict": "conforme", "findings": [],
 }
 
 
@@ -77,7 +80,8 @@ def test_laudo_exit_zero_com_inconclusivo_nao_e_verde_sem_gap(repo_copy):
     usa_laudo_pronto(repo_copy)
     edita_ficha(repo_copy, lambda s: s.__setitem__(
         "gaps", [g for g in s["gaps"] if g["clause"] != "envelope-com-3-estados"]))
-    escreve_laudo(repo_copy, result="suite_not_installed")
+    escreve_laudo(repo_copy, result="suite_not_installed", verdict="inconclusivo",
+                  verdict_reason="a régua não está instalada")
     proc = roda(repo_copy, ["--suite", "qa-suite", "--mode", "passive", "--sem-ledger"])
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "INCONCLUSIVO" in proc.stderr
@@ -90,7 +94,8 @@ def test_o_mesmo_laudo_avisa_sem_reprovar_enquanto_o_gap_vigora(repo_copy):
     comportamento atual, que a CP-042 promete, não estaria provada.
     """
     usa_laudo_pronto(repo_copy)
-    escreve_laudo(repo_copy, result="suite_not_installed")
+    escreve_laudo(repo_copy, result="suite_not_installed", verdict="inconclusivo",
+                  verdict_reason="a régua não está instalada")
     proc = roda(repo_copy, ["--suite", "qa-suite", "--mode", "passive", "--sem-ledger"])
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "GAP-QA-EXIT-ZERO" in proc.stderr
@@ -107,7 +112,8 @@ def test_gap_vencido_faz_o_inconclusivo_reprovar(repo_copy):
                 gap["due"] = ontem
 
     edita_ficha(repo_copy, vence)
-    escreve_laudo(repo_copy, result="suite_not_installed")
+    escreve_laudo(repo_copy, result="suite_not_installed", verdict="inconclusivo",
+                  verdict_reason="a régua não está instalada")
     proc = roda(repo_copy, ["--suite", "qa-suite", "--mode", "passive", "--sem-ledger"])
     assert proc.returncode == 1, proc.stdout + proc.stderr
 
@@ -125,7 +131,8 @@ def test_verdict_declarado_pela_regua_vence_a_inferencia(repo_copy):
 def test_laudo_fora_do_envelope_declarado_e_config_invalid(repo_copy):
     """O laudo é validado contra o envelope que a PRÓPRIA ficha declara."""
     usa_laudo_pronto(repo_copy)
-    escreve_laudo(repo_copy, result="talvez")
+    escreve_laudo(repo_copy, result="talvez", verdict="inconclusivo",
+                  verdict_reason="result desconhecido")
     proc = roda(repo_copy, ["--suite", "qa-suite", "--mode", "passive", "--sem-ledger"])
     assert proc.returncode == 40, proc.stdout + proc.stderr
     assert "CONFIG_INVALID" in proc.stderr
@@ -172,9 +179,15 @@ def test_placeholder_desconhecido_e_erro_e_nao_literal(repo_copy):
 # --------------------------------------------------------------------------------------
 
 def test_kit_como_suite_acusa_laudo_sem_verdict(tmp_path):
-    """O lado da RÉGUA — o que faz disto um contrato e não uma checagem de uma parte só."""
+    """O lado da RÉGUA — o que faz disto um contrato e não uma checagem de uma parte só.
+
+    O `verdict` é REMOVIDO do laudo base de propósito: desde que a régua passou a declará-lo, o
+    base o traz, e um teste que reaproveitasse o base sem tirá-lo estaria exercitando o caminho
+    verde com o nome do vermelho.
+    """
     laudo = tmp_path / "laudo.json"
-    laudo.write_text(json.dumps(LAUDO_BASE), encoding="utf-8")
+    laudo.write_text(json.dumps({k: v for k, v in LAUDO_BASE.items() if k != "verdict"}),
+                     encoding="utf-8")
     proc = subprocess.run([sys.executable, "ci/suite_conformance.py", "--as-suite", str(laudo)],
                           cwd=REPO, capture_output=True, text=True)
     assert proc.returncode == 1

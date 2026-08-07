@@ -1177,6 +1177,17 @@
       "note": "Enum fechado sobre as cinco cláusulas: um gap que não aponta para cláusula alguma é reclamação, não dívida."
     },
     {
+      "field": "suite.install.method",
+      "pointer": "/properties/suite/properties/install/properties/method",
+      "file": "suite-registry.schema.json",
+      "group": "contrato de régua",
+      "values": [
+        "direct-reference",
+        "index"
+      ],
+      "note": "direct-reference = PEP 508 (`nome @ url`), o caminho de quem não publica em índice; index = o pacote é resolvível por um índice configurado, e o spec é uma especificação de requisito comum."
+    },
+    {
       "field": "suite.ledger_event_kind",
       "pointer": "/properties/suite/properties/ledger_event_kind",
       "file": "suite-registry.schema.json",
@@ -1808,6 +1819,28 @@
       "group": "contrato de régua"
     },
     {
+      "pattern": "\\{origin\\}",
+      "used_in": [
+        {
+          "file": "suite-registry.schema.json",
+          "field": "suite.install.spec",
+          "pointer": "/properties/suite/properties/install/allOf/0/then/properties/spec"
+        }
+      ],
+      "group": "contrato de régua"
+    },
+    {
+      "pattern": "\\{version\\}",
+      "used_in": [
+        {
+          "file": "suite-registry.schema.json",
+          "field": "suite.install.spec",
+          "pointer": "/properties/suite/properties/install/properties/spec"
+        }
+      ],
+      "group": "contrato de régua"
+    },
+    {
       "pattern": "^GAP-[A-Z0-9]+(-[A-Z0-9]+)*$",
       "used_in": [
         {
@@ -1832,6 +1865,11 @@
     {
       "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$",
       "used_in": [
+        {
+          "file": "suite-registry.schema.json",
+          "field": "suite.install.origin_source",
+          "pointer": "/properties/suite/properties/install/properties/origin_source"
+        },
         {
           "file": "suite-registry.schema.json",
           "field": "suite.pin_source",
@@ -2997,8 +3035,8 @@
       "file": "suite-registry.schema.json",
       "group": "contrato de régua",
       "block_kind": "if/then",
-      "rule": "SE status: active ENTÃO EXIGE entrypoint, perfil_path, laudo, modes",
-      "why": "Suite ATIVA precisa das quatro coisas que só existem quando há consumo real. Uma ficha 'active' sem entrypoint declararia consumir uma régua que não sabe invocar — e ficaria assim para sempre, porque nenhum fiscal reprova o meio-termo. Mesma trava bidirecional de target-lock.schema.json:kind/target_sha."
+      "rule": "SE status: active ENTÃO EXIGE entrypoint, perfil_path, laudo, modes, install",
+      "why": "Suite ATIVA precisa das cinco coisas que só existem quando há consumo real. Uma ficha 'active' sem entrypoint declararia consumir uma régua que não sabe invocar — e ficaria assim para sempre, porque nenhum fiscal reprova o meio-termo. Mesma trava bidirecional de target-lock.schema.json:kind/target_sha. `install` entrou na lista pelo defeito que o expôs: a qa-suite era consumida por um pin que NÃO RESOLVIA — `webqa-suite==1.0.0` sem índice algum que o sirva —, e o único lugar onde o caminho real aparecia era um comentário de requirements-qa.txt. Comentário não é declaração: nada o valida, nada o executa, e ele envelhece sem ficar vermelho."
     },
     {
       "pointer": "/properties/suite/allOf/1",
@@ -3015,6 +3053,14 @@
       "block_kind": "if/then",
       "rule": "SE release.anchored: true ENTÃO EXIGE release.manifest_path",
       "why": "Ancorada EXIGE o caminho do manifesto; não-ancorada o PROÍBE. Declarar manifest_path com anchored:false seria afirmar uma âncora que ninguém confere."
+    },
+    {
+      "pointer": "/properties/suite/properties/install/allOf/0",
+      "file": "suite-registry.schema.json",
+      "group": "contrato de régua",
+      "block_kind": "if/then",
+      "rule": "SE method: direct-reference ENTÃO spec casa /\\{origin\\}/",
+      "why": "Referência direta EXIGE o placeholder da origem. Sem ele, o spec ou está incompleto (e o caminho não resolve) ou traz a URL literal — que é exatamente o que o ADR-008-A5 recusa neste diretório."
     },
     {
       "pointer": "/allOf/0",
@@ -3200,7 +3246,7 @@
     },
     {
       "file": "suite-registry.schema.json",
-      "bytes": 12152,
+      "bytes": 16096,
       "group": "contrato de régua",
       "title": "Ficha de suite — como uma régua entra neste projeto"
     },
@@ -3642,7 +3688,7 @@
         "step": "suites",
         "module": "audit_suites",
         "argv": [],
-        "bytes": 28135,
+        "bytes": 29500,
         "doc": "Fiscal genérico do Contrato de Régua — as cinco cláusulas, cobradas por ficha."
       },
       {
@@ -3736,7 +3782,7 @@
       },
       {
         "module": "ci/suite_runner.py",
-        "bytes": 13042,
+        "bytes": 14550,
         "doc": "Runner genérico — executa uma régua A PARTIR DA FICHA, e traduz o veredito ao CI."
       },
       {
@@ -4103,18 +4149,9 @@
         "suite": "privacy-suite"
       },
       {
-        "id": "GAP-QA-ENVELOPE",
-        "clause": "envelope-com-3-estados",
-        "description": "O laudo emitido é schema_version 1.0 e não carrega `verdict`. A versão 1.3 do envelope é aditiva justamente para que isto siga válido enquanto a suíte não emite o campo — mas sem o campo o veredito precisa ser INFERIDO pelo consumidor, e inferência não é laudo.\n",
-        "declared_at": "2026-08-06",
-        "due": "2026-11-03",
-        "risk": "RISK-WEBQA-001",
-        "suite": "qa-suite"
-      },
-      {
         "id": "GAP-QA-EXIT-ZERO",
         "clause": "envelope-com-3-estados",
-        "description": "Suíte ausente produz ::warning:: e exit 0. \"Não consegui medir\" sai com a mesma cor de \"medi e está bom\", e a cor mais barata vence por hábito. O runner da CP-B traduz inconclusivo para não-conforme; enquanto este gap vigora, com aviso e sem reprovar.\n",
+        "description": "REAGENDADO, e o motivo mudou de lugar — o que é exatamente o que um gap datado existe para tornar visível. A metade da régua está PAGA: `webqa-veredicto` traduz os três estados em código de saída (0 · 10 · 20 · 30), o laudo carrega `verdict` e `inconclusivo` carimbados pela MESMA função que decide o exit, e o preflight virou sinal explícito de sessão. O que segura a tolerância agora é OUTRA COISA: a régua não expõe o entrypoint `webqa` com os subcomandos `inventario` e `auditar` que esta ficha declara, então `shutil.which(\"webqa\")` continua vazio e todo run deste consumidor mede `suite_not_installed`. O veredito é `inconclusivo` com razão declarada — e é honesto —, mas fechar o gap hoje reprovaria o CI por uma lacuna de ENTRYPOINT, não de envelope. O gap sai no dia em que `webqa` existir; até lá, avisa sem reprovar, e o estado fica no ledger.\n",
         "declared_at": "2026-08-06",
         "due": "2026-11-03",
         "risk": "RISK-WEBQA-001",
@@ -4130,18 +4167,9 @@
         "suite": "qa-suite"
       },
       {
-        "id": "GAP-QA-MORDIDA",
-        "clause": "autoprova-de-mordida",
-        "description": "A qa-suite não prova que as próprias travas mordem. O motor de mutação está disponível por pin em harness/suite-contract/mutation-engine/, mas a régua ainda não o consome — e uma régua verde com travas que não mordem é indistinguível de uma régua verde.\n",
-        "declared_at": "2026-08-06",
-        "due": "2026-11-03",
-        "risk": "RISK-CONF-001",
-        "suite": "qa-suite"
-      },
-      {
         "id": "GAP-QA-TAG",
         "clause": "release-com-manifesto",
-        "description": "A qa-suite não publica release com manifesto ancorável: o consumo é por `git+...@v1.0.0`, e uma tag sozinha é ponteiro móvel. O consumidor não tem digest para guardar, então \"continua sendo o que eu instalei\" é hoje indemonstrável.\n",
+        "description": "REAGENDADO, e o motivo mudou — que é a única forma honesta de um prazo andar. A régua JÁ publica release ancorável: `webqa-suite/releases/v1.0.0.manifesto.json` existe na árvore, o publicador verifica a cadeia (manifesto descrevendo o pai, commit de release não mudando mais nada, `__version__` da árvore casando com a tag) antes de criar qualquer ref, e o CI dela reconfere todas as releases a cada push. O que falta é MECÂNICO e não é da régua: a REF `refs/tags/v1.0.0` ainda não foi criada. O commit de release está publicado (branch `release/v1.0.0`). Enquanto a ref não existir, `@v1.0.0` não resolve, o consumidor não tem o que pinar, e `anchored` fica false — declarar true seria afirmar uma âncora que ninguém consegue segurar.\n",
         "declared_at": "2026-08-06",
         "due": "2026-11-03",
         "risk": "RISK-WEBQA-001",
@@ -4486,7 +4514,7 @@
       },
       {
         "path": "ci/audit_suites.py",
-        "sha256": "0c6123eabae22bbd586970cc87fcbd55389ca6929ada0f6a2ab60ed9152fab75"
+        "sha256": "2b892c32bb64870596bf606c6bd3507f49e5a8e77cd742ec2c5f38a508b20097"
       },
       {
         "path": "ci/automerge_gate.py",
@@ -4542,7 +4570,7 @@
       },
       {
         "path": "ci/suite_runner.py",
-        "sha256": "8c1118c5c618f6cb4a3dcbd9665277db7657ff36c16e48736d8bbf80974c28a4"
+        "sha256": "b40e523b5b3776d23e782a3f55277393aef39af288919e275b7008c8a177c002"
       },
       {
         "path": "ci/validate_all.py",
@@ -4794,7 +4822,7 @@
       },
       {
         "path": "harness/schemas/suite-registry.schema.json",
-        "sha256": "ddc7bf3f7e55b4953856ea1f3fa7f43e7ed96b9b5588c512ea7712fa12bd82a0"
+        "sha256": "ff2c25342683df0bf5218d98e013bf1ddae8cb1c4aad99f97394ad63c721a7c6"
       },
       {
         "path": "harness/schemas/target-lock.schema.json",
@@ -4826,7 +4854,7 @@
       },
       {
         "path": "harness/suites/qa-suite.yaml",
-        "sha256": "ab848239762a0bb250c8092c0c6051561c00d0870641eefaebb2dfe72db8dc38"
+        "sha256": "ec2e8c6d826f431c0364c37e6603c4fa7c70015b13c931a0cbddd360bb570bbf"
       },
       {
         "path": "project.yaml",
@@ -4857,7 +4885,7 @@
         "sha256": "92bde6e8055c324985b7cdeb183c22a8b88a165b3fea4c0e9e007a9755a7c1e4"
       }
     ],
-    "inputs_fingerprint": "sha256:d2a212c5ab6f46bbd22067f2f4e2240f6fc6861374a131b119bc897dfa4f8850",
+    "inputs_fingerprint": "sha256:cf0865c0aeb093894d83a3ad73f08e67d51a3eb8d0758d8e2787d84875bc1ef2",
     "commit": {
       "embedded": false,
       "onde": "harness/reports/config-report.json"

@@ -116,6 +116,32 @@ def test_duas_fichas_com_o_mesmo_env_prefix_reprovam(repo_copy, run_metadata):
     assert any("env_prefix" in e and "WEBQA_" in e for e in erros), erros
 
 
+def test_ficha_ativa_sem_install_reprova(repo_copy, run_metadata):
+    """A outra metade da cláusula 1: `pin_source` diz onde a versão mora, `install` de onde vem.
+
+    O defeito que a trava existe para pegar já tinha acontecido: a qa-suite era consumida por um
+    pin que NÃO RESOLVIA, e o caminho que funciona vivia num comentário. Comentário não é
+    declaração — nada o valida, nada o executa, e ele envelhece sem ficar vermelho.
+    """
+    escreve_ficha(repo_copy, FICHA_QA, lambda s: s.pop("install"))
+    codigo, erros = run_metadata(repo_copy)
+    assert codigo == 1
+    assert any("install" in e for e in erros), erros
+
+
+def test_install_de_referencia_direta_sem_placeholder_de_origem_reprova(repo_copy, run_metadata):
+    """O spec declara a FORMA; os dois valores moram fora da ficha.
+
+    Sem `{origin}`, o spec ou está incompleto — e o caminho não resolve — ou traz a URL literal,
+    que é a de repositório sob `harness/` que o ADR-008-A5 recusa por cravar um alvo no molde.
+    """
+    escreve_ficha(repo_copy, FICHA_QA, lambda s: s["install"].__setitem__(
+        "spec", "webqa-suite @ git+https://exemplo.invalid/x/y@v{version}#subdirectory=x"))
+    codigo, erros = run_metadata(repo_copy)
+    assert codigo == 1
+    assert any("spec" in e or "origin" in e for e in erros), erros
+
+
 def test_gap_vencido_acusa(repo_copy, monkeypatch):
     """A borda: prazo que passa sem nada acontecer é prazo decorativo."""
     ontem = (date.today() - timedelta(days=1)).isoformat()
@@ -152,6 +178,62 @@ def test_release_sem_gap_reprova(repo_copy, monkeypatch):
     codigo, achados = roda_suites(repo_copy, monkeypatch)
     assert codigo == 1
     assert any("RELEASE-SEM-GAP" in i for i in ids(achados)), ids(achados)
+
+
+def ancora_a_release(root: Path, conteudo: str = '{"tag": "v1.0.0"}\n') -> str:
+    """Põe a ficha na configuração ANCORADA e devolve o digest do manifesto pinado.
+
+    A qa-suite ainda declara `anchored: false` (a ref da tag não existe), então os dois testes
+    abaixo constroem o estado que querem medir em vez de esperá-lo no repositório. É o oposto
+    de adaptar o teste ao mundo: o caminho do fiscal existe e precisa ser exercido ANTES de
+    alguém depender dele — uma trava estreada em produção é uma trava nunca vista mordendo.
+    """
+    import hashlib
+
+    rel = "harness/suites/qa-suite.manifesto.json"
+    (root / rel).write_text(conteudo, encoding="utf-8")
+    digest = hashlib.sha256(conteudo.encode("utf-8")).hexdigest()
+
+    def ancora(suite):
+        suite["release"] = {"anchored": True, "manifest_path": rel, "manifest_sha": digest}
+        suite["gaps"] = [g for g in suite["gaps"] if g["clause"] != "release-com-manifesto"]
+
+    escreve_ficha(root, FICHA_QA, ancora)
+    return digest
+
+
+def test_manifesto_da_release_ausente_reprova(repo_copy, monkeypatch):
+    """Âncora que não encontra o que ancora está quebrada, não satisfeita."""
+    ancora_a_release(repo_copy)
+    (repo_copy / "harness/suites/qa-suite.manifesto.json").unlink()
+    reemite_digests(repo_copy)
+    codigo, achados = roda_suites(repo_copy, monkeypatch)
+    assert codigo == 1
+    assert any("RELEASE-MANIFESTO-AUSENTE" in i for i in ids(achados)), ids(achados)
+
+
+def test_manifesto_da_release_com_digest_divergente_reprova(repo_copy, monkeypatch):
+    """A âncora é o DIGEST, não o caminho.
+
+    `manifest_path` existir prova que há um arquivo, não que é AQUELE arquivo. Sem esta mordida,
+    mover a tag da régua e trazer o manifesto novo passaria calado — exatamente o evento que
+    "tag é ponteiro móvel, digest não" existe para tornar visível.
+    """
+    ancora_a_release(repo_copy)
+    (repo_copy / "harness/suites/qa-suite.manifesto.json").write_text(
+        '{"tag": "v1.0.0", "editado": true}\n', encoding="utf-8")
+    reemite_digests(repo_copy)
+    codigo, achados = roda_suites(repo_copy, monkeypatch)
+    assert codigo == 1
+    assert any("RELEASE-DIGEST-DIVERGENTE" in i for i in ids(achados)), ids(achados)
+
+
+def test_release_ancorada_com_digest_correto_nao_acusa(repo_copy, monkeypatch):
+    """O simétrico, sem o qual os dois acima passariam mesmo com o fiscal sempre vermelho."""
+    ancora_a_release(repo_copy)
+    reemite_digests(repo_copy)
+    codigo, achados = roda_suites(repo_copy, monkeypatch)
+    assert codigo == 0, ids(achados)
 
 
 def test_envelope_sem_um_dos_tres_estados_reprova(repo_copy, monkeypatch):
