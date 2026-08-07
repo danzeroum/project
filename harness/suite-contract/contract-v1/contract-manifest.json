@@ -17,10 +17,10 @@
         "assertion": "ci/audit_suites.py::check_clausula_release",
         "canonical_mutation": {
           "alvo": "harness/suites/qa-suite.yaml",
-          "de": "      clause: release-com-manifesto",
+          "de": "    anchored: true",
           "espera_achado": "SUITE-QA-SUITE-RELEASE-SEM-GAP",
           "op": "substituir_texto",
-          "para": "      clause: fingerprint"
+          "para": "    anchored: false"
         },
         "id": "release-com-manifesto",
         "titulo": "A régua publica versões ancoráveis, ou declara um gap com data"

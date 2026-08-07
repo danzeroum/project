@@ -81,50 +81,38 @@ suite:
 
   fingerprint_fields: [name, version, commit, catalog_hash, schema_version]
 
-  # Cláusula 2 — a régua PASSOU a saber publicar release ancorável (manifesto na árvore do commit
-  # de release, publicador que verifica a cadeia antes de criar a ref, guarda no CI dela), e o
-  # manifesto da v1.0.0 já existe. `anchored` segue FALSE por um motivo só, e ele é material: a
-  # REF da tag ainda não foi criada, então `@v1.0.0` não resolve e não há o que pinar. Declarar
-  # `true` aqui seria a verdade parcial que este contrato inteiro existe para desfazer.
+  # Cláusula 2 — ANCORADA. A ref `refs/tags/v1.0.0` existe, o manifesto mora na árvore do commit
+  # taggeado, e o que guardamos aqui é o digest DELE — extraído da própria tag, não do branch.
   #
-  # E `manifest_path` NÃO é declarado enquanto isso: o registro só admite o caminho do manifesto
-  # numa release ancorada, e declará-lo aqui seria afirmar uma âncora que ninguém consegue
-  # conferir de ponta a ponta. O par (caminho, digest) entra no mesmo PR em que `anchored` vira
-  # true — e o fiscal já sabe conferi-lo (`SUITE-…-RELEASE-DIGEST-DIVERGENTE`), porque a cláusula
-  # 2 sempre disse "manifest_sha que não bate ⇒ achado" e nada conferia.
+  # A âncora é o DIGEST, nunca a tag: mover a tag muda o manifesto que se encontra no destino, e
+  # `manifest_sha` deixa de conferir. É a mesma razão pela qual target.lock guarda manifest_sha
+  # além do ponteiro. E agora o fiscal confere de verdade — o que a cláusula 2 sempre prescreveu
+  # ("`manifest_sha` que não bate ⇒ achado") e nada fazia.
+  #
+  # O arquivo é uma CÓPIA PINADA, e a distinção importa: copiar a RÉGUA é o que a política de
+  # webqa proíbe; copiar a ÂNCORA é o que permite a este consumidor detectar sozinho que a régua
+  # mudou sob os pés. O que ele guarda não é código de verificação — é a prova de qual
+  # verificação foi publicada.
   release:
-    anchored: false   # ver GAP-QA-TAG
+    anchored: true
+    manifest_path: harness/suites/qa-suite.manifesto.json
+    manifest_sha: 826d69343dae58d99baa61321e6be0163c34cba67731f00cce3cbfb08817479e
 
   # O QUE ESTA RÉGUA AINDA NÃO CUMPRE DO CONTRATO, com data.
   #
-  # Eram cinco; são TRÊS. Saíram `GAP-QA-ENVELOPE` (a régua declara `verdict` e o fingerprint
-  # completo, e o kit da contract-v1 roda no CI dela) e `GAP-QA-MORDIDA` (a autoprova por release
-  # existe, o release.yml recusa a tag se alguma trava do escopo não morder). As duas saíram
-  # porque a dívida foi PAGA — um gap que some sem o fato correspondente apagaria a única
+  # Eram cinco; são DOIS. Saíram `GAP-QA-ENVELOPE` (a régua declara `verdict` e o fingerprint
+  # completo, e o kit da contract-v1 roda no CI dela), `GAP-QA-MORDIDA` (a autoprova por release
+  # existe, o release.yml recusa a tag se alguma trava do escopo não morder) e agora
+  # `GAP-QA-TAG` (a ref v1.0.0 foi publicada e o digest do manifesto está logo acima). As três
+  # saíram porque a dívida foi PAGA — um gap que some sem o fato correspondente apagaria a única
   # evidência de que a dívida existiu.
   #
-  # Os três restantes vencem em 2026-11-03 — a mesma data do RISK-EXT-001, e não por acaso: é o
+  # Os dois restantes vencem em 2026-11-03 — a mesma data do RISK-EXT-001, e não por acaso: é o
   # horizonte em que este repositório já se comprometeu a reavaliar suas dependências externas.
   # Um gap declarado é dívida que alguém pode contestar numa revisão. Um gap não declarado é
   # indistinguível de conformidade, e essa indistinguibilidade é o que o contrato existe para
   # desfazer.
   gaps:
-    - id: GAP-QA-TAG
-      clause: release-com-manifesto
-      description: >
-        REAGENDADO, e o motivo mudou — que é a única forma honesta de um prazo andar. A régua
-        JÁ publica release ancorável: `webqa-suite/releases/v1.0.0.manifesto.json` existe na
-        árvore, o publicador verifica a cadeia (manifesto descrevendo o pai, commit de release
-        não mudando mais nada, `__version__` da árvore casando com a tag) antes de criar
-        qualquer ref, e o CI dela reconfere todas as releases a cada push. O que falta é
-        MECÂNICO e não é da régua: a REF `refs/tags/v1.0.0` ainda não foi criada. O commit de
-        release está publicado (branch `release/v1.0.0`). Enquanto a ref não existir, `@v1.0.0`
-        não resolve, o consumidor não tem o que pinar, e `anchored` fica false — declarar true
-        seria afirmar uma âncora que ninguém consegue segurar.
-      declared_at: "2026-08-06"
-      due: "2026-11-03"
-      risk: RISK-WEBQA-001
-
     - id: GAP-QA-EXIT-ZERO
       clause: envelope-com-3-estados
       description: >
