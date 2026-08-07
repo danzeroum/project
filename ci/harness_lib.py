@@ -77,6 +77,7 @@ def read_json(rel: str) -> Any:
         raise HarnessError(f"[json] {rel}: {exc}") from exc
 
 
+_REGISTRY = None
 _VALIDATORS: dict[str, Draft202012Validator] = {}
 
 
@@ -90,9 +91,42 @@ def validator_for(schema_name: str) -> Draft202012Validator:
         if not path.exists():
             raise HarnessError(f"[schema] schema ausente: harness/schemas/{schema_name}")
         _VALIDATORS[schema_name] = Draft202012Validator(
-            json.loads(path.read_text(encoding="utf-8"))
+            json.loads(path.read_text(encoding="utf-8")), registry=_registry()
         )
     return _VALIDATORS[schema_name]
+
+
+def _registry():
+    """Resolve `$ref` entre schemas LOCALMENTE — a rede nunca é consultada (CP-042).
+
+    Sem isto, `report.schema.json`, que compõe `provenance.schema.json` por `$ref`, fazia o
+    jsonschema tentar BAIXAR `https://danzeroum/project/harness/schemas/provenance.schema.json`.
+    Num runner com rede o download poderia até funcionar, e aí a validação passaria a depender de
+    um servidor que não existe; sem rede, ele explode com `Unresolvable`.
+
+    É a segunda cara do mesmo defeito que a CP-041 registrou como CONF-006: nada jamais validou
+    contra aquele envelope, então nem o schema quebrado nem esta resolução ausente tinham como
+    aparecer. O primeiro documento a exercê-lo — o laudo que o `ci/suite_runner.py` produz —
+    encontrou os dois.
+
+    Um fiscal que consulta a rede para julgar o repositório é um fiscal cujo veredito depende de
+    quem responde: exatamente a família de sequestro que a denylist do CP-025 fecha para o pip e
+    para o import. Fechá-la aqui é a mesma decisão, no lugar onde ela faltava.
+    """
+    global _REGISTRY
+    if _REGISTRY is None:
+        from referencing import Registry, Resource
+
+        recursos = []
+        for p in sorted(SCHEMAS.glob("*.json")):
+            recurso = Resource.from_contents(json.loads(p.read_text(encoding="utf-8")))
+            # Pelo NOME do arquivo (como os $ref são escritos) e pelo $id (como o próprio schema
+            # se identifica). Registrar só um dos dois deixaria metade das referências sem casa.
+            recursos.append((p.name, recurso))
+            if isinstance(recurso.contents, dict) and recurso.contents.get("$id"):
+                recursos.append((recurso.contents["$id"], recurso))
+        _REGISTRY = Registry().with_resources(recursos)
+    return _REGISTRY
 
 
 def schema_errors(rel: str, schema_name: str, doc: Any) -> list[str]:

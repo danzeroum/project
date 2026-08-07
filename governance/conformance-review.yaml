@@ -12,7 +12,7 @@ generated_from: null
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: "sha256:12c2c04478f8e16e8560b272b3fe771036411f4f737e1b13fdaf4c3220e6f530"
+  scope_fingerprint: "sha256:0fc260329ce20586126052887688196892379a03ed9de44542c2b6eb712fbc14"
 
   findings:
     - id: CONF-001
@@ -126,6 +126,32 @@ review:
         A LIÇÃO É SOBRE COBERTURA, NÃO SOBRE JSON SCHEMA. Um schema que nenhum documento exercita
         é indistinguível de um schema correto, e o repositório não tinha como saber a diferença.
         Fica em `not_assessed` o que segue sem exercício: os demais schemas cujo produtor é externo.
+
+    - id: CONF-007
+      severity: medium
+      summary: >
+        O MESMO ENVELOPE ESCONDIA UM SEGUNDO DEFEITO, E SÓ O PRIMEIRO DOCUMENTO REAL O ENCONTROU.
+        Corrigido o `report.schema.json` na CP-041 (CONF-006), a CP-042 produziu o primeiro laudo
+        que de fato passa por ele — e a validação explodiu com `Unresolvable`: `ci/harness_lib.py`
+        compilava os schemas SEM registry, então o `$ref` para `provenance.schema.json` era tratado
+        como URL e o jsonschema tentava BAIXÁ-LO de `https://danzeroum/project/...`, um host que
+        não existe.
+        O agravante não é a falha, é o sucesso possível: num runner com rede e um host que
+        respondesse, a validação teria PASSADO — e o veredito do fiscal passaria a depender de quem
+        respondeu. É a mesma família de sequestro que o CP-025 fechou para o pip e para o import,
+        num lugar onde ninguém tinha olhado.
+      disposition: change_proposal
+      ref: harness/change-proposals/CP-042-runner-generico.yaml
+      consumed_by:
+        kind: change_proposal
+        ref: CP-042
+      rationale: >
+        Corrigido com `harness_lib._registry()`, que resolve todo `$ref` localmente — por nome de
+        arquivo e por `$id` — e nunca consulta a rede. Coberto por `ADR-030-A14` e por teste.
+        A LIÇÃO REPETE A DO CONF-006 e por isso vale registrar duas vezes: dois defeitos no mesmo
+        envelope, ambos invisíveis pela mesma razão — nenhum documento o exercitava. Cobertura de
+        schema não é "o schema existe e é válido"; é "algum documento real passa por ele". Os
+        schemas cujo produtor é externo seguem sem esse exercício, e seguem em `not_assessed`.
 
   # O que esta revisão NÃO olhou. "Sem achados" numa categoria que ninguém examinou é a forma
   # mais silenciosa de laudo falso.

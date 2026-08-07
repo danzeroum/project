@@ -155,21 +155,30 @@ jobs:
       - name: Instalar o padrão declarado (tolerante)
         run: pip install -r requirements-qa.txt || echo "::warning::webqa-suite indisponível via PyPI — passos de suíte entram em modo stub (instale via Git; ver docs/COMO-ADOTAR.md)."
 
+      # CP-042 — OS COMANDOS SAEM DAQUI E VÃO PARA A FICHA. Os nomes dos passos ficam: eles são
+      # citados por `harness/stages.yaml:enforced_by.step` e resolvidos literalmente, então mudá-los
+      # desligaria a cobertura da etapa sem que nada acusasse.
+      #
+      # O que muda não é O QUE roda — é QUEM ESCOLHE. `harness/suites/qa-suite.yaml` declara o
+      # comando de cada modo, e uma régua nova deixa de custar edição de workflow. Se acrescentar
+      # uma suíte voltar a exigir mexer aqui, a padronização não aconteceu.
+      #
+      # E o `if command -v webqa` sumiu de propósito: aquele ramo transformava "não consegui medir"
+      # num ::warning:: e exit 0. Agora a ausência da régua produz um LAUDO, com veredito
+      # `inconclusivo`, que vai para o ledger. Enquanto o GAP-QA-EXIT-ZERO vigora o runner não
+      # reprova; vencida a data do gap, o mesmo código passa a reprovar — a tolerância fecha por
+      # data declarada, nunca por esquecimento.
       - name: Inventário (Trabalho B — sem rede, sem autorização)
-        run: |
-          if command -v webqa >/dev/null 2>&1; then
-            webqa inventario --raiz . --saida harness/reports/cockpit.html
-          else
-            echo "::warning::CLI 'webqa' ausente — pulando inventário (suite_not_installed, código 20)."
-          fi
+        run: python ci/suite_runner.py --suite qa-suite --mode inventory
 
       - name: Auditoria passiva (Trabalho A — só se escopo autorizar)
-        run: |
-          if command -v webqa >/dev/null 2>&1; then
-            webqa auditar --config tests/qa/config.yaml -m 'not load'
-          else
-            echo "::warning::CLI 'webqa' ausente — pulando auditoria passiva (suite_not_installed, código 20)."
-          fi
+        run: python ci/suite_runner.py --suite qa-suite --mode passive
+
+      # O consumidor prova que o pin e a ficha honram o contrato. O outro lado do kit
+      # (`--as-suite`) é para a régua rodar no CI DELA — é o que faz disto um contrato, e não uma
+      # checagem que só uma das partes consegue fazer.
+      - name: Conformidade do consumo (kit, lado do consumidor)
+        run: python ci/suite_conformance.py --as-consumer qa-suite
 
       - name: Arquivar evidência
         if: always()

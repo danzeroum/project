@@ -1,0 +1,71 @@
+# Mudança proposta: a régua é EXECUTADA pela ficha, e o veredito chega ao CI traduzido.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-042
+  title: "Runner genérico e kit de conformidade: a ficha deixa de só descrever e passa a executar"
+  author_kind: agent
+  created_at: "2026-08-06T19:30:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+  paths_affected:
+    - ci/suite_runner.py
+    - ci/suite_conformance.py
+    - ci/harness_lib.py
+    - harness/schemas/suite-registry.schema.json
+    - harness/suites/qa-suite.yaml
+    - harness/stages.yaml
+    - architecture/adr/index.yaml
+    - .github/workflows/qa.yml
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-WEBQA-001
+      - RISK-SEC-001
+      - RISK-CONF-001
+    rationale: >
+      A CP-041 FEZ A FICHA DESCREVER; ESTA FAZ A FICHA EXECUTAR. Sem isto o registro é um
+      catálogo: ele diz que a qa-suite tem modos, perfil, laudo e veredito, e nada disso é lido
+      por quem realmente roda a régua. Os dois passos de `qa.yml` continuam cravados, e uma régua
+      nova continuaria custando edição de workflow — que é precisamente o que a CP-041 se propôs
+      a acabar. Uma ficha que ninguém executa é documentação com schema.
+      O DEFEITO QUE O RUNNER EXISTE PARA PEGAR. Hoje, suíte ausente produz `::warning::` e exit 0.
+      "Não consegui medir" e "medi e está bom" saem com a mesma cor, e a cor mais barata vence por
+      hábito. O runner traduz o veredito: `inconclusivo` NÃO é verde. Enquanto o GAP-QA-EXIT-ZERO
+      vigora ele avisa sem reprovar — e a data do gap é o que fecha a tolerância, não o esquecimento.
+      O KIT RODA DOS DOIS LADOS, e é isso que o torna um contrato em vez de uma checagem. A suíte
+      prova "emito envelope contract-v1"; o consumidor prova "meu pin honra o contrato". Mesmo
+      código, duas direções: se só o consumidor pudesse verificar, a régua nunca saberia que
+      quebrou o contrato até quebrar o CI de outra pessoa.
+      O CAMPO NOVO NA FICHA, e por que ele NÃO é contract-v2. O runner precisa saber invocar cada
+      modo, e a forma não se deriva de `entrypoint` + nome do modo (a qa-suite usa `inventario` e
+      `auditar`, com flags distintas). Isso exige `modes[].command`. O schema do REGISTRO mudou;
+      o CONTRATO não — a interface suíte↔consumidor é a mesma. A CP-041 já corrigiu o escopo do
+      manifesto para que essa distinção fosse expressável, e esta CP é o primeiro caso que a usa.
+      CUSTO (princípio (e)): dois scripts sem rede, um campo no schema do registro, e `qa.yml`
+      perdendo dois passos cravados e ganhando duas chamadas parametrizadas. O comportamento atual
+      é PRESERVADO: os mesmos comandos, na mesma ordem, com os mesmos gates — o que muda é quem os
+      escolhe.
+      MORDIDA: laudo `exit 0` declarando-se inconclusivo ⇒ o runner traduz para não-conforme e o
+      teste exige a tradução; modo `human_only` invocado sem gate ⇒ MODE_FORBIDDEN (11); ficha
+      `planned` executada ⇒ recusa, porque régua que não existe não pode produzir laudo; laudo
+      fora do envelope declarado ⇒ CONFIG_INVALID (40).
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+    - inventory
+    - passive
+
+  tests_required:
+    - tests/governance/test_runner_bites.py
+    - tests/governance/test_contrato_regua_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request
