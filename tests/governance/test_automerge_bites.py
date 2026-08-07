@@ -150,25 +150,86 @@ def _cron_do_atestado() -> tuple[int, int]:
     return t.hour, t.minute
 
 
-def test_a_folga_entre_dois_carimbos_e_de_uma_hora_e_isso_e_deliberado():
-    """A aritmética que o ADR-029 declara, conferida contra o atestado real.
+def test_o_carimbo_expira_e_nao_deixa_janela_cega():
+    """A propriedade que o ADR-029 declara, conferida contra o atestado real — e SÓ a propriedade.
 
-    25h de validade e 24h de intervalo compram exatamente 1h de margem: o carimbo de hoje vence
-    uma hora DEPOIS de o de amanhã nascer. A margem existe para absorver fila de runner e duração
-    de checks — não para absorver um humano dormindo, que é precisamente o que esta CP tira do
-    caminho.
+    Este teste já fixou `validade == 25h`, e a versão fixa se voltou contra o repositório: quando a
+    autoridade recalibrou a folga (cron de 6 em 6 horas, validade derivada da cadência), o molde
+    passou a RECUSAR o carimbo novo. O impasse foi literal — o PR que trazia o atestado válido não
+    podia mergear porque este arquivo insistia no número velho, e sem esse merge o molde seguia
+    bloqueado por atestado expirado.
+
+    A lição é a mesma que o CLAUDE.md já aplica à versão da régua: **número que mora em outro
+    repositório não se restata aqui**. A validade é decisão da autoridade — ela conhece o atraso
+    real do próprio agendador, que é o que a calibra. O molde não conhece nem deve conhecer a
+    cadência do cron alheio; o que ele legitimamente exige é que o carimbo tenha as propriedades
+    das quais a proteção depende. São três, e nenhuma delas é um número combinado:
+
+      1. **Expira.** Sem prazo, o carimbo é afirmação eterna sobre configuração que pode ter mudado.
+      2. **Cobre um dia inteiro.** O molde não enxerga a cadência da autoridade, então cobra o
+         limite pessimista: mesmo que ela passasse a carimbar só uma vez por dia, ainda não haveria
+         intervalo descoberto entre um carimbo e o próximo. Folga maior que isso é decisão dela.
+      3. **Não é eterno.** Teto explícito, porque o modo de falha desta trava não é vencer cedo
+         demais — é a validade crescer até o vencimento nunca chegar e o bloqueio virar teatro.
     """
     import json
     doc = json.loads((REPO / ATESTADO).read_text(encoding="utf-8"))["attestation"]
-    nasceu = datetime.fromisoformat(doc["checked_at"])
-    vence = datetime.fromisoformat(doc["expires_at"])
-    validade = vence - nasceu
-    proximo = nasceu + timedelta(days=1)
+    validade = (datetime.fromisoformat(doc["expires_at"])
+                - datetime.fromisoformat(doc["checked_at"]))
+    _conferir_janela(validade)
 
-    assert validade == timedelta(hours=25), validade
-    folga = vence - proximo
-    assert folga == timedelta(hours=1), folga
-    assert proximo < vence, "o próximo carimbo nasce ANTES de este vencer — sem janela cega"
+
+# Os limites da janela, nomeados: o piso é o que fecha a janela cega, o teto é o que impede a
+# validade de crescer até o vencimento nunca chegar. Ficam aqui, e não soltos na asserção, porque
+# `test_os_limites_da_janela_MORDEM` os exercita dos dois lados — um limite que nunca reprovou
+# nada não é limite, é decoração.
+JANELA_MINIMA = timedelta(days=1)
+JANELA_MAXIMA = timedelta(hours=48)
+
+
+def _conferir_janela(validade: timedelta) -> None:
+    """As três propriedades, num só lugar — para poderem ser exercitadas contra valores sintéticos.
+
+    Se elas vivessem apenas inline na asserção contra o arquivo real, só seriam exercitadas no
+    valor que o arquivo tem hoje: os limites passariam anos sem nunca reprovar nada, e ninguém
+    saberia se ainda mordem.
+    """
+    if validade <= timedelta(0):
+        raise AssertionError(
+            f"carimbo sem prazo é afirmação eterna sobre config que pode ter mudado: {validade}")
+    if validade <= JANELA_MINIMA:
+        raise AssertionError(
+            f"validade de {validade} deixa intervalo descoberto se a autoridade carimbar uma vez "
+            f"por dia — o carimbo venceria ANTES de o próximo nascer, e a janela cega é o buraco")
+    if validade > JANELA_MAXIMA:
+        raise AssertionError(
+            f"validade de {validade} deixa de afirmar algo sobre hoje e vira memória; acima disso "
+            f"o vencimento para de ser trava")
+
+
+@pytest.mark.parametrize("validade,morde", [
+    (timedelta(hours=-1), True),   # carimbo que já nasce vencido
+    (timedelta(0), True),          # sem prazo nenhum
+    (timedelta(hours=24), True),   # empata com o dia: o próximo nasce no instante do vencimento
+    (timedelta(hours=25), False),  # o desenho da CP-036, e continua válido
+    (timedelta(hours=26), False),  # o desenho da CP-044, derivado da cadência de 6h
+    (timedelta(hours=48), False),  # o teto exato ainda passa
+    (timedelta(hours=49), True),   # um minuto além dele, não
+    (timedelta(days=30), True),    # a deriva que o teto existe para pegar
+])
+def test_os_limites_da_janela_MORDEM(validade, morde):
+    """Os dois limites, exercitados dos dois lados — inclusive nas bordas exatas.
+
+    A versão anterior deste arquivo cobrava `== 25h` e por isso nunca precisou saber o que estava
+    protegendo. Trocar igualdade por faixa só é um ganho se a faixa reprovar de fato: uma faixa
+    frouxa demais aceitaria a validade crescendo até o vencimento virar teatro, que é exatamente o
+    modo de falha que esta trava existe para impedir.
+    """
+    if morde:
+        with pytest.raises(AssertionError):
+            _conferir_janela(validade)
+    else:
+        _conferir_janela(validade)
 
 
 def test_um_cron_perdido_BLOQUEIA_e_o_seguinte_DESTRAVA_sem_humano():
