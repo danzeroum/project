@@ -1,0 +1,105 @@
+# Mudança proposta: um painel de leitura da CONFIGURAÇÃO do repositório, derivado dos schemas.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-050
+  title: "O vocabulário, a gramática e as travas do repositório viram tela — derivadas, nunca transcritas"
+  author_kind: agent
+  created_at: "2026-08-07T20:10:00Z"
+  status: draft
+  capabilities_affected: []
+  components_affected: []
+
+  paths_affected:
+    - ci/generate_config_report.py
+    - ci/assets/organic.css
+    - ci/validate_all.py
+    - ci/audit_governance.py
+    - harness/schemas/config-report.schema.json
+    - harness/stages.yaml
+    - harness/policies/painel-de-configuracao.md
+    - architecture/adr/ADR-031-painel-de-configuracao-derivado.md
+    - architecture/adr/index.yaml
+    - governance/risk-register.yaml
+    - docs/schema-reference.md
+    - docs/configuracao/index.html
+    - docs/configuracao/config.json
+    - tests/governance/test_configuracao_bites.py
+    - tests/governance/conftest.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-ORIENT-001
+      - RISK-META-001
+      - RISK-META-002
+    rationale: >
+      A pergunta que ninguém responde hoje sem abrir trinta arquivos é "o que já está decidido antes
+      de eu chegar?". O vocabulário fechado, a gramática dos identificadores e as combinações que os
+      schemas tornam inexpressáveis existem, estão corretos e são ilegíveis: moram distribuídos em
+      harness/schemas/*.schema.json, que é o formato certo para uma máquina julgar e o errado para
+      uma pessoa se orientar.
+
+      O risco de construir essa tela é o RISK-ORIENT-001, e esta é a maior exposição a ele que o
+      repositório já teve. Orientação que ENUMERA em vez de DERIVAR cria a segunda descrição que o
+      ADR-014 nomeia — e aqui o modo de falha é pior do que no relatório de conteúdo. Um dado velho
+      às vezes é visivelmente velho; um VOCABULÁRIO velho não é. Se alguém escrever a lista
+      [open, mitigated, accepted, closed] dentro do gerador e amanhã o schema ganhar um quinto
+      valor, a tela continua renderizando perfeita, sem erro e sem aviso, ensinando um vocabulário
+      que o repositório já não usa. Nada fica vermelho porque nada quebrou: a segunda descrição só
+      precisa PARECER cuidadosa.
+
+      Daí a forma da mudança, que é toda ela uma resposta a esse risco. Nenhum valor de enum,
+      pattern, const ou contagem é literal em ci/generate_config_report.py. Tudo nasce de uma
+      travessia recursiva dos próprios schemas, com deduplicação por JSON Pointer e nunca por valor
+      — porque low/medium/high/critical aparece em dez schemas como três escalas semanticamente
+      distintas, e fundi-las apagaria exatamente a informação que o leitor precisa. Todo contador é
+      len() da coleção derivada. O gerador audita a si mesmo a cada execução, lendo o próprio AST,
+      e aborta se encontrar valor de vocabulário em posição de dado: a verificação lê o AST e não o
+      texto porque um gerador que fala SOBRE enums contém as palavras enum, pattern e const em toda
+      parte, inclusive nos comentários que explicam por que ele não deve conter valores de enum —
+      ancorar na menção é a família reincidente registrada em harness/policies/conformance.md.
+
+      O segundo risco é o RISK-META-001: artefato derivado sem fiscal envelhece e mente em silêncio.
+      Fecha pelo modo --check, copiado inteiro de ci/generate_schema_docs.py e ci/alignment_report.py
+      — regenera em memória, compara byte a byte, reprova com exit 1 — e pela entrada nova em
+      ci/validate_all.py::_steps(). O determinismo é condição da trava, não estética: artefato que
+      reordena sozinho transforma o --check em gerador de ruído, e o remédio que as pessoas escolhem
+      é desligá-lo. Por isso a ordenação é por (arquivo, JSON Pointer) e não por ordem de encontro,
+      e por isso o artefato conferido é função pura do conteúdo da árvore: sem datetime.now(), sem
+      branch, sem commit SHA. O SHA embutido reprovaria o --check para sempre, já que o arquivo
+      nasce num commit e é conferido no seguinte; a procedência vira inputs_fingerprint sobre os
+      arquivos lidos, e o carimbo volátil vai para o laudo em harness/reports/, que nenhum fiscal
+      caminha — a mesma costura que hl.build_report já usa.
+
+      A extensão de ci/audit_governance.py::geradores_declarados() para reconhecer docs/**/*.html,
+      e não só docs/*.md, é aperto e não afrouxamento: sem ela este artefato seria o único derivado
+      do repositório fora da cobertura "derivado sem fonte", que é o mesmo buraco silencioso noutro
+      lugar. Fica em .html apenas; .json não comporta comentário, e a honestidade dele vem do par
+      source_of_truth/generated_from que hl.header_invariant_errors já cobra.
+
+      Os dois mapas de apresentação inevitáveis — schema para grupo temático, variável negada para
+      família de sequestro — são fail-closed nos dois sentidos e saem com exit 2, não 1: exit 1
+      significa "regenere", e regenerar não classifica um schema novo. Entrada faltando e entrada
+      morta acusam igual, pela razão de sempre: um mapa que guarda schema apagado faz a
+      classificação parecer completa por um motivo que já não existe.
+
+      Risco alto porque toca ci/ e harness/ — caminhos protegidos, decision_policy
+      protected_path_change require_human_review — e porque acrescenta um passo bloqueante ao
+      agregado. O caminho de rollback é limpo: remover a entrada de _steps() e apagar
+      docs/configuracao/ devolve o repositório ao estado anterior sem resíduo em metadado
+      source_of_truth algum, já que o gerador não escreve em nenhum.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_configuracao_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

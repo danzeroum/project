@@ -131,9 +131,25 @@ def test_schema_docs_carrega_cabecalho_canonico():
 
 def test_schema_docs_nao_inventa_campo_inexistente():
     """O gerador não desce em allOf/if/then: um índice que descreve campos inexistentes manda o
-    leitor procurar o que não há, e isso é pior que um índice incompleto."""
-    doc = gsd.render()
-    assert "allOf" not in doc and "/if/" not in doc
+    leitor procurar o que não há, e isso é pior que um índice incompleto.
+
+    A conferência é sobre a COLUNA DE CAMINHO, não sobre o texto do documento. Procurar a palavra
+    no documento inteiro era âncora-na-menção — a família reincidente de
+    `harness/policies/conformance.md` — e o falso positivo apareceu assim que um schema passou a
+    DESCREVER travas condicionais: a descrição citava os blocos, e o teste acusava o gerador de
+    ter descido neles. Um schema não pode ser proibido de dizer o que valida.
+    """
+    caminhos = [linha.split("|")[1].strip().strip("`")
+                for linha in gcd_linhas(gsd.render())]
+    intrusos = [c for c in caminhos
+                if any(seg in c.split(".") for seg in ("allOf", "if", "then", "else", "oneOf"))]
+    assert not intrusos, f"caminhos que não existem em documento algum: {intrusos}"
+
+
+def gcd_linhas(doc: str) -> list[str]:
+    """As linhas de tabela do índice — as únicas que afirmam a existência de um campo."""
+    return [l for l in doc.splitlines()
+            if l.startswith("| `") and l.count("|") >= 4]
 
 
 # --------------------------------------------------------------------------------------

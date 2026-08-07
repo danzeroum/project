@@ -37,6 +37,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
     import check_dependency_conflict
     import audit_governance
     import audit_lgpd
+    import generate_config_report
     import generate_graph
     import generate_schema_docs
     import validate_metadata
@@ -45,6 +46,7 @@ def _steps() -> list[tuple[str, object, list[str]]]:
         ("metadados", validate_metadata.main, []),
         ("grafo", generate_graph.main, ["--check"]),
         ("schema-docs", generate_schema_docs.main, ["--check"]),
+        ("configuracao", generate_config_report.main, ["--check"]),
         ("conformidade", audit_governance.main, []),
         ("alinhamento", alignment_report.main, ["--check"]),
         ("conformidade-continua", audit_conformance.main, []),

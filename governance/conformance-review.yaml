@@ -5,7 +5,7 @@ generated_from: null
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: sha256:9ffbecc70538654762d0273cc117d98e83c51c2dcfe7755710a890ec7f0a622a
+  scope_fingerprint: sha256:bcd9b09fb8379fd78415b727a749bc0a61acda6a36455ebf5e487df263f78994
   findings:
   - id: CONF-001
     severity: low
@@ -142,7 +142,49 @@ review:
       sem esse exercício, e seguem em `not_assessed`.
 
       '
+  - id: CONF-008
+    severity: low
+    summary: 'O agrupamento temático dos contratos vive num dicionário dentro de ci/generate_config_report.py,
+      e não em metadado declarado. É a única decisão de apresentação do painel de configuração que não
+      é derivada — os trinta e um contratos são mapeados à mão para nove grupos, e um contrato novo não
+      tem como se classificar sozinho.
+
+      '
+    disposition: accepted
+    rationale: 'Aceito porque a alternativa custa mais do que resolve E porque a falha está fechada. Um
+      YAML de metadado novo cobra as quatro coisas da regra do metadado novo — schema, entrada em DOCS,
+      etapa em stages.yaml e política com Fiscalizado por resolvível — para guardar um mapeamento de
+      trinta e uma linhas que ninguém consulta fora desta tela. O que tornaria o mapa perigoso seria
+      um contrato não classificado sumir do painel em silêncio, e é exatamente isso que `_grupos` impede:
+      contrato sem grupo E grupo apontando para contrato inexistente abortam com exit 2, com mordida
+      própria para cada sentido (test_contrato_novo_sem_grupo_reprova e test_entrada_morta_no_agrupamento_reprova).
+      A distinção que sustenta o aceite é a mesma de sempre: o problema nunca foi a lista existir, foi
+      a lista poder divergir sem que nada acuse.
+
+      '
+  - id: CONF-009
+    severity: low
+    summary: 'O pacote de design que originou o painel de configuração pressupõe um painel irmão de CONTEÚDO
+      já desenvolvido, em docs/relatorio/, com link entre os dois. Esse painel não existe neste repositório
+      — nunca existiu em nenhuma branch, e nenhum script de ci/ emite HTML antes deste. O par de telas
+      que o handoff descreve está, portanto, pela metade.
+
+      '
+    disposition: accepted
+    rationale: 'Aceito como estado declarado, não como pendência escondida, e a forma do aceite é o ponto:
+      o link para o painel irmão é renderizado CONDICIONALMENTE, só se docs/relatorio/index.html existir.
+      Um link fixo para artefato inexistente seria a mesma mentira em miniatura que o painel inteiro
+      existe para não cometer — uma tela afirmando um vizinho que não está lá. Se o relatório de conteúdo
+      for construído depois, o link aparece sozinho, sem editar o gerador, pela mesma propriedade que
+      rege todo o resto do artefato. Registrado aqui porque quem ler o handoff vai procurar o outro
+      painel e precisa saber que a ausência é conhecida.
+
+      '
   not_assessed:
+  - 'Fidelidade visual do painel de configuração ao pacote de design: cor, espaçamento e tipografia
+    são julgamento de olho humano, e nenhum fiscal deste repositório sabe olhar uma tela. O que é
+    verificável está verificado (abre offline, sem recurso remoto, sem estado no navegador); a
+    aparência não foi avaliada por máquina e não deve fingir que foi.'
   - 'Conformidade do código do alvo (não há alvo: este repositório é kind:mold)'
   - Adequação das fronteiras de componente propostas pelo cartographer (sem ingestão executada)
   - Eficácia real dos controles em produção (não há ambiente de produção)

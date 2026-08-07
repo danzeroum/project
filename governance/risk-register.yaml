@@ -71,6 +71,13 @@ risks:
       # isenção que só existia para o lado do código.
       - kind: local_path
         ref: tests/governance/test_vocabulario_do_consumidor_bites.py
+      # CP-050. Artefato derivado sem fiscal envelhece e mente em silêncio — e um painel envelhecido
+      # é pior que um documento envelhecido, porque continua parecendo cuidadoso. Fecha pelo --check
+      # e pela extensão de geradores_declarados a docs/**/*.html, que até aqui só via markdown.
+      - kind: local_path
+        ref: ci/generate_config_report.py
+      - kind: local_path
+        ref: harness/schemas/config-report.schema.json
 
   - id: RISK-CHANGE-001
     area: governance
@@ -317,6 +324,18 @@ risks:
         ref: harness/policies/orientacao.md
       - kind: local_path
         ref: architecture/adr/ADR-014-orientacao-derivada.md
+      # CP-050. A maior exposição a este risco que o repositório já teve: uma tela que ENUMERA o
+      # vocabulário fechado seria a segunda descrição na forma que não quebra. O controle não é a
+      # tela — é o gerador que a deriva e a autoauditoria que o obriga a provar isso a cada
+      # execução, lendo o próprio AST.
+      - kind: local_path
+        ref: ci/generate_config_report.py
+      - kind: local_path
+        ref: harness/policies/painel-de-configuracao.md
+      - kind: local_path
+        ref: architecture/adr/ADR-031-painel-de-configuracao-derivado.md
+      - kind: local_path
+        ref: tests/governance/test_configuracao_bites.py
 
   - id: RISK-META-002
     area: access

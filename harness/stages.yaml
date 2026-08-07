@@ -308,6 +308,11 @@ stages:
       - kind: ci_script
         ref: ci/generate_schema_docs.py
         symbol: render
+      # CP-050 — o painel de configuração é derivado pelo mesmo contrato dos dois acima: lê os
+      # metadados, escreve artefato, e o --check impede que envelheça mentindo.
+      - kind: ci_script
+        ref: ci/generate_config_report.py
+        symbol: main
     privacy_lens:
       scan: false
       question: "A documentação expõe dado real em exemplo? Exemplo com CPF válido é vazamento."

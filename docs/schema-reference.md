@@ -248,6 +248,89 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `exemptions[].path` | string | sim |  |
 | `exemptions[].justification` | string | sim |  |
 
+## `config-report.schema.json`
+
+**docs/configuracao/config.json — a camada de configuração do repositório, derivada dos contratos**
+
+> Contrato do artefato de dados do painel de configuração. É a interface de MÁQUINA da mesma leitura que o HTML apresenta a uma pessoa: quem quiser saber quais enums, patterns e travas este repositório declara não deve precisar parsear HTML. Escrito por ci/generate_config_report.py e conferido pelo --check dele.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `schema_version` | string | sim |  |
+| `metadata_version` | string | sim |  |
+| `source_of_truth` | boolean | sim |  |
+| `generated_from` | string | null | sim | Os caminhos lidos, em prosa curta. A lista completa e verificável, com hash por arquivo, mora em provenance.inputs — aqui fica a forma que o invariante de cabeçalho (I11) cobra em todo metadado do repositório. |
+| `provenance` | object | sim | Procedência é obrigatória em qualquer comparação. A daqui é por CONTEÚDO, não por commit: ver o comment do bloco commit. |
+| `provenance.repository` | string | sim |  |
+| `provenance.standard` | object | sim |  |
+| `provenance.standard.name` | string | sim |  |
+| `provenance.standard.version_source` | const(requirements-qa.txt) | sim | ONDE a versão do padrão mora, jamais QUAL. Restatar o número aqui criaria a segunda cópia que o ADR-003, o RISK-DEP-001 e check_version_single_source existem para impedir — e a primeira a divergir seria justamente esta, que ninguém atualiza. |
+| `provenance.versions` | object | sim | As versões da própria configuração, LIDAS dos arquivos (schema_version, metadata_version, harness, contrato). Nenhuma é escrita aqui. |
+| `provenance.inputs` | array<object> | sim |  |
+| `provenance.inputs[].path` | string | sim |  |
+| `provenance.inputs[].sha256` | string | sim |  |
+| `provenance.inputs_fingerprint` | string | sim | Impressão do CONTEÚDO de tudo que foi lido. Substitui o commit SHA porque muda se e somente se uma entrada muda — enquanto o SHA mudaria a cada commit, inclusive os que não tocam entrada alguma, e faria o --check reprovar para sempre: o artefato nasce num commit e é conferido no seguinte. |
+| `provenance.commit` | object | sim | O commit NÃO é embutido, e dizer isso explicitamente é metade do ponto: um leitor que não encontra o SHA precisa saber que a ausência é decisão, não esquecimento, e onde o carimbo volátil mora. |
+| `provenance.commit.embedded` | const(False) | sim | Sempre false. Ver o comment de inputs_fingerprint: um artefato conferido byte a byte não pode conter valor que muda sem que seu conteúdo mude. |
+| `provenance.commit.onde` | string | sim |  |
+| `vocabulary` | array<object> | sim | Todo nó com enum, em todos os schemas, deduplicado por JSON Pointer. Tela 02. |
+| `vocabulary[].field` | string | sim |  |
+| `vocabulary[].pointer` | — | sim |  |
+| `vocabulary[].file` | — | sim |  |
+| `vocabulary[].group` | — | sim |  |
+| `vocabulary[].values` | array<—> | sim |  |
+| `vocabulary[].note` | string | — | A description do próprio nó, quando existe. AUSENTE quando não existe — nunca inventada. O lugar de consertar uma nota faltando é o schema. |
+| `grammar` | array<object> | sim | Todo nó com pattern, deduplicado pela REGEX (a mesma forma de id aparece em muitos schemas, e mostrá-la vinte vezes esconderia as vinte formas distintas). Tela 03. |
+| `grammar[].pattern` | string | sim |  |
+| `grammar[].group` | — | sim |  |
+| `grammar[].used_in` | array<object> | sim |  |
+| `grammar[].used_in[].file` | — | sim |  |
+| `grammar[].used_in[].field` | string | sim |  |
+| `grammar[].used_in[].pointer` | — | sim |  |
+| `grammar[].example` | string | — | Um valor REAL do repositório que casa este pattern. AUSENTE quando não houver instância — num derivado recém-criado várias não terão. Exemplo sintético que case a regex mas não exista aqui é a segunda descrição em miniatura, e é por isso que o campo é opcional em vez de preenchido por gerador. |
+| `grammar[].example_from` | string | — | O arquivo de metadado de onde o exemplo foi lido. Exemplo sem procedência é indistinguível de exemplo inventado. |
+| `consts` | array<object> | sim | Todo nó com const FORA de bloco condicional e fora do oneOf de cabeçalho. Dentro de if/then/else/not o const é PREDICADO de uma trava, não valor travado, e pertence a locks. Tela 01. |
+| `consts[].field` | string | sim |  |
+| `consts[].pointer` | — | sim |  |
+| `consts[].file` | — | sim |  |
+| `consts[].value` | — | sim |  |
+| `header_invariant` | object | null | — | O par source_of_truth/generated_from aparece num oneOf em quase todos os schemas. É UMA invariante repetida, não N consts — detectada pela FORMA do bloco, nunca por lista de arquivos: renomeado o par, o card continua coletando com o nome novo; uma lista de arquivos continuaria certa até o dia em que deixasse de ser. |
+| `header_invariant.fields` | array<string> | sim |  |
+| `header_invariant.present_in` | array<—> | sim |  |
+| `header_invariant.absent_in` | array<—> | sim | A metade que informa: os schemas SEM a invariante são contratos de subdocumento, e se alguém a acrescentar a um deles esta lista encolhe sozinha. |
+| `header_invariant.why` | string | — |  |
+| `locks` | array<object> | sim | Todo if/then/else, oneOf, not e allOf com comment. A tela que justifica o painel: cada entrada é uma combinação que o schema torna inexpressável. Tela 04. |
+| `locks[].pointer` | — | sim |  |
+| `locks[].file` | — | sim |  |
+| `locks[].group` | — | — |  |
+| `locks[].block_kind` | string | sim | LIDO do nó (quais das chaves if/then/else/not/oneOf/anyOf ele tem), nunca escrito. Uma pílula digitada seria a primeira coisa a divergir quando um bloco ganhasse um else. |
+| `locks[].rule` | string | sim | A regra em linguagem natural, SINTETIZADA da estrutura do bloco por template. Não é prosa autoral: um template por forma de bloco cobre o repositório inteiro, e é isso que faz uma trava nova aparecer na tela sem ninguém editar a tela. |
+| `locks[].why` | string | — | O comment (ou description) do bloco ou do ancestral mais próximo que tenha um. AUSENTE quando o schema não declara nenhum — e a ausência aparece na tela como pílula, porque o lugar de escrever o porquê de uma trava é o schema, não uma glosa paralela que apodrece assim que o ponteiro se move. |
+| `schemas` | array<object> | sim | O catálogo dos contratos. Tela 07. |
+| `schemas[].file` | — | sim |  |
+| `schemas[].title` | string | — |  |
+| `schemas[].bytes` | integer | sim |  |
+| `schemas[].group` | — | sim |  |
+| `control` | object | sim | harness/harness.yaml, lido quase 1:1. Tela 05. O que exige cálculo está declarado nos comments dos campos derivados. |
+| `fiscais` | object | sim | Tela 06. Os agregados saem do return literal de ci/validate_all.py::_steps(), lido por AST — nunca de um glob sobre ci/*.py, que traria também os que rodam fora do agregado. |
+| `fiscais.aggregated` | array<object> | sim |  |
+| `fiscais.aggregated[].step` | string | sim |  |
+| `fiscais.aggregated[].module` | string | sim |  |
+| `fiscais.aggregated[].argv` | array<string> | sim |  |
+| `fiscais.aggregated[].doc` | string | — |  |
+| `fiscais.aggregated[].bytes` | integer | — |  |
+| `fiscais.standalone` | array<object> | sim |  |
+| `fiscais.standalone[].module` | string | sim |  |
+| `fiscais.standalone[].doc` | string | — |  |
+| `fiscais.standalone[].bytes` | integer | — |  |
+| `environment` | object | sim | pyproject, lockfile, .gitignore e paridade local. Tela 07. |
+| `suites` | object | sim | Contrato de régua, fichas e gaps. Tela 08. |
+| `inheritance` | object | sim | O que o derivado herda travado e o que nasce vazio. Tela 09. |
+| `empty_reasons` | object | sim | Os três estados que NUNCA podem ser pintados iguais — um zero solto afirma o primeiro e pode ser qualquer um dos três. Cada estado é um $def NOMEADO em vez de uma posição num enum, e a diferença é operacional: o gerador lê o texto por JSON Pointer nomeado, então o texto existe uma vez só, no contrato, e trocá-lo aqui muda a tela sem que ninguém edite o gerador. Um enum obrigaria o gerador a saber a ORDEM dos valores, que é acoplamento a um detalhe que ninguém prometeu manter. |
+| `unreadable` | array<object> | sim | O que impede uma seção de encolher em silêncio. Sem este campo, um schema corrompido viraria 'esse arquivo não tem enums' — o modo de falha mais perigoso deste painel, porque a tela continua bonita. Com ele, vira exit 2 com nome e motivo. |
+| `unreadable[].path` | string | sim |  |
+| `unreadable[].why` | string | sim |  |
+
 ## `conformance-review.schema.json`
 
 **governance/conformance-review.yaml — registro tipado da VALIDAÇÃO semântica**

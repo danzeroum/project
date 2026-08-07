@@ -956,19 +956,30 @@ _GENERATED_RX = re.compile(r"^<!-- GENERATED: não editar; rodar ([^\s]+) -->", 
 
 
 def geradores_declarados() -> dict[str, str]:
-    """Mapa documento→script, DERIVADO de cada script em ci/ que declara escrever um docs/*.md.
+    """Mapa documento→script, DERIVADO de cada script em ci/ que declara escrever sob docs/.
 
     Nunca uma lista mantida à mão. Sem isso, um gerador novo nasceria fora da cobertura — que é
     precisamente o modo de falha que ci/alignment_report.py já exibia, por não casar o glob
     `generate_*.py` com que esta regra foi enunciada.
+
+    CP-050 — o alcance passou de `docs/*.md` para `docs/**/{.md,.html}`, e o motivo é o mesmo
+    pelo qual a função existe: enquanto só o markdown era reconhecido, um artefato derivado em
+    HTML escapava INTEIRO desta cobertura. Nasceria sem a exigência do cabeçalho e sem a
+    exigência de existir — o mesmo buraco silencioso noutro formato, e num formato que é MAIS
+    provável de alguém abrir e editar à mão do que uma tabela de markdown.
+
+    `.json` fica de fora de propósito, e a exclusão é técnica, não uma concessão: JSON não
+    comporta comentário, então não há onde pôr o cabeçalho. A honestidade de um artefato de dados
+    vem do par `source_of_truth`/`generated_from`, que hl.header_invariant_errors já cobra.
     """
     mapa: dict[str, str] = {}
     for script in sorted((hl.REPO / "ci").glob("*.py")):
         texto = script.read_text(encoding="utf-8", errors="replace")
-        for alvo in re.findall(r'["\'](docs/[A-Za-z0-9_.\-]+\.md)["\']', texto):
+        for alvo in re.findall(r'["\'](docs/[A-Za-z0-9_./\-]+\.(?:md|html))["\']', texto):
             mapa[alvo] = hl.rel(script)
         # generate_graph.py monta o caminho por partes: REPO / "docs" / "metadata-graph.md"
-        for pasta, arquivo in re.findall(r'"(docs)"\s*/\s*"([A-Za-z0-9_.\-]+\.md)"', texto):
+        for pasta, arquivo in re.findall(
+                r'"(docs)"\s*/\s*"([A-Za-z0-9_.\-]+\.(?:md|html))"', texto):
             mapa[f"{pasta}/{arquivo}"] = hl.rel(script)
     return mapa
 
