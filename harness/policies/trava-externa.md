@@ -129,6 +129,30 @@ Dois passos de admin no GitHub, ambos fora do alcance de qualquer PR deste repos
 Por isso `RISK-EXT-001` está `mitigated` e não `closed`: fechar enquanto esses passos não existem
 seria carimbar a parte que falta.
 
+## O aval humano: três estados, e a dupla condição para o verde
+
+`check_approval_gate_plugged` pergunta se a exigência de review declarada pelas propostas de risco
+alto está no caminho que bloqueia merge. Ele responde em três estados, e a assimetria entre eles é
+a decisão:
+
+| O que a API respondeu | Estado | Por quê |
+|---|---|---|
+| exigência **ligada**, com review de code owner | **silêncio** | única confirmação que compra silêncio |
+| exigência **desligada** | **`high`** | lacuna VISTA é acionável, não há dúvida a acomodar |
+| não foi possível olhar | **`info`** | diz o que consegue provar sem token, em vez de fingir o que não consegue |
+
+O terceiro caso **não é degradação para verde**. Sem credencial, o fiscal ainda afirma algo
+verdadeiro — que existe aval declarado sem resolução no merge — e essa afirmação não depende de
+acesso nenhum. O que ele se recusa a fazer é concluir "está ligada" a partir de silêncio.
+
+**A dupla condição, e ela é propriedade e não defeito:** o fiscal só fica verde se a proteção for
+ligada **e** o CI tiver token com escopo para ler branch protection. Marcar a caixa sem dar o
+escopo não produz verde — porque sem poder olhar, ele não pode afirmar.
+
+E não há cache: uma verificação positiva anterior não vale para a execução atual. Token que expira
+no meio produz `info`, nunca silêncio herdado. Confiar no "estava ligada da última vez" seria
+transformar prova em memória, que é o defeito do carimbo eterno recusado desde a CP-036.
+
 Fiscalizado por: `ci/audit_governance.py::check_attestation_cadence`, `ci/verify_protection.py::verify_protection`, `ci/verify_protection.py::verify_tag_protection`, `ci/audit_governance.py::check_external_attestation`, `ci/automerge_gate.py::decidir`, `harness/schemas/protection-attestation.schema.json`
 Declarado em: `harness/harness.yaml` → `external_audit`; `harness/change-proposals/CP-024-trava-externa-em-duas-camadas.yaml` (status `deferred`); `harness/change-proposals/CP-036-ligar-a-autoridade-externa.yaml`; `harness/change-proposals/CP-037-auto-merge-do-atestado.yaml`
 Falha como: proteção desligada ou caminho sem dono ⇒ exit 1; sem credencial ⇒ exit 3; atestado ausente, expirado, fora do schema ou de emissor não autorizado ⇒ achado bloqueante; portão do auto-merge sem declaração contra a qual comparar ⇒ exit 2 (nunca liberação).

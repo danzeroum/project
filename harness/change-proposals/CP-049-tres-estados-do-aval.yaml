@@ -1,0 +1,73 @@
+# Mudança proposta: o fiscal do aval passa a ter os três estados que a CP-048 prometeu e não entregou.
+# Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-049
+  title: "O fiscal do aval ganha os três estados prometidos, e a junção recusa o exit-0-inconclusivo"
+  author_kind: agent
+  created_at: "2026-08-07T17:40:00Z"
+  status: approved
+  capabilities_affected: []
+  components_affected: []
+
+  paths_affected:
+    - ci/audit_governance.py
+    - ci/verify_protection.py
+    - harness/policies/trava-externa.md
+    - tests/governance/test_aval_humano_bites.py
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-CHANGE-001
+      - RISK-META-002
+      - RISK-APPROVAL-001
+    rationale: >
+      ESTA PROPOSTA CORRIGE UMA DESCRIÇÃO MINHA QUE ERA FALSA, e o registro importa. A CP-048
+      afirma que entrega "o fiscal que PROVA o estado em três valores — ligada, não ligada, não
+      consegui olhar". O que foi entregue tem UM estado: `check_approval_gate_plugged` nunca
+      consulta a API. Ele conta propostas com `human_approval_required` em status que mergeia e
+      acusa a exposição. A afirmação é verdadeira e útil, mas não é a que eu escrevi.
+      A CONSEQUÊNCIA PRÁTICA DO ERRO, e é ela que obriga a corrigir: no dia em que o dono marcar a
+      proteção, o fiscal CONTINUARIA acusando, porque as propostas seguem em `approved`. Um fiscal
+      que nunca fica verde é um fiscal que se aprende a ignorar — o mesmo destino que a CP-048
+      tentava evitar quando escolheu `info` em vez de bloqueio.
+      A COSTURA, E ELA É O CORAÇÃO DESTA PROPOSTA. `verify_protection` já sabe olhar a branch
+      protection e já sai 3 quando não consegue — corretamente. Ligar os dois é fácil e é
+      exatamente onde o defeito mais caro poderia nascer: se "não consegui olhar" virasse silêncio,
+      o `exit-0-inconclusivo` reencarnaria dentro do fiscal criado para matá-lo, e da pior forma
+      possível — verde por ausência de prova, num fiscal cujo nome promete prova.
+      OS TRÊS ESTADOS, E A ASSIMETRIA ENTRE ELES:
+      `high` quando a API responde e a exigência NÃO está ligada. Aqui não há dúvida: a lacuna foi
+      VISTA, e vista é acionável.
+      SILÊNCIO quando a API responde e a exigência ESTÁ ligada, com review de code owner. Só a
+      confirmação positiva compra o silêncio; nada mais compra.
+      `info` quando `verify_protection` não consegue olhar. E isto não é degradação para verde: é
+      o fiscal dizendo o que consegue provar sem token — que a exposição existe — em vez de fingir
+      o que não consegue. Mantém a afirmação atual, que é verdadeira sem acesso nenhum.
+      SEM CACHE, E A BORDA IMPORTA: uma verificação positiva anterior não vale para a execução
+      atual. Token que expira no meio produz `info`, nunca silêncio herdado. Confiar num "estava
+      ligada da última vez" seria transformar prova em memória, que é o mesmo defeito do carimbo
+      eterno que este repositório recusa desde a CP-036.
+      SEM REDE QUANDO NÃO HÁ TOKEN. `estado_da_exigencia_de_review` devolve indeterminado ANTES de
+      qualquer chamada quando falta credencial ou repositório. Localmente — inclusive no hook que
+      roda a cada turno — não há chamada de rede alguma, e o fiscal continua respondendo.
+      A DUPLA CONDIÇÃO QUE O DONO PRECISA SABER, e ela entra na política: o fiscal só fica verde se
+      (a) a proteção for ligada E (b) o CI tiver token com escopo para ler branch protection. Sem o
+      token ele fica `info` para sempre — corretamente, porque sem poder olhar ele não pode
+      afirmar. Marcar a caixa sem dar o escopo não produz verde, e isso é uma propriedade, não um
+      defeito.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_aval_humano_bites.py
+
+  human_approval_required: true
+  change_mode: pull_request

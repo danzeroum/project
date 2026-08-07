@@ -1287,7 +1287,7 @@ def _risco_datado(risco_id: str) -> bool:
     return False
 
 
-def check_approval_gate_plugged(findings: Findings) -> None:
+def check_approval_gate_plugged(findings: Findings, estado_da_exigencia=None) -> None:
     """A exigência de aval humano está no caminho que BLOQUEIA, ou só no que descreve? (CP-048)
 
     O diagnóstico mudou duas vezes antes de fechar, e as duas primeiras versões eram plausíveis:
@@ -1329,12 +1329,43 @@ def check_approval_gate_plugged(findings: Findings) -> None:
     if not pendentes:
         return
 
-    # A FORMA DA CP-024, e a razão de não bloquear: ninguém neste repositório consegue satisfazer
-    # esta condição por PR — ela é configuração de admin. Bloquear produziria vermelho PERMANENTE,
-    # e vermelho permanente é exatamente como um fiscal aprende a ser ignorado (princípio (e)).
-    # O que se recusa não é a lacuna: é o SILÊNCIO sobre ela. Com risco aceito e datado, o achado
-    # sai `info` a cada execução; sem data, ele bloqueia — porque risco aceito sem data é risco
-    # esquecido (princípio (g)).
+    # OS TRÊS ESTADOS (CP-049). A CP-048 prometeu isto e entregou um estado só; aqui a promessa
+    # vira verdade, e a junção é onde o defeito mais caro poderia nascer.
+    #
+    # A assimetria é a decisão: só a CONFIRMAÇÃO POSITIVA compra o silêncio. Se "não consegui
+    # olhar" comprasse, o exit-0-inconclusivo reencarnaria dentro do fiscal criado para matá-lo —
+    # e da pior forma, verde por ausência de prova num fiscal cujo nome promete prova.
+    if estado_da_exigencia is None:
+        import verify_protection as vp
+        estado_da_exigencia = vp.estado_da_exigencia_de_review
+
+    estado = estado_da_exigencia()
+
+    if estado == "ligada":
+        # VISTO e ligado: a exigência declarada está no caminho que bloqueia. Nada a dizer — e este
+        # é o único caminho de silêncio que existe aqui.
+        return
+
+    if estado == "desligada":
+        # VISTO e desligado: não há dúvida a acomodar. A lacuna foi provada, e provada é acionável.
+        findings.add(
+            key="AVAL-EXIGIDO-E-PROTECAO-DESLIGADA", origin="approval_gate", severity="high",
+            risk="RISK-APPROVAL-001", location=PROPOSALS_DIR,
+            summary=f"A branch protection NÃO exige review de code owner, e {len(pendentes)} "
+                    f"proposta(s) declaram `human_approval_required` em status que mergeia "
+                    f"({', '.join(sorted(pendentes))}). A exigência está escrita e fora do caminho "
+                    f"de bloqueio — foi VISTA assim, não inferida.",
+            remediation="Settings → Branches → main → marcar `Require approvals` e `Require "
+                        "review from Code Owners`. É configuração de admin, fora do alcance de um PR.",
+        )
+        return
+
+    # INDETERMINADO, e isto NÃO é degradação para verde: é o fiscal dizendo o que consegue provar
+    # sem token — que a exposição existe — em vez de fingir o que não consegue. A afirmação abaixo
+    # é verdadeira sem acesso nenhum, e por isso não depende de credencial para ser feita.
+    #
+    # Com risco aceito e datado sai `info`; sem data, bloqueia — risco aceito sem data é risco
+    # esquecido (princípio (g)), e é o que impede esta brandura de virar desculpa permanente.
     datado = _risco_datado("RISK-APPROVAL-001")
     findings.add(
         key="AVAL-EXIGIDO-FORA-DO-CAMINHO-DE-BLOQUEIO", origin="approval_gate",
@@ -1344,7 +1375,9 @@ def check_approval_gate_plugged(findings: Findings) -> None:
                 f"sem que nada o confira ({', '.join(sorted(pendentes))}). "
                 f"ci/verify_approval.py só verifica propostas 'executed', e 'executed' é uma "
                 f"transição manual posterior ao merge — no instante do merge a proposta está "
-                f"'approved', e nesse estado o aval declarado não é resolvido contra ninguém.",
+                f"'approved', e nesse estado o aval declarado não é resolvido contra ninguém. "
+                f"NÃO foi possível consultar a branch protection nesta execução (sem token com "
+                f"escopo), então o estado dela é INDETERMINADO — nunca 'ligada' por ausência de prova.",
         remediation="A exigência real é `required_pull_request_reviews` com "
                     "`require_code_owner_reviews` na branch protection da main — configuração de "
                     "ADMIN, fora do alcance de qualquer PR. Rodar `python ci/verify_protection.py` "
