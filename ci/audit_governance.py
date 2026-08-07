@@ -1191,6 +1191,86 @@ PROMPTS_DIR = "harness/prompts"
 _TEMPLATE_RX = re.compile(r"`(harness/prompts/[A-Za-z0-9_.-]+\.md)`")
 
 
+# Arquivos que descrevem o AGORA: código, política, configuração, workflow, porta de entrada.
+# Um número de validade escrito aqui é uma afirmação sobre o comportamento vivo.
+CADENCIA_VIVA = ("ci/", "harness/policies/", "harness/harness.yaml", ".github/workflows/",
+                 "README.md", "CLAUDE.md", "BOOTSTRAP.md")
+
+_VERBO_DE_DURACAO = re.compile(
+    r"(?:vale|válido por|valido por|validade de|expira em|expiram em)\s+"
+    r"(\d{1,4})\s*(?:h\b|horas\b|dias?\b)", re.IGNORECASE)
+
+# Entre crases é CITAÇÃO, não afirmação — e a distinção precisou ser estrutural porque a primeira
+# versão deste fiscal acusou o comentário que o explica.
+_ENTRE_CRASES = re.compile(r"`[^`\n]*`")
+
+
+def _duracoes_afirmadas(texto: str):
+    """As linhas que AFIRMAM a duração do atestado. Não as que a mencionam.
+
+    Duas âncoras, e cada uma nasceu de um falso positivo real da primeira versão:
+
+      1. A linha precisa falar do ATESTADO. Sem isso, `os artifacts expiram em 90 dias` — que é
+         retenção de evidência, assunto de outra decisão — virava achado. Ancorar no verbo de
+         duração e não no SUJEITO dele acusa qualquer prazo do repositório.
+
+      2. O que está entre crases sai antes da comparação. `validade de 25h` dentro de uma
+         explicação é exemplo, e a primeira versão deste fiscal acusou justamente o comentário
+         que descreve a regra — a décima ocorrência da família âncora-na-menção nascendo, de novo,
+         dentro do fiscal escrito para impedi-la. Duas vezes seguidas é padrão, não azar.
+    """
+    for numero, linha in enumerate(texto.splitlines(), start=1):
+        baixa = linha.lower()
+        if "atestado" not in baixa and "carimbo" not in baixa:
+            continue
+        m = _VERBO_DE_DURACAO.search(_ENTRE_CRASES.sub("``", linha))
+        if m:
+            yield numero, numero, m.group(0)
+
+
+def check_cadence_single_source(findings: Findings) -> None:
+    """A duração do atestado é declarada num lugar só, e o resto referencia (CP-047).
+
+    O QUE ISTO PREVINE, medido e não suposto: `25h` chegou a aparecer em doze arquivos. Quando a
+    CP-046 afrouxou a cadência, onze deles passaram a descrever errado o comportamento vivo — sem
+    nenhum vermelho, porque prosa não morde. E o décimo segundo, um teste, fez pior: recusou o
+    atestado legítimo e travou o repositório num impasse circular, em que o PR que trazia o carimbo
+    válido não podia mergear porque o teste insistia no número velho.
+
+    Documentação envelhecida não é trava não-plugada — é um defeito de natureza diferente, e por
+    isso este fiscal é `medium` e não bloqueia release. Mas é um defeito com custo real: quem lê
+    para decidir decide com a informação errada.
+
+    REGISTRO HISTÓRICO FICA DE FORA POR CONSTRUÇÃO. ADRs e propostas descrevem o dia em que foram
+    escritos — "decidi X então" é um fato que continua verdadeiro, e apagá-lo falsificaria o
+    registro. Testes também: é neles que o porquê é explicado. A separação é por NATUREZA DO
+    ARQUIVO, nunca por proximidade de palavra, porque a segunda é adivinhação.
+    """
+    canonico = f"{HARNESS_YAML}:external_audit.cadence"
+    for path in hl.walk_files():
+        rel = hl.rel(path)
+        if not rel.startswith(CADENCIA_VIVA):
+            continue
+        if path.suffix not in (".py", ".md", ".yaml", ".yml"):
+            continue
+        try:
+            texto = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for _, linha, trecho in _duracoes_afirmadas(texto):
+            findings.add(
+                key=f"CADENCIA-RESTATADA-{rel}-{linha}", origin="cadence_single_source",
+                severity="medium", risk="RISK-ORIENT-001", location=f"{rel}:{linha}",
+                summary=f"{rel}:{linha} afirma a duração do atestado ({trecho!r}) em vez de "
+                        f"referenciar {canonico}. Cópia deriva: quando a cadência mudou, onze "
+                        f"arquivos passaram a descrever errado o comportamento vivo sem nenhum "
+                        f"vermelho para avisar.",
+                remediation=f"Referencie {canonico} em vez de repetir o número. Para contar a "
+                            f"HISTÓRIA de uma cadência anterior, o lugar é o ADR ou a proposta que "
+                            f"a decidiu — registro histórico não se reescreve e não é vigiado aqui.",
+            )
+
+
 def check_agent_prompt_pairing(findings: Findings) -> None:
     """Correspondência BIDIRECIONAL entre contrato de agente e template de tarefa (CP-027).
 
@@ -1360,6 +1440,7 @@ def main(argv: list[str] | None = None) -> int:
     check_derived_vs_source(findings)
     check_decision_chain(risk_doc, adr_index, findings, errors)
     check_external_attestation(harness_doc, risk_doc, findings)
+    check_cadence_single_source(findings)
     check_risk_control_coverage(risk_doc, findings)
     check_protected_paths(harness_doc, findings)
     check_owners_assigned(risk_doc, project_doc, findings)

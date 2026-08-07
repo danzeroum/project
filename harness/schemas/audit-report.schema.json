@@ -37,7 +37,7 @@
             "ci/audit_conformance.py",
             "ci/audit_ledger.py",
             "ci/check_dependency_conflict.py",
-        "ci/audit_suites.py"
+            "ci/audit_suites.py"
           ]
         },
         "auditor_version": {
@@ -182,7 +182,8 @@
               "ledger",
               "agent_pairing",
               "dependency_conflict",
-            "suite_contract"
+              "suite_contract",
+              "cadence_single_source"
             ]
           },
           "severity": {
