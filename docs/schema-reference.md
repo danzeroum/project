@@ -30,6 +30,26 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `adrs[].related_risks` | array<string> | — |  |
 | `adrs[].assertions` | array<—> | — |  |
 
+## `assurance-lock.schema.json`
+
+**Assurance lock — o que evidência candidata pode e não pode provar**
+
+> Schema do harness/suite-contract/evidence-bundle/compatibility-matrix.yaml. Trava a referência do produtor candidato (via evidence-reference.schema.json, resolvido LOCALMENTE pelo registro de schemas — CP-042) e o fecho das situações: toda situação tem estado esperado num vocabulário fechado, e o conjunto de situações é completo por minItems/maxItems.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `schema_version` | string | sim |  |
+| `metadata_version` | string | sim |  |
+| `source_of_truth` | boolean | sim |  |
+| `generated_from` | string | null | — |  |
+| `assurance_lock` | object | sim |  |
+| `assurance_lock.candidate_reference` | — | sim |  |
+| `assurance_lock.situations` | array<object> | sim |  |
+| `assurance_lock.situations[].id` | string | sim |  |
+| `assurance_lock.situations[].situation` | string | sim |  |
+| `assurance_lock.situations[].expected` | enum(blocked · accepted_in_fixture_only · not_assessed · not_satisfied · release_eligible_false) | sim |  |
+| `assurance_lock.situations[].scope` | enum(strict_ci · production · fixture_preparation) | sim |  |
+
 ## `audit-report.schema.json`
 
 **Laudo dos fiscais locais de conformidade e privacidade**
@@ -428,6 +448,27 @@ Um campo sem descrição aqui é um campo sem descrição **no schema**: o lugar
 | `design_system.name` | string | sim |  |
 | `design_system.version` | string | sim |  |
 | `design_system.accessibility_target` | enum(WCAG-2.1-AA · WCAG-2.2-AA · WCAG-2.2-AAA) | sim |  |
+
+## `evidence-reference.schema.json`
+
+**Referência de produtor de evidência — estado controlado**
+
+> A única forma de referenciar um produtor de evidência neste repositório. Três estados controlados: candidato não mergeado, mergeado sem release, e releaseado. O primeiro e o segundo exigem release_eligible: false — merge no main não é release publicado, e nenhum dos dois é dependência elegível para produção. O terceiro só é expresso com tag, versão, commit, manifesto e hash de artefato verificáveis. Nada fora destes três estados existe como opção de erro.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `repository` | string | sim | org/repo — nunca uma URL: URL de repositório em harness/ reprova por ADR-008-A5. |
+| `branch` | string | sim |  |
+| `commit` | string | sim | commit atual do main do produtor. |
+| `adapter_source_commit` | string | sim | commit de onde o adapter foi emitido/mergeado — o SHA que um bundle de produção verificável carrega em producer.suite_commit. |
+| `state` | enum(candidate_not_merged · merged_unreleased · released) | sim |  |
+| `release_eligible` | boolean | sim |  |
+| `release` | object | — |  |
+| `release.tag` | string | sim |  |
+| `release.version` | string | sim |  |
+| `release.commit` | string | sim |  |
+| `release.manifest` | string | sim |  |
+| `release.artifact_hash` | string | sim |  |
 
 ## `harness.schema.json`
 

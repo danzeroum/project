@@ -1,0 +1,71 @@
+{
+  "evidence_bundle": {
+    "schema_version": "evidence-bundle/v1-draft",
+    "producer": {
+      "suite_id": "pse-suite",
+      "suite_version": "0.3.0",
+      "source_schema": "laudo-pse-1.0",
+      "catalog_hash": "sha256:33d5be7e85777045d0088c3f5f7a91e394c83c4be33cfeda519b6073be0420e3",
+      "local_execution": false,
+      "execution_mode": "inventory",
+      "runner_kind": "ci",
+      "network_used": false
+    },
+    "subject": {
+      "repository": "danzeroum/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "tree_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "target_lock_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "scope_fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "assertions": [
+      {
+        "id": "P-01",
+        "status": "passed",
+        "evidence_fingerprint": "sha256:824cd795ce619ab5fc01baabb9479844be95eaea5a673eb3ef913fa0328f81c8",
+        "capability": "privacy.log-pii-masking",
+        "executed_at": "2026-08-17T11:55:00Z"
+      },
+      {
+        "id": "P-02",
+        "status": "passed",
+        "evidence_fingerprint": "sha256:b1be58bdf8384cd10461f8236c1bd29519919950a34e0657f5f469d220b99890",
+        "capability": "privacy.retention-purge-job",
+        "executed_at": "2026-08-17T11:55:00Z"
+      },
+      {
+        "id": "S-04",
+        "status": "passed",
+        "evidence_fingerprint": "sha256:ba5b64c9210ff08dd306d824e2fa2fa5bb2ae8a143cd4e2a03f93a07a7cce6ca",
+        "capability": "security.third-party-dpa",
+        "executed_at": "2026-08-17T11:55:00Z"
+      },
+      {
+        "id": "S-06",
+        "status": "passed",
+        "evidence_fingerprint": "sha256:1623061e318795f2d1e2e059aa0387fea1d1c28294d04849f38172dcdd9beaa8",
+        "capability": "security.hardcoded-credential",
+        "executed_at": "2026-08-17T11:55:00Z"
+      },
+      {
+        "id": "P-07",
+        "status": "skipped",
+        "evidence_fingerprint": "sha256:af96ab1a689ff4cbace88fbb564e185a9a88d5e32dbf9e3b0f84486d1d200f56",
+        "capability": "privacy.consent-granularity",
+        "executed_at": "2026-08-17T11:55:00Z",
+        "reason": "N/A: sem endpoint de consentimento no escopo"
+      },
+      {
+        "id": "E-00",
+        "status": "not_assessed",
+        "evidence_fingerprint": "sha256:89c90ca7a684922aa7592ebd67990ff1787594aa07e0a1c7fb163a49c9e74a92",
+        "capability": "ethics.automated-decision-scope",
+        "executed_at": "2026-08-17T11:55:00Z",
+        "reason": "Trabalho A não habilitado"
+      }
+    ],
+    "integrity": {
+      "canonical_hash": "sha256:c4f8fdcf95fb15cc8089b2988612bcf519891548eebfe564f6f1ef190b0f6909"
+    }
+  }
+}

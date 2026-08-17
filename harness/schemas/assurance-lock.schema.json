@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/assurance-lock.schema.json",
+  "title": "Assurance lock — o que evidência candidata pode e não pode provar",
+  "description": "Schema do harness/suite-contract/evidence-bundle/compatibility-matrix.yaml. Trava a referência do produtor candidato (via evidence-reference.schema.json, resolvido LOCALMENTE pelo registro de schemas — CP-042) e o fecho das situações: toda situação tem estado esperado num vocabulário fechado, e o conjunto de situações é completo por minItems/maxItems.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "metadata_version",
+    "source_of_truth",
+    "assurance_lock"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "source_of_truth": { "const": true },
+        "generated_from": { "const": null }
+      }
+    },
+    {
+      "properties": {
+        "source_of_truth": { "const": false },
+        "generated_from": { "type": "string", "minLength": 1 }
+      },
+      "required": ["generated_from"]
+    }
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "metadata_version": { "type": "string" },
+    "source_of_truth": { "type": "boolean" },
+    "generated_from": { "type": ["string", "null"] },
+    "assurance_lock": {
+      "type": "object",
+      "required": [
+        "candidate_reference",
+        "situations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "candidate_reference": {
+          "$ref": "evidence-reference.schema.json"
+        },
+        "situations": {
+          "type": "array",
+          "minItems": 11,
+          "maxItems": 11,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "situation",
+              "expected",
+              "scope"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^SIT-[A-Z0-9_-]{2,30}$"
+              },
+              "situation": {
+                "type": "string",
+                "minLength": 3
+              },
+              "expected": {
+                "type": "string",
+                "enum": [
+                  "blocked",
+                  "accepted_in_fixture_only",
+                  "not_assessed",
+                  "not_satisfied",
+                  "release_eligible_false"
+                ]
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "strict_ci",
+                  "production",
+                  "fixture_preparation"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

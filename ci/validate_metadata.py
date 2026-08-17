@@ -45,6 +45,9 @@ DOCS = [
     ("harness/stages.yaml", "stages.schema.json"),
     ("governance/data-inventory.yaml", "data-inventory.schema.json"),
     ("governance/privacy-review.yaml", "privacy-review.schema.json"),
+    # CP-051 — o assurance lock de evidência candidata: matriz → schema próprio. Uma entrada em
+    # DOCS porque é metadado UM arquivo → UM schema, como os demais.
+    ("harness/suite-contract/evidence-bundle/compatibility-matrix.yaml", "assurance-lock.schema.json"),
 ]
 
 # Propostas de mudança: artefatos versionados validados por schema + semântica.

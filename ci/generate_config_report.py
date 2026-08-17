@@ -107,6 +107,8 @@ GRUPO_POR_SCHEMA = {
     "stages.schema.json": "etapas",
     "suite-contract-manifest.schema.json": "contrato de régua",
     "suite-registry.schema.json": "contrato de régua",
+    "assurance-lock.schema.json": "governança",
+    "evidence-reference.schema.json": "governança",
     "target-lock.schema.json": "identidade",
     "threat-model.schema.json": "governança",
     "ui-surfaces.schema.json": "arquitetura",

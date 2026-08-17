@@ -277,6 +277,10 @@ stages:
       # CI-HARNESS e não em QA-CONFIG porque não é configuração de régua alguma: é a máquina que
       # julga qualquer régua, e o motor que prova que ela morde.
       - "harness/suite-contract"
+      # CP-051 — o assurance lock de evidência do produtor PSE (matriz + fixtures). Fica em
+      # CI-HARNESS porque é metadado de governança: quem pode usar bundle de produtor não
+      # releaseado, e onde.
+      - "harness/suite-contract/evidence-bundle"
     enforced_by:
       - kind: ci_script
         ref: ci/validate_all.py

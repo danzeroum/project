@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://danzeroum/project/harness/schemas/evidence-reference.schema.json",
+  "title": "Referência de produtor de evidência — estado controlado",
+  "description": "A única forma de referenciar um produtor de evidência neste repositório. Três estados controlados: candidato não mergeado, mergeado sem release, e releaseado. O primeiro e o segundo exigem release_eligible: false — merge no main não é release publicado, e nenhum dos dois é dependência elegível para produção. O terceiro só é expresso com tag, versão, commit, manifesto e hash de artefato verificáveis. Nada fora destes três estados existe como opção de erro.",
+  "type": "object",
+  "required": [
+    "repository",
+    "branch",
+    "commit",
+    "adapter_source_commit",
+    "state",
+    "release_eligible"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "description": "org/repo — nunca uma URL: URL de repositório em harness/ reprova por ADR-008-A5."
+    },
+    "branch": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "commit atual do main do produtor."
+    },
+    "adapter_source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "commit de onde o adapter foi emitido/mergeado — o SHA que um bundle de produção verificável carrega em producer.suite_commit."
+    },
+    "state": {
+      "type": "string",
+      "enum": ["candidate_not_merged", "merged_unreleased", "released"]
+    },
+    "release_eligible": {
+      "type": "boolean"
+    },
+    "release": {
+      "type": "object",
+      "required": ["tag", "version", "commit", "manifest", "artifact_hash"],
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "manifest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "state": { "const": "candidate_not_merged" },
+        "release_eligible": { "const": false }
+      }
+    },
+    {
+      "properties": {
+        "state": { "const": "merged_unreleased" },
+        "release_eligible": { "const": false }
+      }
+    },
+    {
+      "properties": {
+        "state": { "const": "released" },
+        "release_eligible": { "const": true }
+      },
+      "required": ["release"]
+    }
+  ]
+}

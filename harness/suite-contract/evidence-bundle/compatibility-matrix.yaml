@@ -1,0 +1,67 @@
+# Matriz de compatibilidade — bundles de evidência do produtor PSE (Sprint 6.2).
+# Schema: ../schemas/assurance-lock.schema.json (referencia evidence-reference.schema.json)
+#
+# Este arquivo É o assurance lock: a declaração do que evidência do produtor pode e não pode
+# provar NESTE repositório. A PR #2 da pse-suite foi mergeada em 2026-08-17T20:23:21Z — o produtor
+# está no main (443da92…), mas SEM release: não há tag v0.4.0, manifesto nem pin versionado.
+# Estado: merged_unreleased. Bundle dele pode ser ANALISADO em fixture/preparação, nunca usado
+# como evidência de produção nem como fonte no CI estrito.
+schema_version: "1.0"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+assurance_lock:
+  candidate_reference:
+    repository: danzeroum/pse-suite
+    branch: main
+    commit: 443da92dbdb22a9af18aa6eebb51aac2da901458
+    adapter_source_commit: f19e593257b8480e7822795ba49a36f284963371
+    state: merged_unreleased
+    release_eligible: false
+
+  situations:
+    - id: SIT-LOCAL-EXEC
+      situation: "bundle com local_execution: true"
+      expected: blocked
+      scope: strict_ci
+    - id: SIT-NO-COMMIT-SHA
+      situation: "bundle sem SHA de commit do produtor"
+      expected: blocked
+      scope: strict_ci
+    - id: SIT-CANDIDATE-BRANCH-PROD
+      situation: "produtor candidato não mergeado"
+      expected: blocked
+      scope: production
+    - id: SIT-CANDIDATE-BRANCH-FIXTURE
+      situation: "produtor candidato não mergeado"
+      expected: accepted_in_fixture_only
+      scope: fixture_preparation
+    - id: SIT-MERGED-UNRELEASED-PROD
+      situation: "produtor mergeado sem release"
+      expected: blocked
+      scope: production
+    - id: SIT-MERGED-UNRELEASED-FIXTURE
+      situation: "produtor mergeado sem release"
+      expected: accepted_in_fixture_only
+      scope: fixture_preparation
+    - id: SIT-MERGED-UNRELEASED-CI
+      situation: "produtor mergeado sem release como fonte no CI estrito"
+      expected: blocked
+      scope: strict_ci
+    - id: SIT-RELEASED-INVALID
+      situation: "released sem tag/version/manifest/hash verificáveis"
+      expected: blocked
+      scope: strict_ci
+    - id: SIT-ADAPTER-COMMIT-MISMATCH
+      situation: "source commit ≠ adapter_source_commit declarado"
+      expected: blocked
+      scope: strict_ci
+    - id: SIT-CTRL-DEP-001
+      situation: "CTRL-DEP-001 avaliado com assertion planejada"
+      expected: not_satisfied
+      scope: strict_ci
+    - id: SIT-NO-RELEASE
+      situation: "release inexistente do produtor"
+      expected: release_eligible_false
+      scope: strict_ci

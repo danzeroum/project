@@ -1803,3 +1803,226 @@ adrs:
           _vocabulario_nao_esta_no_codigo, que lê o AST — onde comentário não existe — e roda a cada
           execução do gerador, portanto é gate via validate_all. A asserção A4 prova que ela continua
           no lugar, e a mutação declarada nela prova que a remoção é acusada.
+
+  - id: ADR-032
+    title: "Evidência do produtor PSE entra por matriz fechada — merge no main não é release"
+    status: accepted
+    file: architecture/adr/ADR-032-evidence-bundle-candidate.md
+    related_risks: [RISK-META-001, RISK-STAGE-001]
+    assertions:
+      - id: ADR-032-A1
+        kind: path_present
+        severity: high
+        risk: RISK-META-001
+        description: "O contrato de evidência do produtor existe como arquivo: matriz, fixtures, schemas, política, proposta, ADR e testes."
+        paths:
+          - harness/suite-contract/evidence-bundle/README.md
+          - harness/suite-contract/evidence-bundle/compatibility-matrix.yaml
+          - harness/suite-contract/evidence-bundle/fixtures/candidate-valid.json
+          - harness/suite-contract/evidence-bundle/fixtures/candidate-local.json
+          - harness/suite-contract/evidence-bundle/fixtures/candidate-no-commit.json
+          - harness/schemas/assurance-lock.schema.json
+          - harness/schemas/evidence-reference.schema.json
+          - harness/policies/assurance-evidence.md
+          - harness/change-proposals/CP-051-assurance-evidence-candidate.yaml
+          - architecture/adr/ADR-032-evidence-bundle-candidate.md
+          - tests/governance/test_assurance_evidence_contract.py
+          - tests/governance/test_candidate_adapter_reference.py
+      - id: ADR-032-A2
+        kind: file_lacks
+        severity: high
+        risk: RISK-META-001
+        description: "Nenhuma URL de repositório dentro do diretório do contrato: a referência é org/repo, nunca URL — o molde continua genérico (ADR-008-A5, estendido a este diretório)."
+        files:
+          - harness/suite-contract/evidence-bundle/**/*.yaml
+          - harness/suite-contract/evidence-bundle/**/*.json
+          - harness/suite-contract/evidence-bundle/**/*.md
+        pattern: "github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
+        mutation:
+          op: injetar_texto
+          alvo: harness/suite-contract/evidence-bundle/README.md
+          texto: "URL proibida: github.com/exemplo/alvo-especifico"
+      - id: ADR-032-A3
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-001
+        description: "A matriz declara o produtor como mergeado sem release — o estado que toda a fronteira deste contrato existe para proteger."
+        files: ["harness/suite-contract/evidence-bundle/compatibility-matrix.yaml"]
+        pattern: "state: merged_unreleased"
+        mutation:
+          op: substituir_texto
+          alvo: harness/suite-contract/evidence-bundle/compatibility-matrix.yaml
+          de: "state: merged_unreleased"
+          para: "state: released"
+      - id: ADR-032-A4
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-001
+        description: "O enum de estado continua fechado em candidate_not_merged: produtor candidato continua expressável."
+        file: harness/schemas/evidence-reference.schema.json
+        pointer: /properties/state/enum
+        contains: candidate_not_merged
+        mutation:
+          op: substituir_texto
+          alvo: harness/schemas/evidence-reference.schema.json
+          de: "candidate_not_merged"
+          para: "merged"
+      - id: ADR-032-A5
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-001
+        description: "candidate_not_merged continua com release_eligible const false: candidato não é elegível."
+        file: harness/schemas/evidence-reference.schema.json
+        pointer: /oneOf/0/properties/release_eligible/const
+        expected: false
+        mutation:
+          op: substituir_texto
+          alvo: harness/schemas/evidence-reference.schema.json
+          de: '"const": false'
+          para: '"const": true'
+      - id: ADR-032-A6
+        kind: file_lacks
+        severity: high
+        risk: RISK-META-001
+        description: "Nenhum fixture referencia branch main nem latest: evidência que aponte para o tronco por nome é proibida por forma."
+        files:
+          - harness/suite-contract/evidence-bundle/fixtures/*.json
+        pattern: "(main|latest)"
+        mutation:
+          op: injetar_texto
+          alvo: harness/suite-contract/evidence-bundle/fixtures/candidate-valid.json
+          texto: '        "ref_banida": "main",'
+      - id: ADR-032-A7
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "A política termina em 'Fiscalizado por:' resolvível — lembrete não é garantia."
+        files: ["harness/policies/assurance-evidence.md"]
+        pattern: "^Fiscalizado por:"
+        mutation:
+          op: apagar_padrao
+          alvo: harness/policies/assurance-evidence.md
+          pattern: "Fiscalizado por:"
+      - id: ADR-032-A8
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "A etapa declara o artefato do contrato em harness/stages.yaml — a partição do repositório continua fechada."
+        files: ["harness/stages.yaml"]
+        pattern: "harness/suite-contract/evidence-bundle"
+        mutation:
+          op: apagar_padrao
+          alvo: harness/stages.yaml
+          pattern: "harness/suite-contract/evidence-bundle"
+      - id: ADR-032-A9
+        kind: file_matches
+        severity: high
+        risk: RISK-META-001
+        description: "A matriz continua registrada em DOCS de ci/validate_metadata.py — sem o registro, o schema vira decoração."
+        files: ["ci/validate_metadata.py"]
+        pattern: "evidence-bundle/compatibility-matrix.yaml"
+        mutation:
+          op: apagar_padrao
+          alvo: ci/validate_metadata.py
+          pattern: "evidence-bundle/compatibility-matrix.yaml"
+      - id: ADR-032-A10
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-001
+        description: "O enum de estado contém merged_unreleased — o estado real do produtor desde o merge da PR #2."
+        file: harness/schemas/evidence-reference.schema.json
+        pointer: /properties/state/enum
+        contains: merged_unreleased
+        mutation:
+          op: substituir_texto
+          alvo: harness/schemas/evidence-reference.schema.json
+          de: "merged_unreleased"
+          para: "merged"
+      - id: ADR-032-A11
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-001
+        description: "O enum de estado contém released — o estado só existe com metadados verificáveis (A14/A15); sem eles, é inexpressível."
+        file: harness/schemas/evidence-reference.schema.json
+        pointer: /properties/state/enum
+        contains: released
+        mutation:
+          op: substituir_texto
+          alvo: harness/schemas/evidence-reference.schema.json
+          de: '"released"'
+          para: '"removed"'
+      - id: ADR-032-A12
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-001
+        description: "M36 — merged_unreleased com release_eligible const false: merge no main não é elegibilidade."
+        file: harness/schemas/evidence-reference.schema.json
+        pointer: /oneOf/1/properties/release_eligible/const
+        expected: false
+        mutation:
+          op: substituir_texto
+          alvo: harness/schemas/evidence-reference.schema.json
+          de: '"const": false'
+          para: '"const": true'
+      - id: ADR-032-A13
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-001
+        description: "M37 — a matriz declara a situação de produtor mergeado sem release como fonte no CI estrito: blocked. Merged_unreleased não é fonte de produção em CI estrito."
+        files: ["harness/suite-contract/evidence-bundle/compatibility-matrix.yaml"]
+        pattern: "SIT-MERGED-UNRELEASED-CI"
+        mutation:
+          op: substituir_texto
+          alvo: harness/suite-contract/evidence-bundle/compatibility-matrix.yaml
+          de: "SIT-MERGED-UNRELEASED-CI"
+          para: "SIT-MERGED-CI"
+      - id: ADR-032-A14
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-001
+        description: "M38 — o estado released exige o bloco release: tag/version/manifest/hash verificáveis, ou é inexpressível."
+        file: harness/schemas/evidence-reference.schema.json
+        pointer: /oneOf/2/required
+        contains: release
+        mutation:
+          op: substituir_texto
+          alvo: harness/schemas/evidence-reference.schema.json
+          de: '"required": ["release"]'
+          para: '"required": []'
+      - id: ADR-032-A15
+        kind: schema_lock
+        severity: critical
+        risk: RISK-META-001
+        description: "M38 — o bloco release exige artefato com hash verificável (sha256)."
+        file: harness/schemas/evidence-reference.schema.json
+        pointer: /properties/release/required
+        contains: artifact_hash
+        mutation:
+          op: substituir_texto
+          alvo: harness/schemas/evidence-reference.schema.json
+          de: '"artifact_hash"'
+          para: '"tag"'
+      - id: ADR-032-A16
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-001
+        description: "M39 — a matriz declara o adapter_source_commit: source commit divergente é acusado — bundle que não saiu do adapter mergeado não é evidência do produtor declarado."
+        files: ["harness/suite-contract/evidence-bundle/compatibility-matrix.yaml"]
+        pattern: "adapter_source_commit: f19e593257b8480e7822795ba49a36f284963371"
+        mutation:
+          op: substituir_texto
+          alvo: harness/suite-contract/evidence-bundle/compatibility-matrix.yaml
+          de: "f19e593257b8480e7822795ba49a36f284963371"
+          para: "0000000000000000000000000000000000000000"
+      - id: ADR-032-A17
+        kind: file_matches
+        severity: critical
+        risk: RISK-META-001
+        description: "M40 — CTRL-DEP-001 continua not_satisfied na matriz: satisfied com assertion planejada é inexpressível (enum do schema) e acusado."
+        files: ["harness/suite-contract/evidence-bundle/compatibility-matrix.yaml"]
+        pattern: "expected: not_satisfied"
+        mutation:
+          op: substituir_texto
+          alvo: harness/suite-contract/evidence-bundle/compatibility-matrix.yaml
+          de: "expected: not_satisfied"
+          para: "expected: satisfied"
