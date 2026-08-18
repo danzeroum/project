@@ -5,7 +5,7 @@ generated_from: null
 review:
   produced_by: agent
   agent: conformance
-  scope_fingerprint: sha256:bcd9b09fb8379fd78415b727a749bc0a61acda6a36455ebf5e487df263f78994
+  scope_fingerprint: sha256:157630a71b92ee11d8e83774384a0cffba0c083d7f92d15f10719deaf99e4aa4
   findings:
   - id: CONF-001
     severity: low

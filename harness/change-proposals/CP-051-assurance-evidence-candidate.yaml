@@ -1,0 +1,91 @@
+# Mudança proposta: preparar o consumo de bundles de evidência do produtor PSE, sem integrar
+# produtor algum. Declarada ANTES de executada (ADR-004). Schema: ../schemas/change-proposal.schema.json
+schema_version: "1.1"
+metadata_version: "1.0"
+source_of_truth: true
+generated_from: null
+
+proposal:
+  id: CP-051
+  title: "Evidência do produtor PSE entra por matriz fechada — merge no main não é release"
+  author_kind: agent
+  created_at: "2026-08-17T16:30:00Z"
+  status: draft
+  capabilities_affected: []
+  components_affected: []
+
+  paths_affected:
+    - harness/suite-contract/evidence-bundle/README.md
+    - harness/suite-contract/evidence-bundle/compatibility-matrix.yaml
+    - harness/suite-contract/evidence-bundle/fixtures/candidate-valid.json
+    - harness/suite-contract/evidence-bundle/fixtures/candidate-local.json
+    - harness/suite-contract/evidence-bundle/fixtures/candidate-no-commit.json
+    - harness/schemas/assurance-lock.schema.json
+    - harness/schemas/evidence-reference.schema.json
+    - harness/policies/assurance-evidence.md
+    - harness/stages.yaml
+    - ci/validate_metadata.py
+    - architecture/adr/ADR-032-evidence-bundle-candidate.md
+    - architecture/adr/index.yaml
+    - tests/governance/test_assurance_evidence_contract.py
+    - tests/governance/test_candidate_adapter_reference.py
+    - docs/metadata-graph.md
+    - docs/schema-reference.md
+    - docs/configuracao/index.html
+    - docs/configuracao/config.json
+
+  risk_assessment:
+    level: high
+    risks:
+      - RISK-META-001
+      - RISK-STAGE-001
+    rationale: >
+      Esta mudança é a resposta à Sprint 6 da pse-suite: a PR #2 foi MERGEADA em 17/08/2026
+      20:23:21 UTC — o adapter está no main da pse-suite (commit 443da92dbdb2…, source
+      f19e593257b84…), mas SEM release: não há tag v0.4.0, manifesto ou pin versionado. O
+      produtor NÃO pode entrar aqui como dependência efetiva, e o risco é o oposto do da CP-050:
+      não é a tela que pode mentir, é a evidência que pode aprovar.
+
+      O merge cria o modo de falha mais perigoso deste contrato: o estado candidato era travado
+      por "não mergeado", e esse estado SUMIU — um produtor mergeado tem a cara de evidência
+      oficial, com schema, hash e assertions, tudo legal. Se o estado do produtor não for
+      re-travado em schema, alguém vai tratar o bundle mergeado como evidência de produção no dia
+      em que ele aparecer no CI estrito — e o pior modo de falha é o de sempre: nada fica vermelho,
+      porque nada quebrou. A reconciliação (Sprint 6.2) troca o enum de UM elemento por TRÊS
+      estados controlados: `candidate_not_merged`, `merged_unreleased` e `released`. Os dois
+      primeiros têm `release_eligible: const false`; o terceiro só é expresso com tag, versão,
+      commit, manifesto e hash de artefato verificáveis (bloco `release` exigido). Merge no main
+      ≠ release publicado ≠ dependência elegível para produção — as três leituras não colapsam
+      mais numa só palavra.
+
+      Por isso a forma da mudança é toda ela um fecho. O enum de estado fecha em três valores e o
+      schema condiciona `release_eligible` por estado; a referência ganha `adapter_source_commit`
+      (o SHA que um bundle verificável carrega em producer.suite_commit — hoje f19e593…). O fecho
+      de situações da matriz é completo por minItems/maxItems (11): acrescentar uma décima segunda
+      é edição de contrato, com ADR novo. A matriz é metadado novo e paga as quatro coisas: schema
+      (assurance-lock.schema.json), registro (entrada em DOCS de ci/validate_metadata.py), etapa
+      (artefato em harness/stages.yaml) e política (assurance-evidence.md) — mais os testes de
+      mordida positivo/negativo/mutação que provam que a trava morde, incluindo as cinco mutações
+      canônicas da reconciliação: M36 (merged_unreleased com release_eligible=true), M37
+      (merged_unreleased como fonte no CI estrito), M38 (released sem metadados verificáveis), M39
+      (source commit ≠ adapter_source_commit) e M40 (CTRL-DEP-001 satisfied com assertion
+      planejada).
+
+      Risco alto porque toca harness/ e ci/ — caminhos protegidos, decision_policy
+      protected_path_change require_human_review. A mudança NÃO instala PSE, não executa
+      `pse evidence-bundle` em CI, não abre rede, não cria requirements-pse.txt ativo, não
+      registra suite ativa da PSE e não altera CTRL-DEP-001 — que permanece not_satisfied. O
+      rollback é limpo: remover a entrada de DOCS, a linha de stage e o diretório
+      evidence-bundle/ devolve o repositório ao estado anterior sem resíduo em metadado
+      source_of_truth.
+
+  required_gates:
+    - metadata-validation
+    - unit-tests
+
+  tests_required:
+    - tests/governance/test_assurance_evidence_contract.py
+    - tests/governance/test_candidate_adapter_reference.py
+
+  human_approval_required: true
+  change_mode: pull_request

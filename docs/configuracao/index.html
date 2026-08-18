@@ -473,6 +473,30 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       ]
     },
     {
+      "field": "assurance_lock.situations.expected",
+      "pointer": "/properties/assurance_lock/properties/situations/items/properties/expected",
+      "file": "assurance-lock.schema.json",
+      "group": "governança",
+      "values": [
+        "blocked",
+        "accepted_in_fixture_only",
+        "not_assessed",
+        "not_satisfied",
+        "release_eligible_false"
+      ]
+    },
+    {
+      "field": "assurance_lock.situations.scope",
+      "pointer": "/properties/assurance_lock/properties/situations/items/properties/scope",
+      "file": "assurance-lock.schema.json",
+      "group": "governança",
+      "values": [
+        "strict_ci",
+        "production",
+        "fixture_preparation"
+      ]
+    },
+    {
       "field": "findings.origin",
       "pointer": "/properties/findings/items/properties/origin",
       "file": "audit-report.schema.json",
@@ -986,6 +1010,17 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "WCAG-2.1-AA",
         "WCAG-2.2-AA",
         "WCAG-2.2-AAA"
+      ]
+    },
+    {
+      "field": "state",
+      "pointer": "/properties/state",
+      "file": "evidence-reference.schema.json",
+      "group": "governança",
+      "values": [
+        "candidate_not_merged",
+        "merged_unreleased",
+        "released"
       ]
     },
     {
@@ -2298,6 +2333,18 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       "example": "PIP_EXTRA_INDEX_URL"
     },
     {
+      "pattern": "^SIT-[A-Z0-9_-]{2,30}$",
+      "used_in": [
+        {
+          "file": "assurance-lock.schema.json",
+          "field": "assurance_lock.situations.id",
+          "pointer": "/properties/assurance_lock/properties/situations/items/properties/id"
+        }
+      ],
+      "group": "governança",
+      "example": "SIT-MERGED-UNRELEASED-CI"
+    },
+    {
       "pattern": "^Art\\. [0-9]+",
       "used_in": [
         {
@@ -2376,6 +2423,11 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
           "pointer": "/properties/review/properties/scope_fingerprint"
         },
         {
+          "file": "evidence-reference.schema.json",
+          "field": "release.artifact_hash",
+          "pointer": "/properties/release/properties/artifact_hash"
+        },
+        {
           "file": "ledger.schema.json",
           "field": "findings_digest",
           "pointer": "/properties/findings_digest"
@@ -2402,7 +2454,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         }
       ],
       "group": "governança",
-      "example": "sha256:bcd9b09fb8379fd78415b727a749bc0a61acda6a36455ebf5e487df263f78994"
+      "example": "sha256:157630a71b92ee11d8e83774384a0cffba0c083d7f92d15f10719deaf99e4aa4"
     },
     {
       "pattern": "^(/[^/]*)*$",
@@ -2464,6 +2516,39 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       ],
       "group": "governança",
       "example": "CONF-001"
+    },
+    {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+      "used_in": [
+        {
+          "file": "evidence-reference.schema.json",
+          "field": "branch",
+          "pointer": "/properties/branch"
+        }
+      ],
+      "group": "governança",
+      "example": "1.0"
+    },
+    {
+      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "used_in": [
+        {
+          "file": "evidence-reference.schema.json",
+          "field": "release.tag",
+          "pointer": "/properties/release/properties/tag"
+        },
+        {
+          "file": "release-manifest.schema.json",
+          "field": "release.tag",
+          "pointer": "/properties/release/properties/tag"
+        },
+        {
+          "file": "target-lock.schema.json",
+          "field": "mold_release.tag",
+          "pointer": "/properties/mold_release/properties/tag"
+        }
+      ],
+      "group": "governança"
     },
     {
       "pattern": "^(CAP|CMP|IFC|UI|REQ)-[A-Z0-9]+(-[A-Z0-9]+)*$",
@@ -2540,23 +2625,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         }
       ],
       "group": "identidade",
-      "example": "sha256:bcd9b09fb8379fd78415b727a749bc0a61acda6a36455ebf5e487df263f78994"
-    },
-    {
-      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
-      "used_in": [
-        {
-          "file": "release-manifest.schema.json",
-          "field": "release.tag",
-          "pointer": "/properties/release/properties/tag"
-        },
-        {
-          "file": "target-lock.schema.json",
-          "field": "mold_release.tag",
-          "pointer": "/properties/mold_release/properties/tag"
-        }
-      ],
-      "group": "identidade"
+      "example": "sha256:157630a71b92ee11d8e83774384a0cffba0c083d7f92d15f10719deaf99e4aa4"
     },
     {
       "pattern": "^harness/releases/v[0-9]+\\.[0-9]+\\.[0-9]+\\.manifest\\.json$",
@@ -2718,6 +2787,21 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
           "pointer": "/properties/components/items/properties/derived_from/properties/sha"
         },
         {
+          "file": "evidence-reference.schema.json",
+          "field": "adapter_source_commit",
+          "pointer": "/properties/adapter_source_commit"
+        },
+        {
+          "file": "evidence-reference.schema.json",
+          "field": "commit",
+          "pointer": "/properties/commit"
+        },
+        {
+          "file": "evidence-reference.schema.json",
+          "field": "release.commit",
+          "pointer": "/properties/release/properties/commit"
+        },
+        {
           "file": "interfaces.schema.json",
           "field": "interfaces.derived_from.sha",
           "pointer": "/properties/interfaces/items/properties/derived_from/properties/sha"
@@ -2753,7 +2837,8 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
           "pointer": "/properties/ui_surfaces/items/properties/derived_from/properties/sha"
         }
       ],
-      "group": "negócio"
+      "group": "negócio",
+      "example": "f19e593257b8480e7822795ba49a36f284963371"
     },
     {
       "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
@@ -2772,6 +2857,11 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
           "file": "components.schema.json",
           "field": "components.derived_from.repo",
           "pointer": "/properties/components/items/properties/derived_from/properties/repo"
+        },
+        {
+          "file": "evidence-reference.schema.json",
+          "field": "repository",
+          "pointer": "/properties/repository"
         },
         {
           "file": "interfaces.schema.json",
@@ -2924,6 +3014,42 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       "value": "conformance"
     },
     {
+      "field": "release_eligible",
+      "pointer": "/oneOf/0/properties/release_eligible",
+      "file": "evidence-reference.schema.json",
+      "value": false
+    },
+    {
+      "field": "state",
+      "pointer": "/oneOf/0/properties/state",
+      "file": "evidence-reference.schema.json",
+      "value": "candidate_not_merged"
+    },
+    {
+      "field": "release_eligible",
+      "pointer": "/oneOf/1/properties/release_eligible",
+      "file": "evidence-reference.schema.json",
+      "value": false
+    },
+    {
+      "field": "state",
+      "pointer": "/oneOf/1/properties/state",
+      "file": "evidence-reference.schema.json",
+      "value": "merged_unreleased"
+    },
+    {
+      "field": "release_eligible",
+      "pointer": "/oneOf/2/properties/release_eligible",
+      "file": "evidence-reference.schema.json",
+      "value": true
+    },
+    {
+      "field": "state",
+      "pointer": "/oneOf/2/properties/state",
+      "file": "evidence-reference.schema.json",
+      "value": "released"
+    },
+    {
       "field": "decision_policy.default",
       "pointer": "/properties/decision_policy/properties/default",
       "file": "harness.schema.json",
@@ -3021,6 +3147,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
     ],
     "present_in": [
       "adr-index.schema.json",
+      "assurance-lock.schema.json",
       "backlog.schema.json",
       "business-rules.schema.json",
       "capabilities.schema.json",
@@ -3048,6 +3175,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
     "absent_in": [
       "audit-report.schema.json",
       "bootstrap-report.schema.json",
+      "evidence-reference.schema.json",
       "harness.schema.json",
       "ledger.schema.json",
       "provenance.schema.json",
@@ -3232,6 +3360,14 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       "block_kind": "if/then",
       "rule": "SE role ∈ {controller, operator, controller_and_operator} ENTÃO EXIGE dpo_contact",
       "why": "Art. 41: quem trata dado pessoal indica encarregado. Papel declarado sem contato do encarregado é papel de fachada."
+    },
+    {
+      "pointer": "",
+      "file": "evidence-reference.schema.json",
+      "group": "governança",
+      "block_kind": "oneOf",
+      "rule": "EXIGE repository, branch, commit, adapter_source_commit, state, release_eligible; repository casa /^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$/; branch casa /^[A-Za-z0-9][A-Za-z0-9._/-]*$/; commit casa /^[0-9a-f]{40}$/; adapter_source_commit casa /^[0-9a-f]{40}$/; state ∈ {candidate_not_merged, merged_unreleased, released}; EXIGE release.tag, release.version, release.commit, release.manifest, release.artifact_hash; release.tag casa /^v[0-9]+\\.[0-9]+\\.[0-9]+$/; release.commit casa /^[0-9a-f]{40}$/; release.artifact_hash casa /^sha256:[0-9a-f]{64}$/; EXATAMENTE UM DE (state: candidate_not_merged; release_eligible: false | state: merged_unreleased; release_eligible: false | EXIGE release; state: released; release_eligible: true)",
+      "why": "A única forma de referenciar um produtor de evidência neste repositório. Três estados controlados: candidato não mergeado, mergeado sem release, e releaseado. O primeiro e o segundo exigem release_eligible: false — merge no main não é release publicado, e nenhum dos dois é dependência elegível para produção. O terceiro só é expresso com tag, versão, commit, manifesto e hash de artefato verificáveis. Nada fora destes três estados existe como opção de erro."
     },
     {
       "pointer": "/properties/external_audit/allOf/0",
@@ -3466,6 +3602,12 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       "title": "architecture/adr/index.yaml — índice fiscalizável de ADRs"
     },
     {
+      "file": "assurance-lock.schema.json",
+      "bytes": 2824,
+      "group": "governança",
+      "title": "Assurance lock — o que evidência candidata pode e não pode provar"
+    },
+    {
       "file": "audit-report.schema.json",
       "bytes": 6869,
       "group": "governança",
@@ -3536,6 +3678,12 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       "bytes": 1376,
       "group": "arquitetura",
       "title": "design-system.yaml — identidade e metas do sistema de design"
+    },
+    {
+      "file": "evidence-reference.schema.json",
+      "bytes": 2944,
+      "group": "governança",
+      "title": "Referência de produtor de evidência — estado controlado"
     },
     {
       "file": "harness.schema.json",
@@ -3929,7 +4077,8 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
           "pyproject.toml",
           "requirements-ci.txt",
           "harness/local_validate.sh",
-          "harness/suite-contract"
+          "harness/suite-contract",
+          "harness/suite-contract/evidence-bundle"
         ],
         "enforced_by": 5
       },
@@ -3960,6 +4109,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       "harness/policies/adocao.md",
       "harness/policies/alinhamento.md",
       "harness/policies/ancoragem-do-molde.md",
+      "harness/policies/assurance-evidence.md",
       "harness/policies/cadeia-de-decisao.md",
       "harness/policies/change-proposals.md",
       "harness/policies/ciclo-de-vida-da-cp.md",
@@ -3988,7 +4138,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "step": "metadados",
         "module": "validate_metadata",
         "argv": [],
-        "bytes": 52193,
+        "bytes": 52471,
         "doc": "Fiscal de metadados — LINTER de CI, não runner da harness."
       },
       {
@@ -4015,7 +4165,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "argv": [
           "--check"
         ],
-        "bytes": 86644,
+        "bytes": 86746,
         "doc": "Painel de CONFIGURAÇÃO do repositório — o que já está decidido antes de alguém chegar."
       },
       {
@@ -4588,6 +4738,36 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "file": "conformance-review.schema.json"
       },
       {
+        "o_que": "release_eligible = false",
+        "porque": "const no contrato",
+        "file": "evidence-reference.schema.json"
+      },
+      {
+        "o_que": "state = candidate_not_merged",
+        "porque": "const no contrato",
+        "file": "evidence-reference.schema.json"
+      },
+      {
+        "o_que": "release_eligible = false",
+        "porque": "const no contrato",
+        "file": "evidence-reference.schema.json"
+      },
+      {
+        "o_que": "state = merged_unreleased",
+        "porque": "const no contrato",
+        "file": "evidence-reference.schema.json"
+      },
+      {
+        "o_que": "release_eligible = true",
+        "porque": "const no contrato",
+        "file": "evidence-reference.schema.json"
+      },
+      {
+        "o_que": "state = released",
+        "porque": "const no contrato",
+        "file": "evidence-reference.schema.json"
+      },
+      {
         "o_que": "decision_policy.default = deny",
         "porque": "const no contrato",
         "file": "harness.schema.json"
@@ -4800,7 +4980,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       },
       {
         "path": "architecture/adr/index.yaml",
-        "sha256": "06338f1695d2ca7fdab33b51a9989f6cf48de9896e921b1c7123226ee6d8bd10"
+        "sha256": "477ff4d565f188200fe644d68d50625202f810bf424ddb0700a31c5f889fd7ac"
       },
       {
         "path": "architecture/components.yaml",
@@ -4896,7 +5076,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       },
       {
         "path": "ci/generate_config_report.py",
-        "sha256": "cc38cf898a76d2ed8c39e55cb04d17d60a6edb48034e3210f2f75e0e0179ea76"
+        "sha256": "343c8b3c06248830703de50b3466f5a3d1176b50e123e0c28044f3e0784e5652"
       },
       {
         "path": "ci/generate_graph.py",
@@ -4940,7 +5120,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       },
       {
         "path": "ci/validate_metadata.py",
-        "sha256": "ffc19bed9d4fa3567fc32d04364b6ed25a1c70d5dfdc0c03f19c2ca0f317ee00"
+        "sha256": "d58b46a2f094c145ef29b275cdab8689f08917d50b2ce8be01303f71095934ce"
       },
       {
         "path": "ci/verify_approval.py",
@@ -4960,7 +5140,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       },
       {
         "path": "governance/conformance-review.yaml",
-        "sha256": "35ebe337350f0e21aa1297252b8e7da8cb1a86fb822fc26916205b4a69edde9b"
+        "sha256": "fadfe8597e0b2c119a088719c6231ea858f350d788fc8e5121b5029611922a08"
       },
       {
         "path": "governance/data-inventory.yaml",
@@ -4997,6 +5177,10 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       {
         "path": "harness/policies/ancoragem-do-molde.md",
         "sha256": "5bc8603e0394a934651e466638cea9f8742d4c7fdb289c261385d557d7e02441"
+      },
+      {
+        "path": "harness/policies/assurance-evidence.md",
+        "sha256": "4b1fe3e52044cd506c7511ec6f9498599b221f12d9ae1a5799d4d8080e08e079"
       },
       {
         "path": "harness/policies/cadeia-de-decisao.md",
@@ -5083,6 +5267,10 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "sha256": "9c1f5be06405c3f5542ab5c4ff3b4dcf7bf4c2f00504c3a4f1dabd58d5ae9efb"
       },
       {
+        "path": "harness/schemas/assurance-lock.schema.json",
+        "sha256": "53ea9ac82a8ec0cc315f735adc88687e93de2a6074a995b2f20ae4ced6466bbe"
+      },
+      {
         "path": "harness/schemas/audit-report.schema.json",
         "sha256": "54e4dab2bc5a35bc4dc7e17110d32f792b48349e9d4d6296e3fc9b8637557364"
       },
@@ -5129,6 +5317,10 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       {
         "path": "harness/schemas/design-system.schema.json",
         "sha256": "64807e448f2f12b3d4932b45ea5d504c58ea2f72f452e55e3e10f2a5e7473367"
+      },
+      {
+        "path": "harness/schemas/evidence-reference.schema.json",
+        "sha256": "d911d40ea1e4e899daf8b350a54429930e75659d23c55d054fc62f85e114cc86"
       },
       {
         "path": "harness/schemas/harness.schema.json",
@@ -5204,11 +5396,15 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
       },
       {
         "path": "harness/stages.yaml",
-        "sha256": "f497f99fc7a2e085dc61aeb090f3a158b83ce403a5c937b828f0fd8853b76e3c"
+        "sha256": "774b7945ae2c497ed0707c29cb56b64c740f74193488711cd0b07597b8bc2949"
       },
       {
         "path": "harness/suite-contract/contract-v1/contract-manifest.json",
         "sha256": "eb5053bf70ca582cba555f84eb00674edaa3a24a86c9ad1875a3b8a76d0e6349"
+      },
+      {
+        "path": "harness/suite-contract/evidence-bundle/compatibility-matrix.yaml",
+        "sha256": "9f56531191eb8c1c3833b87a9faa7588036ea5f8b832e6fbac6f74ab3c643058"
       },
       {
         "path": "harness/suites/privacy-suite.yaml",
@@ -5247,7 +5443,7 @@ table.cfg td { padding: 8px 10px; border-bottom: 1px solid var(--color-divider);
         "sha256": "92bde6e8055c324985b7cdeb183c22a8b88a165b3fea4c0e9e007a9755a7c1e4"
       }
     ],
-    "inputs_fingerprint": "sha256:9fbc552ac5856f94c35a2972e3de6aba2b67f06cf147c8c70d58291c0adac3b4",
+    "inputs_fingerprint": "sha256:da61a8313913e01a093327cb287a33e6be2439f2e48d383fc232fa3d559b660a",
     "commit": {
       "embedded": false,
       "onde": "harness/reports/config-report.json"
