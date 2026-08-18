@@ -4601,11 +4601,11 @@
       },
       {
         "path": ".github/CODEOWNERS",
-        "sha256": "41d864f4ef9a4d134e42c86dbdcae5e74d3343fa131ad644589faf6fe45c8696"
+        "sha256": "db56dd38da5e0019c915e9e635fb08cc4d78a03418431c4916850775009cdb75"
       },
       {
         "path": ".gitignore",
-        "sha256": "3c3347c6637d4151e02b8a2b4916a6fbb7bca13b33076624455712efa2bd02c2"
+        "sha256": "1f049cfe8be02faf997bf1ac37c3ae2fe4e0199386666750f884bea8b2ae2f0e"
       },
       {
         "path": "architecture/adr/index.yaml",
@@ -5072,7 +5072,7 @@
         "sha256": "92bde6e8055c324985b7cdeb183c22a8b88a165b3fea4c0e9e007a9755a7c1e4"
       }
     ],
-    "inputs_fingerprint": "sha256:7e7df47cbc6aa8ce8346e1147052065447b91a15160531a32763c5d53f270c2f",
+    "inputs_fingerprint": "sha256:da61a8313913e01a093327cb287a33e6be2439f2e48d383fc232fa3d559b660a",
     "commit": {
       "embedded": false,
       "onde": "harness/reports/config-report.json"
