@@ -2083,7 +2083,7 @@
         }
       ],
       "group": "governança",
-      "example": "sha256:bcd9b09fb8379fd78415b727a749bc0a61acda6a36455ebf5e487df263f78994"
+      "example": "sha256:157630a71b92ee11d8e83774384a0cffba0c083d7f92d15f10719deaf99e4aa4"
     },
     {
       "pattern": "^(/[^/]*)*$",
@@ -2254,7 +2254,7 @@
         }
       ],
       "group": "identidade",
-      "example": "sha256:bcd9b09fb8379fd78415b727a749bc0a61acda6a36455ebf5e487df263f78994"
+      "example": "sha256:157630a71b92ee11d8e83774384a0cffba0c083d7f92d15f10719deaf99e4aa4"
     },
     {
       "pattern": "^harness/releases/v[0-9]+\\.[0-9]+\\.[0-9]+\\.manifest\\.json$",
@@ -3767,7 +3767,7 @@
         "step": "metadados",
         "module": "validate_metadata",
         "argv": [],
-        "bytes": 53531,
+        "bytes": 52471,
         "doc": "Fiscal de metadados — LINTER de CI, não runner da harness."
       },
       {
@@ -3776,7 +3776,7 @@
         "argv": [
           "--check"
         ],
-        "bytes": 9854,
+        "bytes": 9619,
         "doc": "Gera o mapa de relacionamento dos metadados a partir dos IDs reais."
       },
       {
@@ -3785,7 +3785,7 @@
         "argv": [
           "--check"
         ],
-        "bytes": 5126,
+        "bytes": 4999,
         "doc": "Documentação viva dos schemas — derivada deles, com --check bloqueante."
       },
       {
@@ -3794,14 +3794,14 @@
         "argv": [
           "--check"
         ],
-        "bytes": 88442,
+        "bytes": 86746,
         "doc": "Painel de CONFIGURAÇÃO do repositório — o que já está decidido antes de alguém chegar."
       },
       {
         "step": "conformidade",
         "module": "audit_governance",
         "argv": [],
-        "bytes": 82522,
+        "bytes": 80922,
         "doc": "Fiscal de conformidade — o repositório REAL faz o que as decisões DECLARAM?"
       },
       {
@@ -3810,144 +3810,144 @@
         "argv": [
           "--check"
         ],
-        "bytes": 15354,
+        "bytes": 15060,
         "doc": "Alinhamento entre departamentos e cobertura REVERSA de risco."
       },
       {
         "step": "conformidade-continua",
         "module": "audit_conformance",
         "argv": [],
-        "bytes": 10862,
+        "bytes": 10659,
         "doc": "Frescor da VALIDAÇÃO semântica, e o diff de ingestão contra o alvo."
       },
       {
         "step": "lgpd",
         "module": "audit_lgpd",
         "argv": [],
-        "bytes": 26764,
+        "bytes": 26194,
         "doc": "Fiscal determinístico de LGPD — roda sempre, sobre o projeto inteiro."
       },
       {
         "step": "ledger",
         "module": "audit_ledger",
         "argv": [],
-        "bytes": 10092,
+        "bytes": 9871,
         "doc": "Fiscal do ledger — evidência durável que não se reescreve."
       },
       {
         "step": "suites",
         "module": "audit_suites",
         "argv": [],
-        "bytes": 30104,
+        "bytes": 29500,
         "doc": "Fiscal genérico do Contrato de Régua — as cinco cláusulas, cobradas por ficha."
       },
       {
         "step": "dependências",
         "module": "check_dependency_conflict",
         "argv": [],
-        "bytes": 5211,
+        "bytes": 5088,
         "doc": "Complemento §10 — o mesmo pacote declarado com versões que se contradizem."
       }
     ],
     "standalone": [
       {
         "module": "ci/adapters/__init__.py",
-        "bytes": 5236,
+        "bytes": 5116,
         "doc": "Registro de adapters de linguagem — plugins, não um `if` que cresce."
       },
       {
         "module": "ci/adapters/generico.py",
-        "bytes": 1684,
+        "bytes": 1642,
         "doc": "Adapter genérico — o fallback que impede que ignorância vire silêncio verde."
       },
       {
         "module": "ci/adapters/python.py",
-        "bytes": 4294,
+        "bytes": 4186,
         "doc": "Adapter de Python — leitura semântica por AST."
       },
       {
         "module": "ci/adapters/typescript.py",
-        "bytes": 9029,
+        "bytes": 8817,
         "doc": "Adapter de TypeScript/JavaScript — imports relativos e aliases de workspace."
       },
       {
         "module": "ci/adoption_status.py",
-        "bytes": 3229,
+        "bytes": 3147,
         "doc": "Responde a pergunta do primeiro turno: este repositório é molde ou derivado, e o que falta."
       },
       {
         "module": "ci/audit_friction.py",
-        "bytes": 8683,
+        "bytes": 8484,
         "doc": "Fiscal de atrito, estágio 1 — o único fiscal desta casa que NUNCA reprova."
       },
       {
         "module": "ci/audit_mutations.py",
-        "bytes": 8896,
+        "bytes": 8705,
         "doc": "Prova de fogo 4 — toda regra bloqueante reprova a mutação canônica que a nega."
       },
       {
         "module": "ci/automerge_gate.py",
-        "bytes": 8660,
+        "bytes": 8494,
         "doc": "O portão do auto-merge: este PR é *só* o atestado, e veio *mesmo* da autoridade?"
       },
       {
         "module": "ci/bootstrap.py",
-        "bytes": 11976,
+        "bytes": 11714,
         "doc": "Cold start idempotente: leva um clone cru a um estado conhecido."
       },
       {
         "module": "ci/env_guard.py",
-        "bytes": 10033,
+        "bytes": 9833,
         "doc": "Higiene de ambiente — a denylist de harness.yaml aplicada ao ambiente REAL do processo."
       },
       {
         "module": "ci/harness_lib.py",
-        "bytes": 29538,
+        "bytes": 28886,
         "doc": "Base compartilhada dos fiscais de CI. Não é fiscal — é a ferramenta que eles usam."
       },
       {
         "module": "ci/inventory_code.py",
-        "bytes": 7878,
+        "bytes": 7696,
         "doc": "Inventário do código real — o insumo da invariante \"código sem metadado não existe\"."
       },
       {
         "module": "ci/mold_release.py",
-        "bytes": 22975,
+        "bytes": 22515,
         "doc": "Raiz de confiança do molde — construir, verificar e consumir uma release por versão."
       },
       {
         "module": "ci/orient.py",
-        "bytes": 14853,
+        "bytes": 14499,
         "doc": "Orientação DERIVADA: onde estou, o que muda junto, o que roda em cima disso."
       },
       {
         "module": "ci/pr_checklist.py",
-        "bytes": 2927,
+        "bytes": 2849,
         "doc": "Checklist de compliance do PR, DERIVADO de harness/stages.yaml."
       },
       {
         "module": "ci/suite_conformance.py",
-        "bytes": 7376,
+        "bytes": 7206,
         "doc": "Kit de conformidade — rodável dos DOIS lados do contrato."
       },
       {
         "module": "ci/suite_runner.py",
-        "bytes": 14859,
+        "bytes": 14550,
         "doc": "Runner genérico — executa uma régua A PARTIR DA FICHA, e traduz o veredito ao CI."
       },
       {
         "module": "ci/validate_all.py",
-        "bytes": 5195,
+        "bytes": 5073,
         "doc": "Validação total do projeto — um comando, um significado de \"validado\"."
       },
       {
         "module": "ci/verify_approval.py",
-        "bytes": 9452,
+        "bytes": 9257,
         "doc": "Aprovação de change-proposal `high` — provada contra o conteúdo que foi integrado."
       },
       {
         "module": "ci/verify_protection.py",
-        "bytes": 16697,
+        "bytes": 16359,
         "doc": "Camada local da trava externa — a proteção declarada está de fato ligada?"
       }
     ]
@@ -4597,7 +4597,7 @@
     "inputs": [
       {
         "path": ".claude/settings.json",
-        "sha256": "532732d0434b92e21100a3c58d1006839a20b55638b7bbb9160fc4ce71979c5c"
+        "sha256": "63d9d6745ada94bae32564b0ca9578b49db015a8d3af4e65b4af6cefe16abe3b"
       },
       {
         "path": ".github/CODEOWNERS",
@@ -4613,199 +4613,199 @@
       },
       {
         "path": "architecture/components.yaml",
-        "sha256": "8080c6b4ea2e1094acb305aa788ef4b1833e67c12f59ab0cecc06f36907ed2ed"
+        "sha256": "65d4d80d899f96faad94a5030ed8f330e11480cce8725c1dff5610ef64e8329f"
       },
       {
         "path": "architecture/interfaces.yaml",
-        "sha256": "f127ca084c1aed1c1168ebe62dd5ec5b3d43a46bc23af49ab500cce28a79b134"
+        "sha256": "e262c850d7b36b049e3fcfb01dc8a11393307e20af0291f885d9def5e89b31be"
       },
       {
         "path": "business/capabilities.yaml",
-        "sha256": "a4cadd3c1b8717ab83f53bd6d03e7444d2e0e0658159c9461607230c5463a993"
+        "sha256": "f8801697de4b75feff8c2705ed231d9ffbba2c979169d56dd43bcd0dc7ea7b6f"
       },
       {
         "path": "business/requirements/backlog.yaml",
-        "sha256": "d8bcac1bd0934603a1d836aab28c138c567b39a36b65c371ef392ece4ae86b9c"
+        "sha256": "b5cfc36d3b36be0f92e66a0f03fad5f4de2a0a98b6ff48177859a7c2b159d0ef"
       },
       {
         "path": "business/vision.yaml",
-        "sha256": "6e4abb3072fca6442373fc8695caeb3b21941a5818cc9907aa1a695b1cb3dfd5"
+        "sha256": "15e97786efd0739499479fdf3f5983d72f721a40e6e994c8956a0bdd973b0a07"
       },
       {
         "path": "ci/adapters/__init__.py",
-        "sha256": "58564d942c4cc3186760bc2ab8e6284c7efd121beaef64e94e4aed2d6765fedf"
+        "sha256": "07d9a2c1cd0b8ac72d9162f70dd4c15b31cb6c956fcfb57388600eb51a295b46"
       },
       {
         "path": "ci/adapters/generico.py",
-        "sha256": "051ca32da48b03e7fefcfe57525a7a1741f638a83e9a1b6530177931a9436ede"
+        "sha256": "35d2a8fe574a7412545accb6803f8ec0b190be22a4820a7f2931edbd246b390a"
       },
       {
         "path": "ci/adapters/python.py",
-        "sha256": "8dac9b97de59e0bdae95f072727ee5d1c9ee7c821e54236babd50641b692bbe2"
+        "sha256": "ad0daafc0e64d95a65808a4273fb1a25bc7112bd3923f4721c4b3607751bc9a1"
       },
       {
         "path": "ci/adapters/typescript.py",
-        "sha256": "f7c5f845fbbac7be86f7cb8e0a46a9622ef8d6674adc260798409a689ec7a4c4"
+        "sha256": "45ee7cbd228e37d97cdc6ecd2fec0e26461a879c4af6470008414bd7b8a80be1"
       },
       {
         "path": "ci/adoption_status.py",
-        "sha256": "aa4fa827e65d9e0b96974a203f0fb0a650b606a98c81f0796ff12a6275d274f4"
+        "sha256": "3f404fec82601e783ce9f840709737b5faab5e1e3c14514418f5dbf19e96de2c"
       },
       {
         "path": "ci/alignment_report.py",
-        "sha256": "01740c8681e3e3379a7f3dafd107938fe89ee0a73bee04666ee1f2d4d9cdcb53"
+        "sha256": "95395a48f372b81cd14c242280fb4417caade694c8491a853775afdf3c02a6f8"
       },
       {
         "path": "ci/assets/organic.css",
-        "sha256": "5bef5d8c266ffa07629353902547d17f55268aee8cc5a8af4812e374a52dd560"
+        "sha256": "8f59262e3e447693dd2e10fafd3d4ec4418cb152453eb1bc7f4c67922b9eb68c"
       },
       {
         "path": "ci/audit_conformance.py",
-        "sha256": "6d8236eb7c0389adafb7e7fe532f0ea3475aeb1c408a0d4862e6c2a7e80d4990"
+        "sha256": "85dd911742e69e1de32023f04919d21ffd81ef1f5fcfcc7805d22547db3df8ea"
       },
       {
         "path": "ci/audit_friction.py",
-        "sha256": "b290f6f65d04f0a21d6310bc5e04d5cbd6bd8d0bdde3216676723dd856709961"
+        "sha256": "18c8b5dacf57617acd2e667f16768d40643cdb97d38c0aeb2c0c26413fcc4d25"
       },
       {
         "path": "ci/audit_governance.py",
-        "sha256": "d041c104f6172d00bf525b6f1056860bb92ba60721b9651ef19dcdd01a200794"
+        "sha256": "dd19dc6f06bb2582dd3bc77372b88e1476bdd56d07344576042ac8616bea4acd"
       },
       {
         "path": "ci/audit_ledger.py",
-        "sha256": "c23a232e1a69df3e541835a65956be365868de8f3d6b31d3e0609ae0c32cf634"
+        "sha256": "b10059e2f0d2752561ccb7d0815112634ae2ebca0754a7e8421bf7cefdcf3b1c"
       },
       {
         "path": "ci/audit_lgpd.py",
-        "sha256": "78b14b0aedb1dccd5f060e92db98685a1f520486bf7d29185a02b3257159a49d"
+        "sha256": "4b8f776160a524ce7ec172fa390e501bf30d1402fabe62fae6a5561c04dbeb6f"
       },
       {
         "path": "ci/audit_mutations.py",
-        "sha256": "0e26b4387734f7347467a024f06f61eba3566ddda75e01af56c6a3bbf80b52d6"
+        "sha256": "b67bcb3a236d34b2711b17387154847b7a778259af1b41caafe3c94a7bfa4d91"
       },
       {
         "path": "ci/audit_suites.py",
-        "sha256": "10df251275b0df3de01bea1f5b5b2371a576b875170e2a9abbdf356364036bcf"
+        "sha256": "2b892c32bb64870596bf606c6bd3507f49e5a8e77cd742ec2c5f38a508b20097"
       },
       {
         "path": "ci/automerge_gate.py",
-        "sha256": "abfcd0182f745c5a1c0ede80279d30563b2869833377b1196b46ab1ea0733964"
+        "sha256": "04573c6d8f19aba04671097c3214decfd4e6d8b7f8166020adbd4befc298ab3f"
       },
       {
         "path": "ci/bootstrap.py",
-        "sha256": "c891d3fa658520b12fc6fb9ffb26a70eb0125b38595e0560ed630bc6b8773ee3"
+        "sha256": "55620dc509ea38c2d93db895faf34d3dcb3d6b345a5586a15f9172795e6ba284"
       },
       {
         "path": "ci/check_dependency_conflict.py",
-        "sha256": "4dc4b15240336ff8c10e327698d174b7825a585737ed85354ce90d73ab234616"
+        "sha256": "1c4a06a08ee1917a658188620bfb5799626ca82ed068101bce7b128a67862f9e"
       },
       {
         "path": "ci/env_guard.py",
-        "sha256": "be777e4cd21d359262ff755ce8d01ccc90a4e339b0e9486a37a52fa010a66692"
+        "sha256": "146f08c688ef5ad520e5d4b4047b031d391a872ba709ee0c4828adac7391c13c"
       },
       {
         "path": "ci/generate_config_report.py",
-        "sha256": "ad76e653a55305ffe3fb3751f914065c5b379c2c76f029162f5319b75893688f"
+        "sha256": "343c8b3c06248830703de50b3466f5a3d1176b50e123e0c28044f3e0784e5652"
       },
       {
         "path": "ci/generate_graph.py",
-        "sha256": "41b2005d9d911e332e817e111fd89fd0742b0a4dd94366fdac96ebd615039bee"
+        "sha256": "aabd1a34ef9e80fd5d9b3a7fa87e0c59ed0db97eb09513f5c54999bcc57e8b1d"
       },
       {
         "path": "ci/generate_schema_docs.py",
-        "sha256": "0a2178253bb9116b1260ee81dd3ec0e6a2c02ba43e2680eedd615734d76fbf54"
+        "sha256": "a77cb5333f59120ea8e2b96c9f2f769cc6663a9433aa6c611fa04229beb9deb7"
       },
       {
         "path": "ci/harness_lib.py",
-        "sha256": "7f74d4afad659c789cac6e37d32f633866bddf876d964e2645cad7c714942811"
+        "sha256": "cb849287eb6715a2c39aed8f1d4ded25540a15811d1c7d27aa89b97973853302"
       },
       {
         "path": "ci/inventory_code.py",
-        "sha256": "680582799f216fbd2ccabf4d225dc0d4300d8854c1179ca53455acd18bbfa766"
+        "sha256": "de96c2a024c9737af2a27ebfd8ea589ff638190e94e536a7eacb38674798b8e2"
       },
       {
         "path": "ci/mold_release.py",
-        "sha256": "5c54ddaa2faf20be74ea2e4f9e306509383e5c348ed48d4ec10bfd3c9f46bd00"
+        "sha256": "9ac839d5a54c6bd4f1d3cd7752512b31e65425ed87ff41ded2c525550196c985"
       },
       {
         "path": "ci/orient.py",
-        "sha256": "a5b0b045c47862477afda7861afea20e04b47677f6eefddab1c90b7141f3ba6f"
+        "sha256": "2fce6ea5fc08abc12c41d08f480f335c8c06f0bd93db8c8cbe8e85746b2efa6f"
       },
       {
         "path": "ci/pr_checklist.py",
-        "sha256": "a37b68cc3c5c3a2714baade9f67d46c70b7f019b553e41ecf13a70b457b01f47"
+        "sha256": "29ec505b287bf383af9f27805d9dd4147b408f92fa8d31b44163a3cce424e597"
       },
       {
         "path": "ci/suite_conformance.py",
-        "sha256": "14891d4fa77154abd18d7a9846d863c674211c012ea8c208ecd4e87eb82c3f38"
+        "sha256": "af3230c03079c8e92578501d65da91e5b9500995d6ceb48dcd90c9f582067f94"
       },
       {
         "path": "ci/suite_runner.py",
-        "sha256": "96ca0f35dc4eb958bff273bdc48b07641be54784779d6e80443113c846af0385"
+        "sha256": "b40e523b5b3776d23e782a3f55277393aef39af288919e275b7008c8a177c002"
       },
       {
         "path": "ci/validate_all.py",
-        "sha256": "b83ac446c7a4019ef2f4116999923c600c98ad1d3f3e7576fd90cbe252e25193"
+        "sha256": "f7530934a3b31b6d3f481e9688940aa306177765a4e1c2b5c3d242a80fc65cc1"
       },
       {
         "path": "ci/validate_metadata.py",
-        "sha256": "6269829ab7ef2f78c7c3676bbef97b510ba63aadc704b4a3117309db65b6088a"
+        "sha256": "d58b46a2f094c145ef29b275cdab8689f08917d50b2ce8be01303f71095934ce"
       },
       {
         "path": "ci/verify_approval.py",
-        "sha256": "7e0daa9961de99d3ca2d666214c127bd16d58d6894b7682ebfe4ff7f3288b498"
+        "sha256": "4cfe0976cc5b9f8ee51f2714b599c9af207476bb2da58a7048becd2ea27323fb"
       },
       {
         "path": "ci/verify_protection.py",
-        "sha256": "3626c36a371f684be113c8f192d44a8d5ed35ff01626e64565e685b167f61812"
+        "sha256": "f198f62005827dccb7f8981589307f99eb6bb03d2403b3665c67683d13df7d04"
       },
       {
         "path": "design/design-system.yaml",
-        "sha256": "a8675a155587cda1b046a11cdb1a8c04f4db38df6e9e7ec87a7dbb215f15f46f"
+        "sha256": "fa8240b5772460ef98c74e1bc423f3b6b48a25602c29bb670e69692e190c6974"
       },
       {
         "path": "design/ui-surfaces.yaml",
-        "sha256": "7e22f51b7934919550e78759ec0e9abb3bf97967a836654e6bfbebcccee67723"
+        "sha256": "8c1d69637e115f18e17c4c08e8e3cf1ee31e4148f2dcf2968770153f3e96c55c"
       },
       {
         "path": "governance/conformance-review.yaml",
-        "sha256": "2ec7ea53bee6135e3c087e4c20d6e02c079626a57e1d1133d6900613853d641a"
+        "sha256": "fadfe8597e0b2c119a088719c6231ea858f350d788fc8e5121b5029611922a08"
       },
       {
         "path": "governance/data-inventory.yaml",
-        "sha256": "6451ce4723cb4eef4f33ac0b95649a50ecb27def6b63e810545bfe0f0792fb10"
+        "sha256": "6f3d62b37f2fd5a8159ee952a4bd0f35838333de598282676cd1158ed24ee71e"
       },
       {
         "path": "governance/privacy-review.yaml",
-        "sha256": "665f2fcdadda40e5443ef496ce2317dba64af5826e522492ff61be3b45722f29"
+        "sha256": "ff2e152803d0e7bb299023444be460be1e63be24651cae498780bb94aa2db3d8"
       },
       {
         "path": "governance/risk-register.yaml",
-        "sha256": "edc66a6da9ec771ca9f9280391668938c6186de762551ea60f8865b609dfb3e8"
+        "sha256": "2ad4d1d0880f21803a43dc90db163f19680f14522f4a2f29756bd7781dd0c144"
       },
       {
         "path": "harness/harness.yaml",
-        "sha256": "5f8b440e3921bf6f4f08e2106e8242b44b812a4ea18bc2b4806f544caade10d4"
+        "sha256": "39bea34318a417d21f9046a1196d6ddbf2e4182178536eab4400dbe1dae9ba00"
       },
       {
         "path": "harness/local_validate.sh",
-        "sha256": "511d213a9b472b3c798eb7a6de8129cd4b6346f9bf8296df5ba47bb255178faf"
+        "sha256": "5eab5f00d303e93bac8c26fb94822864dfed97404985fc13449b40f06b658e87"
       },
       {
         "path": "harness/pipeline/ingest.yaml",
-        "sha256": "1324fefd9ba8e3ee22d0a10670611abb2420407ce54c575247784a6629330b31"
+        "sha256": "646f937075bc02b1cc4b81cc41dd01b1955d8b709c82d73cbea482160be2d1ca"
       },
       {
         "path": "harness/policies/adocao.md",
-        "sha256": "027276c30362fba47e3642e87a7af63fd2995bad52079f2bad280c964e5de223"
+        "sha256": "ebbb9adfa4e04aca951c0910196573caa27e9308f4c1703e396d93e5ca3815f5"
       },
       {
         "path": "harness/policies/alinhamento.md",
-        "sha256": "36616f02770f66cf416a39192b7121afed6662ab910d325fb3b70a258856e6b2"
+        "sha256": "7bbca5d652d92cf4b2a69af737c21c6956f3f81799b82fc04c805d57eb4706cf"
       },
       {
         "path": "harness/policies/ancoragem-do-molde.md",
-        "sha256": "846c37e82d17f0183123e94ef3c22b50d807f14f611d408272dc121aad2dc7ba"
+        "sha256": "5bc8603e0394a934651e466638cea9f8742d4c7fdb289c261385d557d7e02441"
       },
       {
         "path": "harness/policies/assurance-evidence.md",
@@ -4813,87 +4813,87 @@
       },
       {
         "path": "harness/policies/cadeia-de-decisao.md",
-        "sha256": "ac57d16f149e25ca7040a002834c233d97a4aad7359bb9d357b311c3267b652d"
+        "sha256": "deb0a4c1ed68b0dbf01ae8d4deb5c31efe0ce18e794553168e6903fe133fe5d1"
       },
       {
         "path": "harness/policies/change-proposals.md",
-        "sha256": "e31c96e343cb93461229ca1dc91d1f91f85884bf07540587debbae03c6349f20"
+        "sha256": "e6edba1204c430cb56dded750cbdfa05be4b188b497d68b91c0e99ebdc31c4fc"
       },
       {
         "path": "harness/policies/ciclo-de-vida-da-cp.md",
-        "sha256": "f5efe78860701b7eccf25733e6966d01e1e76d92ceaf65c97c16d21cc05d7c64"
+        "sha256": "1ecac89ac81324dab23a032bcb6a637709db1a045ff5a3becafe09dcda965ca5"
       },
       {
         "path": "harness/policies/code-metadata.md",
-        "sha256": "be6d0c849f05d6ef7e2aaf287a59eacf180f6ba303c21b4857b2bfdfcf5aa0b7"
+        "sha256": "389e91f5cce496b8e1888c8d538db8212abc2c9406f9cdd3b231d63c030c4169"
       },
       {
         "path": "harness/policies/conformance.md",
-        "sha256": "fd33ff242caa39230b3d638929f7219c2e62f4468ed38716989e7129f07a3b10"
+        "sha256": "13a6b0d6b2422c5f4804c5fa1c3e58a3515c035ca5538120956059e8794421eb"
       },
       {
         "path": "harness/policies/conformidade-continua.md",
-        "sha256": "793714b91e5f34886180f3df0a6369fbcb38516e503802c271236621b0ce7ed3"
+        "sha256": "0d690583234734b8a1d2bf008cb11c416b6da048ba460c763e6f9149d1ae8c18"
       },
       {
         "path": "harness/policies/contrato-de-regua.md",
-        "sha256": "d934f43d817de55796893aae825338c9bd9d70e64e6c73b2a05220f2e900de73"
+        "sha256": "a78d9cab533ab75b3c963496c5eba49c97b016326054ba19b0edd4967d858a62"
       },
       {
         "path": "harness/policies/dependency-updates.md",
-        "sha256": "6f8f655b01aee761c09b2beae163879c7f3a4cecf835c35eae4a2670cf0c0feb"
+        "sha256": "10fe9157bd7619deb8e294c03534c1b3960fb8ccf20831ea18d9352debd13a8b"
       },
       {
         "path": "harness/policies/env-hygiene.md",
-        "sha256": "574d311d6ee52b5afb3c651b5496d5d5b655af661c7ad90b514a460488e85d96"
+        "sha256": "ef2d1f6b111709f13a68be2306bd4202b291724cd26b9d15117cd2437ae1023b"
       },
       {
         "path": "harness/policies/execution-modes.md",
-        "sha256": "dfbd0caa79b8e6ed03d3b59736c6964870d2393c37acd7401be33bf2779af93c"
+        "sha256": "0127828bc8e9b7f78e5b20172ebb92d2ae1051893f3804a080451fe2a055adaf"
       },
       {
         "path": "harness/policies/ingestao.md",
-        "sha256": "a1d61f65513b688cae0a1b3821bc34030d54865998177ccca5f577054545b316"
+        "sha256": "fbb000d65638b1e9a5a0db5d64c05f00fb898200027cfcce2bc369b81919d220"
       },
       {
         "path": "harness/policies/lgpd.md",
-        "sha256": "02bd94c5b74ce14bf33d94fc546b1658bdee9251e1eaadf60d261ef58f51afbc"
+        "sha256": "4dff86a549a4cf2a7f7be9fc10e852bab92919ffb8d7879d40a80aafd2b873b3"
       },
       {
         "path": "harness/policies/orientacao.md",
-        "sha256": "f9c04ab91345f28e81655ab911391f24179095ee16a173b945eace223726da1c"
+        "sha256": "3633d184855cafe1438e7b0bfca172ad8e19c68ba4b03c24a69fd052b18da6e2"
       },
       {
         "path": "harness/policies/painel-de-configuracao.md",
-        "sha256": "006d1205ae08554c8730f4e9350ef53147cee4044fc57af86eba30fa822fbd20"
+        "sha256": "21acc412152a44a6ee146de1df24d89fd7c524ee2a746173b752b9ff9788e53f"
       },
       {
         "path": "harness/policies/paridade-local.md",
-        "sha256": "ffa46e73ea1dc67c6bcd7624717126d2075d6537015cdd4c4db9dd2edf4bb65a"
+        "sha256": "d66379db2a08f05844b0083795f66098f94017a63c27f1bea877245ea6433112"
       },
       {
         "path": "harness/policies/prova-de-mutacao.md",
-        "sha256": "669ba026406dd2ae3f06cd844ccb4317da8396fdaa1a55d88f5bce16de9cb4e9"
+        "sha256": "1f9fbc39a78a9b99fd71041abbc9bfe98475a8442abe666216a46acf721c481b"
       },
       {
         "path": "harness/policies/provenance.md",
-        "sha256": "3d24ac3a061b259472eaa74240000bb4f0431707957283ff5141131f9d18e101"
+        "sha256": "36f98decd6e16772482169fa1d09c2cef6072fff26135061257b8fc8c7a14a9d"
       },
       {
         "path": "harness/policies/seguranca.md",
-        "sha256": "5cdacc5399b8dea169458235b388fb88c74d6e28a59fa894c0934bff62ce2458"
+        "sha256": "97399e50af2c543b2a927a86f3b38ea86597d56e37383da3721fa0413667fedd"
       },
       {
         "path": "harness/policies/trava-externa.md",
-        "sha256": "833086adfeaf3882aed12ac6fb93dbd5ddbfc2cfc5059deb19d8636d44639220"
+        "sha256": "70f280cdae6768c5760fd85fdc1521c09c46dd364dfe51fbf5f3e02e5f1fe32a"
       },
       {
         "path": "harness/policies/webqa.md",
-        "sha256": "b3c31279608f50c501fd1e7503165b539cfc600da42f8caabc6f8a17edab7040"
+        "sha256": "589eea7420bc709c010aa5c72a436e2020cc1546ede8145a82dccf444affde92"
       },
       {
         "path": "harness/schemas/adr-index.schema.json",
-        "sha256": "fe68b4277d7dd9c0918a81c8d595c27452c3bad7bf1d9c2d87eab8e75609beec"
+        "sha256": "9c1f5be06405c3f5542ab5c4ff3b4dcf7bf4c2f00504c3a4f1dabd58d5ae9efb"
       },
       {
         "path": "harness/schemas/assurance-lock.schema.json",
@@ -4901,51 +4901,51 @@
       },
       {
         "path": "harness/schemas/audit-report.schema.json",
-        "sha256": "44803936c47238ad3cf8544a4d561b0ef325395d508cef04736f902203555c83"
+        "sha256": "54e4dab2bc5a35bc4dc7e17110d32f792b48349e9d4d6296e3fc9b8637557364"
       },
       {
         "path": "harness/schemas/backlog.schema.json",
-        "sha256": "b0da144ae8eb110b5352b255e7e85bfcdda4e13bcd99f339ea35201ea6c4569a"
+        "sha256": "a9a433a5aeefd1cb9dad44c6729eff15941204890f319d15b15bb69bf57e8bbf"
       },
       {
         "path": "harness/schemas/bootstrap-report.schema.json",
-        "sha256": "c9f413f01641ef128bee2d31f25f27fd7d47ef6a94ba8b78ac33fbc5e735aa23"
+        "sha256": "7791c4f445deed9aff23bd08702fd23d6ac982f6605f9d41a59179b95ff7a46e"
       },
       {
         "path": "harness/schemas/business-rules.schema.json",
-        "sha256": "5623736ae7aa5d8445f87767cff7cc344927be26307bd8be74e91af5d07e8ace"
+        "sha256": "a5d4dcbaff0c68c373c244bffa5d2056aaead5872d739f8f03ad9c42e9d6a752"
       },
       {
         "path": "harness/schemas/capabilities.schema.json",
-        "sha256": "9cd3869bda30c85986b85c7af049983a09ae6a0292f619124873f82e90bbbf68"
+        "sha256": "bf13aa134c843a6fb6aaebed38c7d9707362431ce4b051926b8bdd1ac7adac94"
       },
       {
         "path": "harness/schemas/change-proposal.schema.json",
-        "sha256": "07d57b4b3e811ad98bd2c506a2647b73290f3f54be18757e2110bcf9b2abb7d0"
+        "sha256": "c8a011cbcb368546470382c421966bb425ccbf0ba1d3030cc9b8b2fb7c43eb32"
       },
       {
         "path": "harness/schemas/components.schema.json",
-        "sha256": "e0b5368ecac191643d414de4aa1a85f898b45de189ef626b432644b71e9d6341"
+        "sha256": "1edb34c70f8e4b253ef9f3a320b6ee96d376a3a94d8b3bb2279834d5a126a3c9"
       },
       {
         "path": "harness/schemas/config-report.schema.json",
-        "sha256": "19adcfa0a77ced942f4cc283d9c580430cb71219c1c35676866744f3e4c7d346"
+        "sha256": "7d996088e12185ab107714c14768611c027d0dc0c894a8a88f1f5449e761144a"
       },
       {
         "path": "harness/schemas/conformance-review.schema.json",
-        "sha256": "a62cf397cb4cd8c252bf8cd02987fe9a6f53e2b856bae6c0dd028e0cb75fd4fb"
+        "sha256": "d81425cae4e07d0ca0e6e8b1af371322a5c852cb9377798015323fefcf795da7"
       },
       {
         "path": "harness/schemas/data-inventory.schema.json",
-        "sha256": "8aa27cf81b1923b57c64a9635a85688c49ab17196fcf2f071eb72f438fe47764"
+        "sha256": "d749547e61f72b9a3b4de292bbf54eb7b98d9aa2d8d7f3a118a821dfafb9e837"
       },
       {
         "path": "harness/schemas/dependencies.schema.json",
-        "sha256": "18c3a9ee8788b91eeafe69feeb863eb1681572585bcf573b38e6c93437b5ac18"
+        "sha256": "8399d7f637bbc9ee8f82a45c6f520d2d35512ad552df7e449be00e3a50e6343a"
       },
       {
         "path": "harness/schemas/design-system.schema.json",
-        "sha256": "244340c9f6d8ba25bc10d59258d434962650f522b4160a421682c293d57a7b7f"
+        "sha256": "64807e448f2f12b3d4932b45ea5d504c58ea2f72f452e55e3e10f2a5e7473367"
       },
       {
         "path": "harness/schemas/evidence-reference.schema.json",
@@ -4953,83 +4953,83 @@
       },
       {
         "path": "harness/schemas/harness.schema.json",
-        "sha256": "cb48d21033f2edc4bc4d3d76e7b87dc0ffe616954491e68dd1e530b062a7f78e"
+        "sha256": "bef97c4582ae1a10b2562375b49b1dcd39be6dc3236a567f86e5afa32e0d7ba6"
       },
       {
         "path": "harness/schemas/ingest-pipeline.schema.json",
-        "sha256": "6330640ccf0058a4508cd0e1d529c776aa9ba169287e7a325dd25994dea2c42e"
+        "sha256": "b818ec378a77400d9f0f8e8b402060718be3e3330fa477412484bda0c41792d8"
       },
       {
         "path": "harness/schemas/interfaces.schema.json",
-        "sha256": "a2fdf7edf40373d3696bc2f2c8ce7798b19fd4c38bcefc2ac315ec26cb3b9f8f"
+        "sha256": "45b74ce68d3be0413d047b9638cd0bb1bb9d7d9e7b53076a92b5f96050159473"
       },
       {
         "path": "harness/schemas/ledger.schema.json",
-        "sha256": "a4812d0626e8fb260a92df4a843e2939a1fa908d70b81852f10e038fbe8ec9ee"
+        "sha256": "8b34ed4b940e126e58a00db54df23339c3a0185bc56f0b839a45e4daf01d7c03"
       },
       {
         "path": "harness/schemas/privacy-review.schema.json",
-        "sha256": "2d840f0c22eb819c289360d6ba604510277cde986835268fcadb64baf8827629"
+        "sha256": "4ae634f8c617e64621f5d5506bf89d43b47a1c00e25f1070538476a6c8d53639"
       },
       {
         "path": "harness/schemas/project.schema.json",
-        "sha256": "2a15130e3d94d8c7c4f8576355f53107deefacbe67147fa7138bdb32dcaaa430"
+        "sha256": "0df98f32e5b418529a713a6569a8a0c9d7eba27cde8be067cb1347144d9151d0"
       },
       {
         "path": "harness/schemas/protection-attestation.schema.json",
-        "sha256": "a83aa506a9a92757431fb067fe44015074cbb61334fbf7cefadb5e3764e692e7"
+        "sha256": "e9258d1347f5893e82ecf6cefc5dd72fd464e944d8d05b23ff7f350ec350a2c4"
       },
       {
         "path": "harness/schemas/provenance.schema.json",
-        "sha256": "c8cd768ce6319d43811ca169b6f034e6107bcd27de17a900c008fa85c45bd057"
+        "sha256": "b0ce4e29be1434a9db12cf00cc2a3b6a05cb96d4b677d5eb49b54843f8a32abd"
       },
       {
         "path": "harness/schemas/release-manifest.schema.json",
-        "sha256": "4473b7a0f02c27cda4d6fe7e04b919a563312bc9f4f344d2294c5d7504f16938"
+        "sha256": "a6eb139d54d088333634490362136161ae4379b16cf2813b815239f39fbf3e13"
       },
       {
         "path": "harness/schemas/report.schema.json",
-        "sha256": "e6bc57b1e0050abfb22550e07f5e79b080f8d42f0b2c5be07bf96c4d1d770cf2"
+        "sha256": "769e500dfd3d21ae1715fd5c4452ef9d29373b8957fc54c1ee648da235d0cd27"
       },
       {
         "path": "harness/schemas/risk-register.schema.json",
-        "sha256": "7ff1c32292851e180a95850654fc55ad8da39e8657dc2acb7fa3647bf0885f75"
+        "sha256": "4b00ce02931223cdfef0b43799e7a69262f4a3b1f129fc18e5827d4e7d230dc3"
       },
       {
         "path": "harness/schemas/stages.schema.json",
-        "sha256": "31d2dc98ce8e142f2e53eda794444e372a85ceea1ed844cd1cfc8b1e07b1c9b4"
+        "sha256": "9371b5dea2f95a4eafe965e416cf12b227acf384ae279e0efad074f17ef9195b"
       },
       {
         "path": "harness/schemas/suite-contract-manifest.schema.json",
-        "sha256": "7ba67d01b5a77f94d6babebb34c96cf7277cdb6661067fb4b98ce8fd226eee64"
+        "sha256": "ba8b18ebb19ab58c50f23983653348a33dbca2e5cf821c93a68f9a3a195680db"
       },
       {
         "path": "harness/schemas/suite-registry.schema.json",
-        "sha256": "b4864ce0b817fd4a86d3955a260ea9c6eb09d91496d9bd024bd67f78ec15de08"
+        "sha256": "ff2c25342683df0bf5218d98e013bf1ddae8cb1c4aad99f97394ad63c721a7c6"
       },
       {
         "path": "harness/schemas/target-lock.schema.json",
-        "sha256": "095eedca5d814dd3690d55b17df91f648629bc7e02ab322fb23d8c515d0a6939"
+        "sha256": "a28f215f80d1697c4073b107e68dc3a63f8a47e2ed001a5efc67621f85cf07bf"
       },
       {
         "path": "harness/schemas/threat-model.schema.json",
-        "sha256": "c75bb96364e27ac25493176ac1e546d124a0f8c21dd8e345545bbef4bcc3431c"
+        "sha256": "252562e65bf50f3c85f901745b43dbf8e137934ee22b8a6ffb1a210b3d702d65"
       },
       {
         "path": "harness/schemas/ui-surfaces.schema.json",
-        "sha256": "e85c4fe2065c564b5ba1bc12b7c2426846d06aad5d8d1aec209627ae1c0031d2"
+        "sha256": "5d7b5aed3033ee465d2c4e962aeaf0661a15689f5b5cb6b53a29ef7fbfd1b3cb"
       },
       {
         "path": "harness/schemas/vision.schema.json",
-        "sha256": "87ed8e9f11aaf214f83bae2af6074b722322b23df3675e4ee836d155e58ee840"
+        "sha256": "6d42dabfe91a577def98b969a3845bd131e2bcc55fc7dcc1f5790dc6a04a42e6"
       },
       {
         "path": "harness/stages.yaml",
-        "sha256": "15b3c8e1b668fe3c2a6173e5799bce750eebc664132d496b880d6878d600afb7"
+        "sha256": "774b7945ae2c497ed0707c29cb56b64c740f74193488711cd0b07597b8bc2949"
       },
       {
         "path": "harness/suite-contract/contract-v1/contract-manifest.json",
-        "sha256": "42d1b33e35e3620b90d54b19c2813d7f2b1e51db6feafb0017d57de9e9424680"
+        "sha256": "eb5053bf70ca582cba555f84eb00674edaa3a24a86c9ad1875a3b8a76d0e6349"
       },
       {
         "path": "harness/suite-contract/evidence-bundle/compatibility-matrix.yaml",
@@ -5037,42 +5037,42 @@
       },
       {
         "path": "harness/suites/privacy-suite.yaml",
-        "sha256": "874793fee568af3ea9bdc54955d0846fc365f6f3d542c9c132f7b1c6c87e4630"
+        "sha256": "7fde98b0bacdb61de3c7ccf4acb931f8b7cfef5d5a5ce29e29a92e06f21161cd"
       },
       {
         "path": "harness/suites/qa-suite.yaml",
-        "sha256": "4d7e85719ea8ffaf170fd7d7e9a3481491dfde15724839ffc9a931607d98d0a5"
+        "sha256": "ab0f65192b860d099a654e93a8bcc708ca3fb26a6ee97d8976ad3be6619048fe"
       },
       {
         "path": "project.yaml",
-        "sha256": "18b10851a4565d793c9aebd37cb0c54bf0d7999b19c2428fdf6a826b1c1aba14"
+        "sha256": "f5ca23e850a84dd76173e8f3d8ab073ba79727a278c4974f0781ca239ee8ca05"
       },
       {
         "path": "pyproject.toml",
-        "sha256": "1c36608297791e47a188bbdc2e7e5e26097a47852b308c31336f3353d423e0aa"
+        "sha256": "e6b85704ea59d904be730996ce7b24fedfb631a490c0af6d4176df300ce2f7d2"
       },
       {
         "path": "requirements-ci.txt",
-        "sha256": "defc09ebb151773b6d2f4da38afb88b89986898570dddf4e2d31ca830183fb64"
+        "sha256": "15196f0ab850d9688ef100e39201d3330462ec87e6f09d8b1b3182ec11ef3834"
       },
       {
         "path": "requirements-qa.txt",
-        "sha256": "e7907cca840faf9ddfc8c54ce2b1b91d457c3fa1db79c825e0cfab5a3754186c"
+        "sha256": "baa01e10885b164a11aa8433196feece5189c6ab2e60700dcc62e2aeba362462"
       },
       {
         "path": "security/dependencies.yaml",
-        "sha256": "4dc5673cd01cfdfb22914b88962cbcd043ac0ab7b1d5e3314f67e50fb48f865d"
+        "sha256": "515cd52c3146da3f2d058ca3dbf69d7ef6717a11e69b976a56f512e0a1bc58f1"
       },
       {
         "path": "security/threat-model.yaml",
-        "sha256": "f8e23bfcc9a559ffbad6fd7301060216ab0b67e50e423a3246f1478eaf970a3b"
+        "sha256": "a52ee442b9ca63664d92fc724990df8ba5dd39fbc21c764a6a79e61e589bfdd9"
       },
       {
         "path": "target.lock",
-        "sha256": "3a3fadf9b40a9fbfcb4ab132a9cbcdc71929ef15df7446711b01a11357aa093d"
+        "sha256": "92bde6e8055c324985b7cdeb183c22a8b88a165b3fea4c0e9e007a9755a7c1e4"
       }
     ],
-    "inputs_fingerprint": "sha256:2d06560e81a2d81a314905cc9c85a07aeb281f5d81f4d10e8886cfd2e4a3a64e",
+    "inputs_fingerprint": "sha256:7e7df47cbc6aa8ce8346e1147052065447b91a15160531a32763c5d53f270c2f",
     "commit": {
       "embedded": false,
       "onde": "harness/reports/config-report.json"
